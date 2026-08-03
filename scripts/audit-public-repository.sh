@@ -99,12 +99,14 @@ check_device_identifiers() {
       *.png|*.jpg|*.jpeg|*.gif|*.ico|*.woff|*.woff2|*.ttf|*.otf|*.zst|*.gz|*.xz|*.zip|*.tar) continue ;;
     esac
     content="$(tr -d '\0' < "$f" 2>/dev/null || true)"
-    # 8-16 hex chars en contexto serial fastboot (ej. fastboot devices)
-    if printf '%s' "$content" | grep -aqE 'fastboot devices|[[:space:]]fastboot$'; then
-      fail "salida sin filtrar de fastboot devices en: $f"
+    # Salida real de `fastboot devices`: token hex (serial) seguido de
+    # "fastboot". Menciones de la palabra comando en docs no disparan.
+    if printf '%s' "$content" | grep -aqE '[0-9a-fA-F]{8,16}[[:space:]]+fastboot'; then
+      fail "serial en salida sin filtrar de fastboot devices en: $f"
       FOUND=1
     fi
-    if printf '%s' "$content" | grep -aqE '\bIMEI|imei[=: ][0-9]{15}\b'; then
+    # IMEI con dígitos reales; la palabra "IMEI" en guías no dispara.
+    if printf '%s' "$content" | grep -aqE '\bIMEI[=: ][0-9]{15}\b|imei[=: ][0-9]{15}\b'; then
       fail "posible IMEI en: $f"
       FOUND=1
     fi
