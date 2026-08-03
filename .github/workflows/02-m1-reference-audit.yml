@@ -62,7 +62,8 @@ jobs:
             || { echo "ERROR: dev no coincide con el commit fijado"; exit 1; }
           echo "OK: árboles clonados y commits verificados"
           git -C "$TREES/mainline" rev-parse --short HEAD
-          git -C "$TREES/sm61x5" rev-parse --short master-audit dev-audit
+          git -C "$TREES/sm61x5" rev-parse --short master-audit
+          git -C "$TREES/sm61x5" rev-parse --short dev-audit
       - name: Auditar panel y táctil (mainline vs sm61x5)
         run: |
           set -Eeuo pipefail
