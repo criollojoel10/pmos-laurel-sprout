@@ -5,7 +5,7 @@ Estado: actualizado (2026-08-03, parches downstream v1 creados).
 ## Parches downstream en el repositorio (patches/kernel/)
 
 Base: Linux mainline v7.1 (decisión 0002). Aplicados por
-`scripts/build-kernel.sh` / `scripts/apply-kernel-patches.sh` con `git apply`.
+`scripts/apply-kernel-patches.sh` (paso del workflow 03) con `git apply`.
 
 | # | Archivo | Contenido | Origen | Estado |
 |---|---|---|---|---|
@@ -14,7 +14,9 @@ Base: Linux mainline v7.1 (decisión 0002). Aplicados por
 | K3 | `0003-dts-enable-gpu.patch` | Enable GPU + zap-shader `qcom/sm6125/xiaomi/laurel/a610_zap.mbn` en DTS de placa | sm61x5-mainline barni2000/7.0-develop | downstream-only (GPU fase 2) |
 
 Los tres parches aplican limpios en secuencia sobre v7.1 (verificado con
-`git apply --check` en árbol de prueba).
+`git apply --check` en árbol de prueba) y el kernel debug los compiló con
+éxito en CI (workflow 03, run 30786551830): Image + `sm6125-xiaomi-laurel-sprout.dtb`
+generados.
 
 Nota K3: el firmware `a610_zap.mbn` aún no está empaquetado (fase de
 firmware). Sin zap, la GPU no arranca con aceleración pero el sistema sigue
