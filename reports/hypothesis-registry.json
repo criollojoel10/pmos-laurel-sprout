@@ -37,9 +37,9 @@
     {
       "id": "H5",
       "claim": "firmware-qcom-adreno-a610 empaquetado en pmaports",
-      "status": "refuted",
-      "source": "pmaports main (CI)",
-      "notes": "NO localizado en pmaports main. Verificar en linux-firmware o empaquetar blob propio según licencia."
+      "status": "confirmed",
+      "source": "pmaports main (APKBUILD device/community/firmware-qcom-adreno) + índice oficial pkgs.postmarketos.org",
+      "notes": "Subpackage generado del paquete padre firmware-qcom-adreno. Metapaquete vacío que instala /usr/lib/firmware/qcom/ y depende de firmware-qcom-adreno-a630-sqe (instala qcom/a630_sqe.fw; A610 no tiene GMU). pkgver=20260110, arch=aarch64 armv7, licencia custom. Confirmado en el índice oficial (version 20260110-r1, origin firmware-qcom-adreno). La búsqueda previa solo miraba directorios con ese nombre y no detectó subpackages."
     },
     {
       "id": "H6",

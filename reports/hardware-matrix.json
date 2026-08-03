@@ -11,8 +11,8 @@
       "notes": "kernel aún no construido ni probado"
     },
     "gpu": {
-      "status": "not-targeted",
-      "notes": "kernel aún no construido ni probado"
+      "status": "source-available",
+      "notes": "firmware confirmado 2026-08-03: firmware-qcom-adreno-a610 (subpackage) + a630_sqe.fw; kernel aún no construido ni probado"
     },
     "touchscreen": {
       "status": "not-targeted",
