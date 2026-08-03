@@ -28,6 +28,14 @@ Punto de control para sesiones futuras. Documento canónico de progreso:
   fragmentos `configs/kernel/laurel-*.fragment`).
 - **Build debug exitoso** en CI (run 30786551830): Image + `sm6125-xiaomi-laurel-sprout.dtb`
   (37KB) generados; verify-dtb descompiló y generó informe.
+- **Build debug final validado** (run 30792773593): verify-kconfig **sin avisos**;
+  todos los símbolos del fragmento base correctos contra v7.1 (BT serdev/H4,
+  USB configfs F_FS/F_UVC, REGULATOR_QCOM_RPMH, etc.). Artefactos completos en
+  `local-private/kernel-final2/`: Image (68MB), Image.gz (20MB), DTB (37KB),
+  modules.tar.zst, System.map, SHA256SUMS (todos verificados OK).
+- DTB validado: compatible panel `samsung,s6e8fc0-m1906f9` (typo corregido),
+  táctil `focaltech,ft3518`, modelo `Xiaomi Mi A3`/`xiaomi,laurel-sprout`,
+  GPU zap `qcom/sm6125/xiaomi/laurel/a610_zap.mbn` (parche K3).
 - Correcciones aplicadas en el camino:
   - parches aplicados una sola vez (workflow), no reaplicados por build-kernel.sh;
   - defconfig `defconfig` de mainline (no `qcom_defconfig` del fork);

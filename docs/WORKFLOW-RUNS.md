@@ -11,7 +11,7 @@ Registro manual de runs relevantes. Cada run referencia commit y resultado.
 | 30786019666 | 03-build-kernel (debug) | 5e9b1dc | failure | Falta CROSS_COMPILE (gcc host rechazaba -mlittle-endian) |
 | 30786551830 | 03-build-kernel (debug) | 99e13d6 | **success** | Image + DTB generados; verify-kconfig/dtb pasan |
 | 30789357941 | 03-build-kernel (debug) | 80aca43 | **success** | Artefactos completos (Image 68MB, modules, DTB 37KB, SHA256SUMS OK). verify-kconfig: 4 símbolos no presentes (USB/BT/regulator legacy) |
-| 30792773593 | 03-build-kernel (debug) | b36a195 | en curso | Re-run con fragmento base corregido (USB/BT/regulator validados v7.1) |
+| 30792773593 | 03-build-kernel (debug) | b36a195 | **success** | Artefactos finales; verify-kconfig **sin avisos** (fragmento validado v7.1); símbolos BT/USB/regulator correctos |
 
 ## Notas operativas
 

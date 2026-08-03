@@ -16,6 +16,32 @@ cualquier cosa en hardware (FASE 8).
 - Tamaño límite: partición `boot` = 64 MiB (0x4000000), slot A/B.
 - Se valida con `scripts/inspect-boot-image.sh` antes de cualquier prueba.
 
+## Parámetros reales del dispositivo (consultados 2026-08-03, solo lectura)
+
+| Parámetro | Valor |
+|---|---|
+| product | `laurel_sprout` |
+| current-slot | `a` |
+| unlocked | `yes` |
+| slot-count | `2` |
+| has-slot:boot | `yes` |
+| has-slot:dtbo | variable no definida (pero existen dtbo_a/dtbo_b, ver abajo) |
+| has-slot:vbmeta | variable no definida (pero existen vbmeta_a/vbmeta_b) |
+| partition-size:boot_a | 0x4000000 (64 MiB) |
+| partition-size:boot_b | 0x4000000 (64 MiB) |
+| partition-size:dtbo_a | 0x1800000 (24 MiB) |
+| partition-size:dtbo_b | 0x1800000 (24 MiB) |
+| partition-size:vbmeta_a | 0x10000 (64 KiB) |
+| partition-size:vbmeta_b | 0x10000 (64 KiB) |
+| partition-type | `raw` (boot/dtbo/vbmeta, A y B) |
+
+Observación: `has-slot:boot` está definido (boot es A/B). Las variables
+`has-slot:dtbo` y `has-slot:vbmeta` NO están definidas por el bootloader
+(devuelven "GetVar Variable Not found"), aunque las particiones dtbo_a/b y
+vbmeta_a/b sí existen (tienen tamaños). Para un boot no destructivo esto
+confirma que el DTB debe ir **embebido en boot.img** (QCDT), sin depender de
+`dtbo`.
+
 ## Flujo de prueba (manual, con autorización)
 
 1. Autorización explícita del usuario (FASE 8 completa).
