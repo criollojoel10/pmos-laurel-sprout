@@ -1,0 +1,21 @@
+# Dependabot
+# Actualizaciones automáticas de dependencias.
+# NOTA: tras cada actualización, las acciones externas DEBEN re-fijarse por SHA.
+
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

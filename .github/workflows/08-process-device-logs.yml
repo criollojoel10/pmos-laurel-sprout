@@ -1,0 +1,71 @@
+name: 08-process-device-logs
+
+on:
+  workflow_dispatch:
+    inputs:
+      log_artifact:
+        description: Nombre del artifact con logs sanitizados del dispositivo
+        type: string
+        default: device-logs-sanitized
+
+permissions:
+  contents: read
+
+concurrency:
+  group: process-device-logs
+  cancel-in-progress: true
+
+jobs:
+  process:
+    name: Análisis de logs del dispositivo
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          df -h; echo "---"; free -h; echo "---"; uname -a
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Descargar logs sanitizados
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ github.event.inputs.log_artifact }}
+          path: logs
+      - name: Analizar logs
+        run: |
+          set -Eeuo pipefail
+          if ! find logs -type f | grep -q .; then
+            echo "Sin logs descargados. El artifact '${{ github.event.inputs.log_artifact }}' no existe."
+            echo "Los logs deben ser SANITIZADOS antes de subirse (scripts/sanitize-logs.sh)."
+            echo "::warning::No se encontró el artifact de logs. Ejecución continúa en modo vacío."
+            mkdir -p logs
+          fi
+          bash scripts/process-device-logs.sh logs reports/device-logs
+          echo "::group::hardware-test-report.md"
+          cat reports/device-logs/hardware-test-report.md
+          echo "::endgroup::"
+      - name: Subir informes
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: device-log-reports
+          path: |
+            reports/device-logs/hardware-test-report.md
+            reports/device-logs/detected-regressions.json
+            reports/device-logs/suggested-next-actions.md
+            reports/device-logs/proposed-hardware-matrix.json
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: device-logs-diagnostic
+          path: |
+            *.log
+            **/*.log
+          retention-days: 3
+          if-no-files-found: ignore

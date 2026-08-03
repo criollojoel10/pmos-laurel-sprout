@@ -1,0 +1,44 @@
+{
+  "$comment": "Matriz de evidencia y decisiones del proyecto. Cada decisión relevante se registra aquí y como ADR en docs/ADRs/. Se actualiza a lo largo del proyecto.",
+  "format_version": 1,
+  "evidence": [
+    {
+      "id": "E001",
+      "date": "2026-08-02",
+      "type": "device-metadata",
+      "evidence": "device-metadata/fastboot-sanitized.json",
+      "summary": "Metadata Fastboot sanitizada: product laurel_sprout, slot actual 'a', unlocked, slot-count 2, boot 0x4000000 (64 MiB), dtbo 0x1800000 (24 MiB), vbmeta 0x10000 (64 KiB) A/B.",
+      "status": "recorded"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "ADR-001",
+      "date": "2026-08-02",
+      "title": "Dispositivo de solo lectura hasta autorización explícita por operación",
+      "decision": "Ningún comando Fastboot/adb destructivo puede ejecutarse sin autorización inmediata previa. Política codificada en AGENTS.md, opencode.json y scripts/test-opencode-security-policy.sh.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR-002",
+      "date": "2026-08-02",
+      "title": "Trabajo pesado exclusivamente en GitHub Actions",
+      "decision": "Kernel, pmbootstrap y rootfs se construyen en runners públicos mediante workflow_dispatch. Localmente prohibido compilar/clonar grande/Docker.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR-003",
+      "date": "2026-08-02",
+      "title": "opencode.json usa 'permission' (singular) según schema oficial",
+      "decision": "Configuración de permisos con la clave 'permission' del schema opencode.ai/config.json, sin clave 'version'. Validada por scripts/test-opencode-security-policy.sh.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR-004",
+      "date": "2026-08-02",
+      "title": "Acciones externas fijadas por SHA completo",
+      "decision": "Todas las acciones de GitHub Actions se fijan por SHA-256 completo con comentario de versión humana. Verificado por 00-quality.yml.",
+      "status": "accepted"
+    }
+  ]
+}

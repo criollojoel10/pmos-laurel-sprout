@@ -1,0 +1,80 @@
+name: 02-freeze-sources
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: freeze-sources
+  cancel-in-progress: true
+
+jobs:
+  freeze:
+    name: Propuesta reproducible de fuentes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          df -h; echo "---"; free -h; echo "---"; uname -a
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Resolver y validar fuentes
+        run: |
+          set -Eeuo pipefail
+          bash scripts/resolve-sources.sh sources.lock.proposed.json
+          echo "::group::sources.lock.proposed.json"
+          jq . sources.lock.proposed.json
+          echo "::endgroup::"
+      - name: Validar commits y fechas
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, subprocess, sys, re
+          data = json.load(open("sources.lock.proposed.json"))
+          date_re = re.compile(r"^\d{4}-\d{2}-\d{2}")
+          ok = True
+          for s in data["sources"]:
+              if s.get("vcs") == "git":
+                  url = s["url"]
+                  commit = s.get("commit")
+                  if not commit:
+                      print(f"[FAIL] {s['name']}: sin commit fijado", file=sys.stderr)
+                      ok = False
+                      continue
+                  # Verificar que el commit existe en el remoto
+                  r = subprocess.run(["git","ls-remote",url], capture_output=True, text=True)
+                  if r.returncode != 0:
+                      print(f"[WARN] {s['name']}: ls-remote falló ({r.stderr.strip()})", file=sys.stderr)
+                      continue
+                  found = any(commit in line for line in r.stdout.splitlines())
+                  print(f"{'[OK]' if found else '[WARN]'} {s['name']}: {commit} {'encontrado' if found else 'NO visto en refs'}")
+              cd = s.get("commit_date")
+              if cd and cd != "unknown" and not date_re.match(str(cd)):
+                  print(f"[FAIL] {s['name']}: commit_date inválido {cd}", file=sys.stderr)
+                  ok = False
+          sys.exit(0 if ok else 1)
+          PY
+      - name: Subir propuesta
+        # actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sources-lock-proposed
+          path: sources.lock.proposed.json
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: freeze-diagnostic
+          path: |
+            *.log
+            **/*.log
+          retention-days: 3
+          if-no-files-found: ignore

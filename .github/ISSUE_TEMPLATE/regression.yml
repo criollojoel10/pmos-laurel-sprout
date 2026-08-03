@@ -1,0 +1,59 @@
+name: Regression
+description: Reportar una regresión entre builds
+title: "[regression] "
+labels: [regression]
+body:
+  - type: input
+    id: from
+    attributes:
+      label: Desde
+      description: Tag/commit que funcionaba
+    validations:
+      required: true
+  - type: input
+    id: to
+    attributes:
+      label: Hasta
+      description: Tag/commit que rompió
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Componente afectado
+      options:
+        - display
+        - gpu
+        - touchscreen
+        - wifi
+        - bluetooth
+        - ufs
+        - usb
+        - battery
+        - thermal
+        - cpufreq
+        - audio
+        - modem
+        - camera
+        - boot
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Comportamiento esperado vs observado
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs relevantes (sanitizados)
+      description: SIN serial/IMEI/MAC. Usar scripts/sanitize-logs.sh
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Confirmación de seguridad
+      options:
+        - label: Confirmo que los logs están sanitizados (sin serial, IMEI, MAC, tokens)
+          required: true

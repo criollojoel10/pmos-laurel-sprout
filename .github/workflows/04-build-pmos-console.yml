@@ -1,0 +1,92 @@
+name: 04-build-pmos-console
+
+on:
+  workflow_dispatch:
+    inputs:
+      pmaports_commit:
+        description: Commit de pmaports
+        type: string
+        default: ""
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pmos-console
+  cancel-in-progress: true
+
+jobs:
+  build-console:
+    name: postmarketOS Edge (console/systemd)
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Determinar commit de pmaports
+        id: pcommit
+        run: |
+          set -Eeuo pipefail
+          PC="${{ github.event.inputs.pmaports_commit || '' }}"
+          if [[ -z "$PC" ]]; then
+            PC="$(jq -r '.sources[] | select(.name=="pmaports") | .commit // empty' sources.lock.json || true)"
+          fi
+          if [[ -z "$PC" || "$PC" == "null" ]]; then
+            echo "ERROR: pmaports_commit no dado ni fijado en sources.lock.json" >&2
+            exit 1
+          fi
+          echo "commit=$PC" >> "$GITHUB_OUTPUT"
+      - name: Preparar pmaports
+        run: |
+          set -Eeuo pipefail
+          bash scripts/prepare-pmaports.sh \
+            --pmaports /tmp/pmaports \
+            --commit "${{ steps.pcommit.outputs.commit }}" \
+            --apply-device
+      - name: Build contrato de consola
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-pmos-console.sh \
+            --pmaports /tmp/pmaports \
+            --packages configs/pmos/console-packages.txt \
+            --out /tmp/console-out
+          cat /tmp/console-out/console-build-contract.txt
+      - name: Punto de integración pmbootstrap (placeholder)
+        run: |
+          set -Eeuo pipefail
+          echo "La construcción completa del rootfs (pmbootstrap install) se"
+          echo "desbloquea cuando device/linux-postmarketos-qcom-sm6125 y"
+          echo "device/device-xiaomi-laurel tengan APKBUILD y deviceinfo reales"
+          echo "(FASE 5). Este workflow valida el contrato y los inputs."
+          # FASE 5: aquí se invocaría pmbootstrap install --suffix ... systemd
+          echo "console-contract OK"
+      - name: Subir artefactos (si aplica)
+        if: ${{ github.event.inputs.upload_artifacts == true }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pmos-console
+          path: /tmp/console-out/
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pmos-console-diagnostic
+          path: |
+            *.log
+            **/*.log
+          retention-days: 3
+          if-no-files-found: ignore

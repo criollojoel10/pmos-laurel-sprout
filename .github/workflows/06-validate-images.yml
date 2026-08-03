@@ -1,0 +1,154 @@
+name: 06-validate-images
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_artifact:
+        description: Nombre del artifact de kernel (kernel-debug o kernel-release)
+        type: string
+        default: kernel-release
+      console_artifact:
+        description: Nombre del artifact de consola
+        type: string
+        default: pmos-console
+      plasma_artifact:
+        description: Nombre del artifact de Plasma
+        type: string
+        default: pmos-plasma
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-images
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validación de imágenes
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Descargar artifact de kernel
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ github.event.inputs.kernel_artifact }}
+          path: artifacts/kernel
+      - name: Descargar artifact de consola
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ github.event.inputs.console_artifact }}
+          path: artifacts/console
+      - name: Descargar artifact de Plasma
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ github.event.inputs.plasma_artifact }}
+          path: artifacts/plasma
+      - name: Validar hashes del kernel
+        run: |
+          set -Eeuo pipefail
+          cd artifacts/kernel
+          if [[ -f SHA256SUMS ]]; then
+            sha256sum -c SHA256SUMS
+          else
+            sha256sum Image Image.gz System.map kernel.config 2>/dev/null || true
+          fi
+      - name: Validar DTB extraído del artifact kernel
+        run: |
+          set -Eeuo pipefail
+          if [[ -f artifacts/kernel/sm6125-xiaomi-laurel-sprout.dtb ]]; then
+            bash scripts/verify-dtb.sh \
+              --dtb artifacts/kernel/sm6125-xiaomi-laurel-sprout.dtb \
+              --out reports/dtb-validation
+            cat reports/dtb-validation/dtb-report.md
+          else
+            echo "AVISO: DTB no presente en artifact kernel"
+          fi
+      - name: Validar limit de partición boot (metadata sanitizada)
+        run: |
+          set -Eeuo pipefail
+          if [[ -f device-metadata/fastboot-sanitized.json ]]; then
+            LIMIT=$(jq -r '.partitions.boot.size_a' device-metadata/fastboot-sanitized.json)
+            echo "Límite de partición boot (sanitizado): $LIMIT"
+            SIZE=$(stat -c %s artifacts/kernel/Image)
+            echo "Tamaño Image: $SIZE"
+            if [[ "$LIMIT" == 0x* ]]; then
+              LIMIT_DEC=$((LIMIT))
+            else
+              LIMIT_DEC=$((LIMIT))
+            fi
+            if (( SIZE > LIMIT_DEC )); then
+              echo "ERROR: Image supera el límite de boot" >&2
+              exit 1
+            fi
+            echo "Image dentro del límite de boot: OK"
+          else
+            echo "AVISO: sin metadata de dispositivo; no se puede validar límite"
+          fi
+      - name: Validar rootfs de consola (si existe)
+        continue-on-error: true
+        run: |
+          set -Eeuo pipefail
+          for f in artifacts/console/*.img artifacts/console/*.img.xz; do
+            [[ -f "$f" ]] || continue
+            X="$f"
+            if [[ "$f" == *.xz ]]; then
+              xz -d -k "$f" -c > /tmp/rootfs-console.img
+              X=/tmp/rootfs-console.img
+            fi
+            bash scripts/verify-rootfs.sh --rootfs "$X" --out reports/rootfs-console
+            break
+          done
+      - name: Validar rootfs de Plasma (si existe)
+        continue-on-error: true
+        run: |
+          set -Eeuo pipefail
+          for f in artifacts/plasma/*.img artifacts/plasma/*.img.xz; do
+            [[ -f "$f" ]] || continue
+            X="$f"
+            if [[ "$f" == *.xz ]]; then
+              xz -d -k "$f" -c > /tmp/rootfs-plasma.img
+              X=/tmp/rootfs-plasma.img
+            fi
+            bash scripts/verify-rootfs.sh --rootfs "$X" --plasma --out reports/rootfs-plasma
+            break
+          done
+      - name: Generar manifest de validación
+        run: |
+          set -Eeuo pipefail
+          mkdir -p reports
+          jq -n \
+            --arg today "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg kernel "${{ github.event.inputs.kernel_artifact }}" \
+            '{validation:"06-validate-images", generated_at:$today, kernel_artifact:$kernel, device_metadata_present:("'$(test -f device-metadata/fastboot-sanitized.json && echo yes || echo no)'")}' \
+            > reports/validation-manifest.json
+          cat reports/validation-manifest.json
+      - name: Subir informes de validación
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: validation-reports
+          path: reports/
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: validate-diagnostic
+          path: |
+            *.log
+            **/*.log
+          retention-days: 3
+          if-no-files-found: ignore

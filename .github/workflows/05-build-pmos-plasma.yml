@@ -1,0 +1,90 @@
+name: 05-build-pmos-plasma
+
+on:
+  workflow_dispatch:
+    inputs:
+      pmaports_commit:
+        description: Commit de pmaports
+        type: string
+        default: ""
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pmos-plasma
+  cancel-in-progress: true
+
+jobs:
+  build-plasma:
+    name: postmarketOS Edge + Plasma Mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Determinar commit de pmaports
+        id: pcommit
+        run: |
+          set -Eeuo pipefail
+          PC="${{ github.event.inputs.pmaports_commit || '' }}"
+          if [[ -z "$PC" ]]; then
+            PC="$(jq -r '.sources[] | select(.name=="pmaports") | .commit // empty' sources.lock.json || true)"
+          fi
+          if [[ -z "$PC" || "$PC" == "null" ]]; then
+            echo "ERROR: pmaports_commit no dado ni fijado en sources.lock.json" >&2
+            exit 1
+          fi
+          echo "commit=$PC" >> "$GITHUB_OUTPUT"
+      - name: Preparar pmaports
+        run: |
+          set -Eeuo pipefail
+          bash scripts/prepare-pmaports.sh \
+            --pmaports /tmp/pmaports \
+            --commit "${{ steps.pcommit.outputs.commit }}" \
+            --apply-device
+      - name: Build contrato de Plasma
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-pmos-plasma.sh \
+            --pmaports /tmp/pmaports \
+            --packages configs/pmos/plasma-packages.txt \
+            --out /tmp/plasma-out
+          cat /tmp/plasma-out/plasma-build-contract.txt
+      - name: Punto de integración pmbootstrap (placeholder)
+        run: |
+          set -Eeuo pipefail
+          echo "La construcción del rootfs Plasma (pmbootstrap install +"
+          echo "apk add plasma-mobile) se desbloquea en la FASE 6, sobre la"
+          echo "imagen console y el kernel validados."
+          echo "plasma-contract OK"
+      - name: Subir artefactos (si aplica)
+        if: ${{ github.event.inputs.upload_artifacts == true }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pmos-plasma
+          path: /tmp/plasma-out/
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pmos-plasma-diagnostic
+          path: |
+            *.log
+            **/*.log
+          retention-days: 3
+          if-no-files-found: ignore

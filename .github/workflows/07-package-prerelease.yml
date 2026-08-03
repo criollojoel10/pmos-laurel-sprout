@@ -1,0 +1,94 @@
+name: 07-package-prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag de la prerelease
+        type: string
+        default: v0.1.0-alpha.1
+      publish:
+        description: Publicar release (false = dry-run)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prerelease
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Prerelease experimental
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          df -h; echo "---"; free -h; echo "---"; uname -a
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Comprobar requisitos (sources.lock.json, metadata, informes)
+        run: |
+          set -Eeuo pipefail
+          jq empty sources.lock.json
+          test -f reports/hardware-matrix.json
+          test -f device-metadata/fastboot-sanitized.json || echo "AVISO: sin metadata de dispositivo"
+          echo "requisitos de entrada verificados"
+      - name: Recopilar artefactos de runs previos
+        run: |
+          set -Eeuo pipefail
+          mkdir -p work
+          # En un flujo real se descargan los artifacts validados de los
+          # workflows 03/04/05/06 (ver BUILD.md). Aquí se genera el esqueleto.
+          jq -n --arg today "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{artifact:"prerelease", tag:"${{ github.event.inputs.tag }}", generated_at:$today, warning:"Requiere artifacts de 03/04/05/06 antes de publicar"}' \
+            > work/manifest.json
+          echo "PUBLISH=${{ github.event.inputs.publish == 'true' }}" >> "$GITHUB_ENV"
+      - name: "Requisito: boot image validada presente antes de PUBLICAR"
+        if: env.PUBLISH == 'true'
+        run: |
+          set -Eeuo pipefail
+          for f in work/boot-laurel-release.img work/boot-laurel-debug.img \
+                   work/rootfs-laurel-console.img.xz work/rootfs-laurel-plasma.img.xz; do
+            test -f "$f" || {
+              echo "ERROR: $f no disponible. No se puede publicar." >&2
+              exit 1
+            }
+          done
+          echo "Artefactos críticos presentes para la publicación."
+      - name: Empaquetar informes
+        run: |
+          set -Eeuo pipefail
+          tar -cJf work/reports.tar.zst reports 2>/dev/null || true
+          cp docs/INSTALL.md work/INSTALL.md
+          cp docs/RECOVERY.md work/RECOVERY.md
+          cp docs/TESTING.md work/TESTING.md
+          (cd work && sha256sum * > SHA256SUMS) 2>/dev/null || true
+      - name: Publicar prerelease
+        run: |
+          set -Eeuo pipefail
+          PUBLISH="${{ github.event.inputs.publish == 'true' && '--publish' || '' }}"
+          bash scripts/package-release.sh \
+            --work-dir work \
+            --tag "${{ github.event.inputs.tag }}" \
+            --title "postmarketOS Plasma Mobile for Xiaomi Mi A3 - Alpha 1" \
+            --repo "${{ github.repository }}" \
+            $PUBLISH
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: prerelease-diagnostic
+          path: |
+            *.log
+            **/*.log
+          retention-days: 3
+          if-no-files-found: ignore

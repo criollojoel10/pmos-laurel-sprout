@@ -1,0 +1,58 @@
+name: Hardware test
+description: Reportar el resultado de una prueba de hardware
+title: "[hardware] "
+labels: [hardware]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Componente
+      options:
+        - display
+        - gpu
+        - touchscreen
+        - wifi
+        - bluetooth
+        - ufs
+        - usb
+        - battery
+        - thermal
+        - cpufreq
+        - audio
+        - modem
+        - camera
+    validations:
+      required: true
+  - type: dropdown
+    id: status
+    attributes:
+      label: Estado observado
+      options:
+        - working
+        - partially-working
+        - detected
+        - boot-untested
+        - blocked
+        - regressed
+        - not-targeted
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidencia (sanitizada)
+      description: dmesg/journalctl fragmentos relevantes, SIN serial/IMEI/MAC. Usar el script scripts/sanitize-logs.sh
+    validations:
+      required: true
+  - type: input
+    id: image
+    attributes:
+      label: Imagen probada
+      description: Boot image y rootfs usados (tag o artifact)
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Confirmación de seguridad
+      options:
+        - label: Confirmo que los logs están sanitizados (sin serial, IMEI, MAC, tokens)
+          required: true

@@ -1,0 +1,157 @@
+name: 00-quality
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SHELLCHECK_VERSION: "0.10.0"
+
+jobs:
+  static-validation:
+    name: Validación estática
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Mostrar info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"
+          df -h
+          echo "::endgroup::"
+          echo "::group::free -h"
+          free -h
+          echo "::endgroup::"
+          echo "::group::uname -a"
+          uname -a
+          echo "::endgroup::"
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Validar YAML
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import glob, sys
+          import yaml
+          ok = True
+          for f in glob.glob(".github/workflows/*.yml") + [".github/dependabot.yml"]:
+              try:
+                  with open(f) as fh:
+                      yaml.safe_load(fh)
+                  print(f"[OK] {f}")
+              except Exception as e:
+                  ok = False
+                  print(f"[FAIL] {f}: {e}", file=sys.stderr)
+          sys.exit(0 if ok else 1)
+          PY
+      - name: Validar JSON
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import glob, json, sys
+          ok = True
+          for f in glob.glob("**/*.json", recursive=True):
+              try:
+                  with open(f) as fh:
+                      json.load(fh)
+                  print(f"[OK] {f}")
+              except Exception as e:
+                  ok = False
+                  print(f"[FAIL] {f}: {e}", file=sys.stderr)
+          sys.exit(0 if ok else 1)
+          PY
+      - name: Validar opencode.json contra schema
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, sys
+          cfg = json.load(open("opencode.json"))
+          perm = cfg.get("permission")
+          if not isinstance(perm, dict):
+              sys.exit("FALLO: opencode.json debe usar la clave 'permission' (singular)")
+          if not isinstance(perm.get("bash"), dict):
+              sys.exit("FALLO: permission.bash debe ser un objeto de reglas")
+          print("[OK] opencode.json usa 'permission' (singular)")
+          PY
+      - name: Test de política de seguridad OpenCode
+        run: |
+          set -Eeuo pipefail
+          bash scripts/test-opencode-security-policy.sh
+      - name: Instalar ShellCheck
+        run: |
+          set -Eeuo pipefail
+          curl -sSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" -o /tmp/shellcheck.tar.xz
+          printf '%s  %s\n' "$(curl -sSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz.sha256sum" | awk '{print $1}')" /tmp/shellcheck.tar.xz > /tmp/shellcheck.sha256
+          sha256sum -c /tmp/shellcheck.sha256
+          tar -xJf /tmp/shellcheck.tar.xz -C /tmp
+          echo "/tmp/shellcheck-v${SHELLCHECK_VERSION}/" >> "$GITHUB_PATH"
+      - name: ShellCheck
+        run: |
+          set -Eeuo pipefail
+          shellcheck --version
+          shellcheck -x scripts/*.sh || true
+      - name: Buscar secretos y comandos destructivos
+        run: |
+          set -Eeuo pipefail
+          bash scripts/audit-public-repository.sh
+          # Buscar comandos destructivos en workflows (prohibidos por AGENTS.md)
+          if grep -rE 'fastboot (boot|flash|erase|format|set_active|reboot|continue|update|oem|flashing|-w)' .github/ ; then
+            echo "FALLO: workflow con comandos Fastboot destructivos" >&2
+            exit 1
+          fi
+          echo "[OK] sin comandos destructivos en workflows"
+      - name: Validar sources.lock.json
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, sys
+          data = json.load(open("sources.lock.json"))
+          srcs = data.get("sources", [])
+          required = {"name","url","vcs","branch_informational","commit","commit_date","license","purpose","verification_status","last_audited","notes"}
+          for i, s in enumerate(srcs):
+              missing = required - set(s.keys())
+              if missing:
+                  sys.exit(f"FALLO: source[{i}] {s.get('name')} sin campos: {sorted(missing)}")
+          print(f"[OK] sources.lock.json: {len(srcs)} entradas con campos requeridos")
+          PY
+      - name: Comprobar que las acciones externas están fijadas por SHA
+        run: |
+          set -Eeuo pipefail
+          if grep -rEh 'uses: (actions|docker|[a-zA-Z0-9_.-]+)/[a-zA-Z0-9_.-]+@(v[0-9]+|[a-f0-9]{7,40})' .github/workflows/ | grep -vE 'uses: [^ ]+@[0-9a-f]{40}'; then
+            echo "FALLO: acción externa no fijada por SHA completo" >&2
+            exit 1
+          fi
+          echo "[OK] todas las acciones externas fijadas por SHA"
+      - name: Comprobar licencias de scripts propios
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import glob, sys
+          ok = True
+          for f in glob.glob("scripts/*.sh"):
+              head = open(f, errors="replace").read(300)
+              if "GPL-3.0-or-later" not in head and "GPL-3.0+" not in head:
+                  ok = False
+                  print(f"[FAIL] {f}: falta cabecera GPL-3.0-or-later", file=sys.stderr)
+          sys.exit(0 if ok else 1)
+          PY
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: quality-diagnostic
+          path: |
+            *.log
+            **/*.log
+          retention-days: 3
+          if-no-files-found: ignore

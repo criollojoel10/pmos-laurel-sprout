@@ -1,0 +1,47 @@
+name: Build failure
+description: Reportar un fallo en un workflow de build
+title: "[build] "
+labels: [build]
+body:
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Workflow
+      options:
+        - 00-quality
+        - 01-research-upstream
+        - 02-freeze-sources
+        - 03-build-kernel
+        - 04-build-pmos-console
+        - 05-build-pmos-plasma
+        - 06-validate-images
+        - 07-package-prerelease
+        - 08-process-device-logs
+    validations:
+      required: true
+  - type: input
+    id: run_id
+    attributes:
+      label: Run ID
+      description: URL o ID del run de GitHub Actions
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Mensaje de error
+      description: El mensaje de error principal (sin secretos, sin identificadores del dispositivo)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      description: Inputs usados en el workflow_dispatch
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Confirmación de seguridad
+      options:
+        - label: Confirmo que no incluyo secretos, serial, IMEI, MAC ni firmware de unidad
+          required: true
