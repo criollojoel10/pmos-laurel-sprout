@@ -186,6 +186,9 @@ def main():
     # id[8] (32 bytes) en offset 576 = SHA1(kernel+ramdisk+second+dtb)
     out[576:576 + 32] = build_id_hash(kernel, ramdisk, dtb)
 
+    out_dir = os.path.dirname(os.path.abspath(args.out))
+    if out_dir and not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
     with open(args.out, "wb") as f:
         f.write(out)
     print(

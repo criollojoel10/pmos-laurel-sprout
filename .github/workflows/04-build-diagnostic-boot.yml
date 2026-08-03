@@ -86,6 +86,7 @@ jobs:
       - name: Ensamblar boot.img de diagnóstico
         run: |
           set -Eeuo pipefail
+          mkdir -p /tmp/boot-out
           python3 scripts/build-boot-image.py \
             --kernel /tmp/kernel-artifact/Image.gz \
             --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
