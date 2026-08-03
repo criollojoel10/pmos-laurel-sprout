@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write
   contents: read
+  actions: write
 
 concurrency:
   group: clean-artifacts
@@ -25,6 +25,8 @@ jobs:
           set -Eeuo pipefail
           df -h; echo "---"; uname -a
       - name: Eliminar artefactos expirados
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
           gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
