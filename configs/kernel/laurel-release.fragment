@@ -1,0 +1,17 @@
+# Fragmento RELEASE para el kernel SM6125 (optimización y reducción de ruido)
+# Símbolos de producción. Ajustar a lo que exista en el Kconfig del commit.
+
+CONFIG_PRINTK_TIME=y
+CONFIG_BINFMT_MISC=y
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+
+# Reducción de verbose innecesario en release
+CONFIG_HUSH_PARSER=y
+CONFIG_MODULE_COMPRESS=y
+CONFIG_MODULE_COMPRESS_ZSTD=y
+
+# Hibernación/suspensión si el árbol lo soporta (verify-kconfig lo valida)
+CONFIG_SUSPEND=y
+CONFIG_PM=y
+CONFIG_PM_SLEEP=y

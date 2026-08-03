@@ -1,0 +1,69 @@
+{
+  "$comment": "Manifiesto de clasificación de firmware requerido para SM6125 (laurel_sprout). Clasificaciones: redistributable | extraction-required | unit-specific | unknown-license | prohibited-from-repository. No se publican archivos de calibración específicos de unidad.",
+  "device": {
+    "manufacturer": "Xiaomi",
+    "model": "Mi A3",
+    "codename": "laurel_sprout",
+    "soc": "Qualcomm SM6125",
+    "gpu": "Adreno 610",
+    "wlan_bt": "por-determinar",
+    "modem": "por-determinar"
+  },
+  "firmware": [
+    {
+      "component": "adreno-610",
+      "files": ["qcom/a610/*.fw", "qcom/a610/*.mbn"],
+      "classification": "extraction-required",
+      "source": "linux-firmware o extracción de Android stock",
+      "license": "por-verificar",
+      "notes": "Firmware de GPU Adreno 610; verificar disponibilidad en linux-firmware."
+    },
+    {
+      "component": "wlan",
+      "files": ["qcom/... (por determinar)"],
+      "classification": "extraction-required",
+      "source": "por-determinar",
+      "license": "por-verificar",
+      "notes": "Requiere identificar chip WLAN y firmware exacto."
+    },
+    {
+      "component": "bluetooth",
+      "files": ["qcom/... (por determinar)"],
+      "classification": "extraction-required",
+      "source": "por-determinar",
+      "license": "por-verificar",
+      "notes": "Requiere identificar chip BT y firmware exacto."
+    },
+    {
+      "component": "remoteproc",
+      "files": ["qcom/... (por determinar)"],
+      "classification": "extraction-required",
+      "source": "Android stock",
+      "license": "por-verificar",
+      "notes": "ADSP/MPSS remoteproc."
+    },
+    {
+      "component": "modem",
+      "files": ["mba.mbn", "modem.mbn"],
+      "classification": "extraction-required",
+      "source": "Android stock",
+      "license": "propietario",
+      "notes": "Prioridad secundaria; se documenta procedimiento de extracción, no se incluye el binario."
+    },
+    {
+      "component": "unit-calibration",
+      "files": ["persist/*", "modemst/*", "fsg/*", "fsc/*", "efs/*"],
+      "classification": "unit-specific",
+      "source": "este dispositivo",
+      "license": "n/a",
+      "notes": "NUNCA se publica. Calibración específica de la unidad."
+    }
+  ],
+  "policy": {
+    "redistributable": "puede incluirse en el repositorio si se verifica licencia",
+    "extraction-required": "procedimiento documentado; binario aportado como artifact privado sin publicarse",
+    "unit-specific": "nunca se publica",
+    "unknown-license": "no se publica hasta verificar",
+    "prohibited-from-repository": "no se incluye"
+  }
+}

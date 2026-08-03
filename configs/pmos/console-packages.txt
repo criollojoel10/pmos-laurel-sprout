@@ -1,0 +1,51 @@
+# Paquetes de la imagen CONSOLA (recuperación) postmarketOS Edge / systemd
+# Propósito: acceso de recuperación cuando Plasma/KWin falle.
+# Comentarios controlados por pma: se mantienen tras pmbootstrap install.
+
+# Acceso remoto / red
+openssh-server
+networkmanager
+networkmanager-wifi
+usb-modeswitch
+wget
+curl
+iproute2
+iperf3
+
+# Herramientas de diagnóstico
+dmesg
+util-linux
+e2fsprogs
+parted
+file
+htop
+tree
+git
+
+# DRM / Mesa utilities
+mesa-utils
+eglinfo
+glmark2-es2-wayland
+weston
+foot
+wvkbd
+libinput
+libinput-tools
+
+# Wayland clientes mínimos
+wayland-utils
+
+# systemd
+systemd
+
+# Audio básico
+pipewire
+wireplumber
+
+# Bluetooth
+bluez
+bluez-utils
+
+# Shell y editores
+vim
+bash

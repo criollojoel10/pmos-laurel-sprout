@@ -1,0 +1,45 @@
+{
+  "device": {
+    "manufacturer": "Xiaomi",
+    "model": "Mi A3",
+    "codename": "laurel_sprout",
+    "soq": "Qualcomm SM6125",
+    "platform": "trinket",
+    "arch": "aarch64"
+  },
+  "fastboot": {
+    "product": "laurel_sprout",
+    "current_slot": "a",
+    "unlocked": true,
+    "slot_count": "2",
+    "has_slot": {
+      "boot": "yes",
+      "dtbo": "yes",
+      "vbmeta": "yes"
+    }
+  },
+  "partitions": {
+    "boot": {
+      "size_a": "0x4000000",
+      "size_b": "0x4000000",
+      "type_a": "raw"
+    },
+    "dtbo": {
+      "size_a": "0x1800000",
+      "size_b": "0x1800000",
+      "type_a": "raw"
+    },
+    "vbmeta": {
+      "size_a": "0x10000",
+      "size_b": "0x10000",
+      "type_a": "raw"
+    }
+  },
+  "privacy": {
+    "serial_number_never_published": true,
+    "imei_never_published": true,
+    "mac_never_published": true,
+    "raw_fastboot_output_in_local_private": true
+  },
+  "captured_at": "2026-08-02T19:44:14Z"
+}

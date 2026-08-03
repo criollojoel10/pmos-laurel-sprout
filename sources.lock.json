@@ -1,0 +1,110 @@
+{
+  "$comment": "Fuentes del proyecto. Cada entrada se verifica y fija por commit en FASE 3 (02-freeze-sources.yml). Una build reproducible rechaza main/master/HEAD/latest sin commit fijado, URLs que cambien silenciosamente y artefactos sin SHA-256.",
+  "format_version": 1,
+  "sources": [
+    {
+      "name": "linux-kernel.org",
+      "url": "https://www.kernel.org/",
+      "vcs": "git",
+      "branch_informational": "master",
+      "commit": null,
+      "commit_date": null,
+      "license": "GPL-2.0-only",
+      "purpose": "Base kernel Linux mainline 6.19.x o posterior",
+      "verification_status": "pending",
+      "last_audited": null,
+      "notes": "Commit a fijar tras la investigación upstream."
+    },
+    {
+      "name": "sm61x5-mainline-linux",
+      "url": "https://codeberg.org/sm61x5-mainline/linux",
+      "vcs": "git",
+      "branch_informational": "sm61x5-mainline",
+      "commit": null,
+      "commit_date": null,
+      "license": "GPL-2.0-only",
+      "purpose": "Base para SM6125 mainline, DTS laurel_sprout, panel, touchscreen",
+      "verification_status": "pending",
+      "last_audited": null,
+      "notes": "Commit a fijar tras la investigación upstream."
+    },
+    {
+      "name": "pmbootstrap",
+      "url": "https://gitlab.com/postmarketOS/pmbootstrap",
+      "vcs": "git",
+      "branch_informational": "master",
+      "commit": null,
+      "commit_date": null,
+      "license": "GPL-3.0-or-later",
+      "purpose": "Herramienta de construcción de postmarketOS",
+      "verification_status": "pending",
+      "last_audited": null,
+      "notes": "Commit a fijar en FASE 3."
+    },
+    {
+      "name": "pmaports",
+      "url": "https://gitlab.com/postmarketOS/pmaports",
+      "vcs": "git",
+      "branch_informational": "master",
+      "commit": null,
+      "commit_date": null,
+      "license": "GPL-3.0-or-later",
+      "purpose": "Recetas de paquetes y deviceinfo; port archivado xiaomi-laurel",
+      "verification_status": "pending",
+      "last_audited": null,
+      "notes": "Commit a fijar en FASE 3."
+    },
+    {
+      "name": "mesa",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa",
+      "vcs": "git",
+      "branch_informational": "main",
+      "commit": null,
+      "commit_date": null,
+      "license": "MIT",
+      "purpose": "Drivers Freedreno/Turnip para Adreno 610",
+      "verification_status": "pending",
+      "last_audited": null,
+      "notes": "Commit a fijar en FASE 3."
+    },
+    {
+      "name": "linux-firmware",
+      "url": "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git",
+      "vcs": "git",
+      "branch_informational": "main",
+      "commit": null,
+      "commit_date": null,
+      "license": "varias (redistribuible individualmente)",
+      "purpose": "Firmware Adreno/WLAN/BT/remoteproc",
+      "verification_status": "pending",
+      "last_audited": null,
+      "notes": "Clasificar por firmware-manifest.json."
+    },
+    {
+      "name": "lineageos-android-kernel-xiaomi-sm6125",
+      "url": "https://github.com/LineageOS/android_kernel_xiaomi_sm6125",
+      "vcs": "git",
+      "branch_informational": "lineage-21",
+      "commit": null,
+      "commit_date": null,
+      "license": "GPL-2.0",
+      "purpose": "Referencia del device tree Android y drivers propietarios de laurel_sprout",
+      "verification_status": "pending",
+      "last_audited": null,
+      "notes": "Solo referencia; no se integra el kernel Android."
+    },
+    {
+      "name": "xiaomi-mi-a3-firmware",
+      "url": "url-a-verificar-en-fase-3",
+      "vcs": null,
+      "branch_informational": null,
+      "commit": null,
+      "commit_date": null,
+      "license": "propietario / por verificar",
+      "purpose": "Firmware stock del Mi A3 (modem, ADSP, WLAN, BT)",
+      "verification_status": "pending",
+      "last_audited": null,
+      "notes": "URL legal a confirmar. No se redistribuye sin verificación de licencia."
+    }
+  ]
+}
