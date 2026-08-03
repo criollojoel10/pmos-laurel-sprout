@@ -53,6 +53,16 @@ NPROC="$(nproc)"
 info "CPUs: $NPROC"
 info "vamos a compilar con $(( NPROC > 0 ? NPROC : 1 )) hilos"
 
+# Cross-compile: si existe el cross toolchain (crossbuild-essential-arm64),
+# usarlo; si no, compilar en nativo (aarch64).
+CROSS=""
+if command -v aarch64-linux-gnu-gcc >/dev/null 2>&1; then
+  CROSS="aarch64-linux-gnu-"
+  info "cross-compilando con $CROSS"
+else
+  info "sin toolchain cross; compilando nativo"
+fi
+
 # Defconfig objetivo: en mainline v7.1 (torvalds) la base arm64 es "defconfig";
 # los forks sm61x5-mainline añaden qcom_defconfig/sm6125_defconfig.
 DEFCONFIG="defconfig"
@@ -63,7 +73,7 @@ elif [[ -f "arch/arm64/configs/qcom_defconfig" ]]; then
 fi
 info "defconfig: $DEFCONFIG"
 
-make ARCH=arm64 "$DEFCONFIG" 2>&1 | tee "$OUT/kconfig-setup.log"
+make ARCH=arm64 CROSS_COMPILE="$CROSS" "$DEFCONFIG" 2>&1 | tee "$OUT/kconfig-setup.log"
 
 # Aplicar fragmentos con merge_config de scripts/kconfig.
 # Las rutas relativas se interpretan desde la raíz del repo.
@@ -82,18 +92,18 @@ if (( ${#FRAG_OPTS[@]} > 0 )); then
     -O . \
     -m arch/arm64/configs/"$DEFCONFIG" \
     "${FRAG_OPTS[@]}" 2>&1 | tee "$OUT/kconfig-merge.log"
-  make ARCH=arm64 olddefconfig 2>&1 | tee -a "$OUT/kconfig-merge.log"
+  make ARCH=arm64 CROSS_COMPILE="$CROSS" olddefconfig 2>&1 | tee -a "$OUT/kconfig-merge.log"
 fi
 
 cp .config "$OUT/kernel.config"
 
 # Compilar kernel + dtbs + módulos
 info "compilando kernel..."
-make ARCH=arm64 -j"$NPROC" Image Image.gz dtbs 2>&1 | tee "$OUT/build.log"
-make ARCH=arm64 -j"$NPROC" modules 2>&1 | tee -a "$OUT/build.log"
+make ARCH=arm64 CROSS_COMPILE="$CROSS" -j"$NPROC" Image Image.gz dtbs 2>&1 | tee "$OUT/build.log"
+make ARCH=arm64 CROSS_COMPILE="$CROSS" -j"$NPROC" modules 2>&1 | tee -a "$OUT/build.log"
 
 info "instalando módulos..."
-make ARCH=arm64 modules_install INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH="$OUT/modules" 2>&1 | tee -a "$OUT/build.log"
+make ARCH=arm64 CROSS_COMPILE="$CROSS" modules_install INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH="$OUT/modules" 2>&1 | tee -a "$OUT/build.log"
 
 info "copiando Image y DTB..."
 cp arch/arm64/boot/Image "$OUT/Image"
