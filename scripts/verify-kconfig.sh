@@ -68,21 +68,22 @@ if (( ${#SYMBOLS[@]} == 0 )); then
 fi
 
 for sym in "${SYMBOLS[@]}"; do
-  # ¿Existe el símbolo en el Kconfig del árbol?
-  if ! grep -rqE "(config|menuconfig)[[:space:]]+${sym#CONFIG_}" "$TREE/Kconfig"* "$TREE"/*/Kconfig* 2>/dev/null; then
+  # ¿Existe el símbolo en el Kconfig del árbol? (búsqueda recursiva)
+  if ! grep -rqE --include='Kconfig*' "(config|menuconfig)[[:space:]]+${sym#CONFIG_}" "$TREE" 2>/dev/null; then
     MISSING_SYMBOLS+=("$sym")
     info "MISSING en Kconfig: $sym"
     continue
   fi
-  # ¿Terminó habilitado (=y/=m) en el .config final?
+  # ¿Terminó habilitado en el .config final?
+  # Soporta booleanos (y/m) y símbolos de string/int (CONFIG_X="...", CONFIG_X=123)
   if grep -qE "^# ${sym} is not set" "$CONFIG"; then
     DISABLED_SYMBOLS+=("$sym")
     info "DESHABILITADO silenciosamente: $sym"
-  elif ! grep -qE "^${sym}=(y|m)" "$CONFIG"; then
+  elif grep -qE "^${sym}=" "$CONFIG"; then
+    info "OK: $sym"
+  else
     DISABLED_SYMBOLS+=("$sym")
     info "NO presente en config final: $sym"
-  else
-    info "OK: $sym"
   fi
 done
 

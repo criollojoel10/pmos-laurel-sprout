@@ -31,10 +31,11 @@ _dtbs="qcom/sm6125-xiaomi-laurel-sprout.dtb"
 prepare() {
     cd "$builddir"
     # En GitHub Actions los parches downstream (DTS MDSS+panel s6e8fc0
-    # corregido, DTSI GPU, DTS enable GPU) se aplican por
-    # scripts/build-kernel.sh (patches/kernel/*.patch). Si algún día se
-    # construye este APKBUILD con pmbootstrap, copiar patches/kernel/*.patch
-    # al srcdir y aplicar con git apply aquí. Documentados en docs/PATCH-PLAN.md
+    # corregido, DTSI GPU, DTS enable GPU) se aplican en el workflow
+    # 03-build-kernel.yml con scripts/apply-kernel-patches.sh (patches/kernel/*.patch)
+    # ANTES de llamar a build-kernel.sh. Si algún día se construye este
+    # APKBUILD con pmbootstrap, copiar patches/kernel/*.patch al srcdir y
+    # aplicar con git apply aquí. Documentados en docs/PATCH-PLAN.md
     # y docs/DTS-AUDIT.md.
     :
 }

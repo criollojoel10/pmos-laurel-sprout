@@ -157,7 +157,7 @@ jobs:
           cat SHA256SUMS
           cat manifest.json
       - name: Empaquetar salida
-        if: ${{ github.event.inputs.upload_artifacts == true }}
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: kernel-${{ github.event.inputs.build_variant || 'debug' }}
