@@ -51,14 +51,13 @@ NPROC="$(nproc)"
 info "CPUs: $NPROC"
 info "vamos a compilar con $(( NPROC > 0 ? NPROC : 1 )) hilos"
 
-# Defconfig objetivo (según árbol sm61x5-mainline)
-DEFCONFIG="qcom_defconfig"
+# Defconfig objetivo: en mainline v7.1 (torvalds) la base arm64 es "defconfig";
+# los forks sm61x5-mainline añaden qcom_defconfig/sm6125_defconfig.
+DEFCONFIG="defconfig"
 if [[ -f "arch/arm64/configs/sm6125_defconfig" ]]; then
   DEFCONFIG="sm6125_defconfig"
 elif [[ -f "arch/arm64/configs/qcom_defconfig" ]]; then
   DEFCONFIG="qcom_defconfig"
-elif [[ -f "arch/arm64/configs/gki_defconfig" ]]; then
-  DEFCONFIG="gki_defconfig"
 fi
 info "defconfig: $DEFCONFIG"
 
