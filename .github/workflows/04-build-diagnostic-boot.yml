@@ -44,9 +44,10 @@ jobs:
           sudo apt-get install -y -qq \
             device-tree-compiler cpio zstd xz-utils gzip file \
             python3 busybox-static android-sdk-libsparse-utils \
-            mkbootimg e2fsprogs
-          # mkbootimg/unpack_bootimg provistos por el paquete 'mkbootimg' (universe)
-          command -v mkbootimg && command -v unpack_bootimg
+            e2fsprogs
+          # mkbootimg/unpack_bootimg: inspección usa el paquete 'mkbootimg'
+          # (universe) para unpack; el ensamblado usa scripts/build-boot-image.py
+          # (autocontenido, sin dependencias de distro).
       - name: Descargar artefactos del kernel (workflow 03)
         # actions/download-artifact@v4.3.0 (SHA fijo)
         # Descarga de OTRO run: requiere github-token + run-id.
@@ -85,14 +86,13 @@ jobs:
       - name: Ensamblar boot.img de diagnóstico
         run: |
           set -Eeuo pipefail
-          bash scripts/assemble-boot-image.sh \
+          python3 scripts/build-boot-image.py \
             --kernel /tmp/kernel-artifact/Image.gz \
             --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
             --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
             --out /tmp/boot-out/boot-laurel-diagnostic.img \
-            --header-version 2 \
             --base 0x00000000 \
-            --pagesize 4096 \
+            --page-size 4096 \
             --kernel-offset 0x00008000 \
             --ramdisk-offset 0x01000000 \
             --tags-offset 0x00000100 \
@@ -116,16 +116,18 @@ jobs:
           set -Eeuo pipefail
           SIZE="$(stat -c %s /tmp/boot-out/boot-laurel-diagnostic.img)"
           echo "boot.img: $SIZE bytes (límite 67108864)"
-          python3 - <<'PY'
-          size = 20299776
-          print("cabe:", size <= 67108864)
-          PY
-          # round-trip
+          if (( SIZE > 67108864 )); then
+            echo "ERROR: boot.img excede el límite de la partición boot (64 MiB)"
+            exit 1
+          fi
+          echo "OK: boot.img cabe en la partición boot"
+          # round-trip (unpack)
           mkdir -p /tmp/rt
-          unpack_bootimg --boot_img /tmp/boot-out/boot-laurel-diagnostic.img --out /tmp/rt 2>&1 | tail -3 || true
+          unpack_bootimg --boot_img /tmp/boot-out/boot-laurel-diagnostic.img --out /tmp/rt 2>&1 | tail -5 || true
           if [[ -f /tmp/rt/kernel ]]; then
             echo "round-trip kernel sha: $(sha256sum /tmp/rt/kernel | cut -c1-16)"
             echo "original  kernel sha: $(sha256sum /tmp/kernel-artifact/Image.gz | cut -c1-16)"
+            echo "kernels iguales: $([[ "$(sha256sum /tmp/rt/kernel | cut -c1-16)" == "$(sha256sum /tmp/kernel-artifact/Image.gz | cut -c1-16)" ]] && echo SÍ || echo NO)"
           fi
       - name: Generar checksums y manifest
         run: |

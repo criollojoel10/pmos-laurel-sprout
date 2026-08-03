@@ -4,11 +4,14 @@
 #
 # assemble-boot-image.sh
 #
-# Ensambla un boot.img Android para laurel_sprout usando mkbootimg/avbtool
-# dentro de GitHub Actions. NO se ejecuta localmente.
+# Ensambla un boot.img Android para laurel_sprout.
 #
-# Investiga el formato real del boot image del Mi A3 antes de asumir nada
-# (header version, page size, base, offsets, DTB append, vendor_boot, AVB).
+# El ensamblado real se delega en scripts/build-boot-image.py (builder
+# autocontenido en Python, sin dependencias de paquetes mkbootimg que
+# varían entre distros). Este script solo traduce los argumentos.
+#
+# Investigó el formato real del boot image del Mi A3 (header v2, page 4096,
+# base 0x0, kernel 0x8000, ramdisk 0x1000000, tags 0x100, dtb 0x1f00000).
 #
 # Uso:
 #   scripts/assemble-boot-image.sh \
@@ -18,7 +21,11 @@
 #     --out <boot.img> \
 #     [--header-version N] [--base 0x...] [--pagesize N] \
 #     [--cmdline "..."] [--os-version x.y] [--os-patch-level ...] \
-#     [--dtbo-address 0x...] [--ramdisk-offset 0x...] [--tags-offset 0x...]
+#     [--kernel-offset 0x...] [--dtb-offset 0x...] \
+#     [--ramdisk-offset 0x...] [--tags-offset 0x...]
+#
+# Localización del builder Python:
+PYBUILDER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/build-boot-image.py"
 
 set -Eeuo pipefail
 
@@ -69,27 +76,26 @@ done
 
 info() { printf '[bootimg] %s\n' "$*" >&2; }
 
-# mkbootimg disponible en repos? Intentar, con mensaje claro si no.
-command -v mkbootimg >/dev/null 2>&1 || { echo "ERROR: mkbootimg requerido (instalar en CI)" >&2; exit 1; }
+[[ -f "$PYBUILDER" ]] || { echo "ERROR: builder Python no encontrado: $PYBUILDER" >&2; exit 1; }
 
 ARGS=(
   --kernel "$KERNEL"
   --ramdisk "$RAMDISK"
   --dtb "$DTB"
-  --header_version "$HEADER_VERSION"
+  --out "$OUT"
   --base "$BASE"
-  --pagesize "$PAGESIZE"
+  --page-size "$PAGESIZE"
+  --kernel-offset "$KERNEL_OFFSET"
+  --ramdisk-offset "$RAMDISK_OFFSET"
+  --tags-offset "$TAGS_OFFSET"
+  --dtb-offset "$DTBO_ADDR"
   --cmdline "$CMDLINE"
 )
-[[ -n "$OS_VERSION" ]] && ARGS+=(--os_version "$OS_VERSION")
-[[ -n "$OS_PATCH" ]] && ARGS+=(--os_patch_level "$OS_PATCH")
-[[ -n "$KERNEL_OFFSET" ]] && ARGS+=(--kernel_offset "$KERNEL_OFFSET")
-[[ -n "$DTBO_ADDR" ]] && ARGS+=(--dtb_offset "$DTBO_ADDR")
-[[ -n "$RAMDISK_OFFSET" ]] && ARGS+=(--ramdisk_offset "$RAMDISK_OFFSET")
-[[ -n "$TAGS_OFFSET" ]] && ARGS+=(--tags_offset "$TAGS_OFFSET")
+[[ -n "$OS_VERSION" ]] && ARGS+=(--os-version "$OS_VERSION")
+[[ -n "$OS_PATCH" ]] && ARGS+=(--os-patch-level "$OS_PATCH")
 
-info "ensamblando boot image (header v$HEADER_VERSION)..."
-mkbootimg "${ARGS[@]}" -o "$OUT" 2>&1 | sed 's/^/[mkbootimg] /' >&2
+info "ensamblando boot image (header v$HEADER_VERSION, builder python)..."
+python3 "$PYBUILDER" "${ARGS[@]}"
 
 info "boot image creado: $OUT"
 ls -la "$OUT"
