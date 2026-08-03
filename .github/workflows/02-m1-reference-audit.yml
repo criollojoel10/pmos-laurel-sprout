@@ -43,19 +43,24 @@ jobs:
       - name: Clonar árboles (shallow, commits fijados)
         run: |
           set -Eeuo pipefail
-          # Linux mainline (torvalds)
+          # Linux mainline (torvalds): fetch por SHA permitido en GitHub
           git clone --filter=blob:none --no-checkout \
             https://github.com/torvalds/linux.git "$TREES/mainline" 2>&1 | tail -1
           git -C "$TREES/mainline" fetch origin "$MAINLINE_COMMIT" --depth=1 2>&1 | tail -1
           git -C "$TREES/mainline" checkout -q "$MAINLINE_COMMIT"
-          # sm61x5-mainline master y rama dev (Codeberg, sin token)
+          # sm61x5-mainline (Codeberg): fetch por NOMBRE de rama (no admite SHA suelto),
+          # luego verificar que el commit fijado coincide con el tip clonado.
           git clone --filter=blob:none --no-checkout \
             https://codeberg.org/sm61x5-mainline/linux.git "$TREES/sm61x5" 2>&1 | tail -1
-          git -C "$TREES/sm61x5" fetch origin "$SM61X5_MASTER" --depth=1 2>&1 | tail -1
-          git -C "$TREES/sm61x5" checkout -q -b master-audit "$SM61X5_MASTER"
-          git -C "$TREES/sm61x5" fetch origin "$SM61X5_DEV" --depth=1 2>&1 | tail -1
-          git -C "$TREES/sm61x5" checkout -q -b dev-audit "$SM61X5_DEV"
-          echo "OK: árboles clonados"
+          git -C "$TREES/sm61x5" fetch origin master --depth=1 2>&1 | tail -1
+          git -C "$TREES/sm61x5" checkout -q -b master-audit FETCH_HEAD
+          test "$(git -C "$TREES/sm61x5" rev-parse master-audit)" = "$SM61X5_MASTER" \
+            || { echo "ERROR: master no coincide con el commit fijado"; exit 1; }
+          git -C "$TREES/sm61x5" fetch origin barni2000/6.19-develop --depth=1 2>&1 | tail -1
+          git -C "$TREES/sm61x5" checkout -q -b dev-audit FETCH_HEAD
+          test "$(git -C "$TREES/sm61x5" rev-parse dev-audit)" = "$SM61X5_DEV" \
+            || { echo "ERROR: dev no coincide con el commit fijado"; exit 1; }
+          echo "OK: árboles clonados y commits verificados"
           git -C "$TREES/mainline" rev-parse --short HEAD
           git -C "$TREES/sm61x5" rev-parse --short master-audit dev-audit
       - name: Auditar panel y táctil (mainline vs sm61x5)
