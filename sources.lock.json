@@ -3,17 +3,17 @@
   "format_version": 1,
   "sources": [
     {
-      "name": "linux-kernel.org",
-      "url": "https://www.kernel.org/",
+      "name": "linux-mainline-v7.1",
+      "url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git",
       "vcs": "git",
-      "branch_informational": "master",
-      "commit": "PENDIENTE",
-      "commit_date": "PENDIENTE",
+      "branch_informational": "v7.1",
+      "commit": "b3f94b2b3f3e51ab880a51fc6510e1dafba654ed",
+      "commit_date": "2026-06-14",
       "license": "GPL-2.0-only",
-      "purpose": "Base kernel Linux mainline (candidatos 6.19.x / LTS / estable)",
-      "verification_status": "verified-url",
-      "last_audited": "2026-08-02",
-      "notes": "El commit se fija tras decidir la base del kernel (docs/DECISIONS/0001-kernel-base.md)."
+      "purpose": "Base del kernel: Linux mainline v7.1 (decisión docs/DECISIONS/0002-kernel-base.md)",
+      "verification_status": "verified",
+      "last_audited": "2026-08-03",
+      "notes": "Tag v7.1 = commit b3f94b2b. Panel driver 49837b6babe7 y FT3518 5383e76483dc ya en árbol. DTS MDSS+panel y GPU via parches downstream (patches/kernel/)."
     },
     {
       "name": "sm61x5-mainline-linux",
@@ -26,7 +26,7 @@
       "purpose": "Base para SM6125 mainline, DTS laurel_sprout, panel, touchscreen, GPU",
       "verification_status": "verified",
       "last_audited": "2026-08-02",
-      "notes": "HEAD de master verificado por git ls-remote. NO existe rama sm61x5/6.19.5, NO existe tag v6.19.5-r0, NO existe sm61x5_defconfig (issue #1 abierta). Ramas dev: barni2000/6.19-develop (ae0eeba94), barni2000/7.0-develop (c41e0655)."
+      "notes": "HEAD de master verificado por git ls-remote. NO existe rama sm61x5/6.19.5, NO existe tag v6.19.5-r0, NO existe sm61x5_defconfig (issue #1 abierta). Ramas dev: barni2000/6.19-develop (ae0eeba94), barni2000/7.0-develop (c41e0655). La rama 7.0-develop (base 7.0.8) es la fuente autoritativa de parches GPU/panel (docs/DTS-AUDIT.md)."
     },
     {
       "name": "pmbootstrap",

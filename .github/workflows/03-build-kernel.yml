@@ -55,8 +55,8 @@ jobs:
           set -Eeuo pipefail
           KC="${{ github.event.inputs.kernel_commit || '' }}"
           if [[ -z "$KC" ]]; then
-            # Usar el commit fijado en sources.lock.json (sm61x5-mainline)
-            KC="$(jq -r '.sources[] | select(.name=="sm61x5-mainline") | .commit // empty' sources.lock.json || true)"
+            # Usar el commit fijado en sources.lock.json (linux-mainline-v7.1)
+            KC="$(jq -r '.sources[] | select(.name=="linux-mainline-v7.1") | .commit // empty' sources.lock.json || true)"
           fi
           if [[ -z "$KC" || "$KC" == "null" ]]; then
             echo "ERROR: no hay kernel_commit ni commit fijado en sources.lock.json" >&2
@@ -64,17 +64,20 @@ jobs:
           fi
           echo "commit=$KC" >> "$GITHUB_OUTPUT"
           echo "Usando commit kernel: $KC"
-      - name: Clonar sm61x5-mainline (shallow en el commit fijado)
+      - name: Clonar Linux mainline v7.1 (shallow en el commit fijado)
         run: |
           set -Eeuo pipefail
           KC="${{ steps.kcommit.outputs.commit }}"
           git clone --filter=blob:none --no-checkout \
-            https://codeberg.org/sm61x5-mainline/linux.git kernel
+            https://github.com/torvalds/linux.git kernel
           cd kernel
           git fetch --depth 1 origin "$KC"
-          git checkout "$KC"
-          git submodule update --init --recursive || true
+          git checkout -q "$KC"
           echo "Árbol en: $(git rev-parse HEAD)"
+      - name: Aplicar parches downstream
+        run: |
+          set -Eeuo pipefail
+          bash scripts/apply-kernel-patches.sh kernel
       - name: Preparar fragmentos Kconfig
         run: |
           set -Eeuo pipefail

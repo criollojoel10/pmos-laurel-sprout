@@ -1,7 +1,7 @@
 # Base del kernel para SM6125 laurel_sprout (ARM64, systemd, postmarketOS)
-# Fragmento base: se combina con la defconfig del árbol sm61x5-mainline.
-# Solo se listan símbolos que deben existir; verify-kconfig.sh comprueba cada
-# uno contra el Kconfig del commit fijado.
+# Fragmento base: se combina con la defconfig del árbol Linux mainline v7.1
+# (base elegida en DECISION-0002). Solo se listan símbolos que deben existir;
+# verify-kconfig.sh comprueba cada uno contra el Kconfig del commit fijado.
 
 CONFIG_ARM64=y
 CONFIG_LOCALVERSION="-postmarketos-sm6125"
@@ -49,18 +49,14 @@ CONFIG_INPUT_TOUCHSCREEN=y
 CONFIG_I2C=y
 CONFIG_I2C_QCOM_GENI=y
 
-# Touchscreen FT3518 (driver focaltech)
-# NOTA: verificar contra el Kconfig del commit fijado cuál es el símbolo real
-# del driver mainline para el FT3518; puede no ser CONFIG_TOUCHSCREEN_FOCALTECH_FTS.
-CONFIG_TOUCHSCREEN_FOCALTECH=y
-CONFIG_TOUCHSCREEN_FOCALTECH_FTS=y
+# Touchscreen FT3518 (mainline: driver edt-ft5x06, compatible focaltech,ft3518)
+CONFIG_TOUCHSCREEN_EDT_FT5X06=y
 
 # DRM / MSM
 CONFIG_DRM=y
 CONFIG_DRM_MSM=y
 CONFIG_DRM_MSM_DPU=y
 CONFIG_DRM_MSM_DSI=y
-CONFIG_DRM_MSM_DSI_PHY=y
 CONFIG_DRM_MSM_MDSS=y
 CONFIG_DRM_PANEL_SAMSUNG_S6E8FC0=y
 
@@ -122,6 +118,9 @@ CONFIG_BT_HCIBTUART=y
 CONFIG_BT_HCIUART_QCOM=y
 CONFIG_BT_HCIUART_LL=y
 CONFIG_BT_QCOMSMD=y
+
+# GPU Adreno 610 (driver msm; el nodo DTS gpu@5900000 es parche downstream)
+CONFIG_DRM_MSM_GPU_SUDO=y
 
 # Proc
 CONFIG_IKCONFIG=y

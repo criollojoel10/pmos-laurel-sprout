@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmos-laurel-sprout <dev@pmos.laurel.invalid>
+Date: 2026-08-03
+Subject: [PATCH] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: enable Adreno 610 GPU
+
+Habilita la GPU Adreno 610 (nodos añadidos en sm6125.dtsi por el
+parche 0002) desde sm61x5-mainline barni2000/7.0-develop:
+- &adreno_smmu, &gmu_wrapper, &gpucc status okay
+- &gpu status okay + zap-shader qcom/sm6125/xiaomi/laurel/a610_zap.mbn
+
+Nota: el firmware a610_zap.mbn no está aún empaquetado (fase de
+firmware). Si falta, la GPU queda sin zap y se degrada; el sistema
+sigue arrancando con llvmpipe. GPU = fase 2.
+
+
+Signed-off-by: pmos-laurel-sprout <dev@pmos.laurel.invalid>
+---
+ arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts | 21 ++++++++++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
+--- laurel-v71.dts	2026-08-02 23:24:34.025585711 -0500
++++ laurel-gpu.dts	2026-08-02 23:41:16.573092179 -0500
+@@ -404,8 +404,29 @@
+ 		bias-disable;
+ 	};
+ };
+ 
++&adreno_smmu {
++	status = "okay";
++};
++
++&gmu_wrapper {
++	status = "okay";
++};
++
++&gpu {
++	status = "okay";
++
++	zap-shader {
++		firmware-name = "qcom/sm6125/xiaomi/laurel/a610_zap.mbn";
++	};
++};
++
++&gpucc {
++	status = "okay";
++};
++
++
+ &sdc2_on_state {
+ 	sd-cd-pins {
+ 		pins = "gpio98";
+ 		function = "gpio";
+

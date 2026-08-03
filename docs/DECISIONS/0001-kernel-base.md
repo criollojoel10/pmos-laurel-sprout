@@ -1,7 +1,7 @@
 # DECISION-0001 — Base del kernel: Linux mainline (no sm61x5/6.19.5)
 
-- Estado: **Propuesta** (a confirmar tras 03-build-kernel)
-- Fecha: 2026-08-02
+- Estado: **Superada por DECISION-0002** (base = Linux mainline v7.1)
+- Fecha: 2026-08-02; superada: 2026-08-03
 
 ## Contexto
 

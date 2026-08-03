@@ -1,6 +1,24 @@
 # Plan de parches
 
-Estado: actualizado (2026-08-03, investigación M1 completa).
+Estado: actualizado (2026-08-03, parches downstream v1 creados).
+
+## Parches downstream en el repositorio (patches/kernel/)
+
+Base: Linux mainline v7.1 (decisión 0002). Aplicados por
+`scripts/build-kernel.sh` / `scripts/apply-kernel-patches.sh` con `git apply`.
+
+| # | Archivo | Contenido | Origen | Estado |
+|---|---|---|---|---|
+| K1 | `0001-dts-mdss-panel-s6e8fc0.patch` | Enable MDSS/DSI + panel S6E8FC0 en DTS de placa, con compatible CORREGIDO `s6e8fc0` + `&dispcc` status okay | port de mainline `493cb869874c` (typo `s6e8fco` corregido) + `&dispcc` de sm61x5 7.0-develop | downstream (fix local del typo upstream) |
+| K2 | `0002-dtsi-gpu-adreno610.patch` | Nodos GPU en `sm6125.dtsi`: `gpu@5900000`, `gmu_wrapper@596a000`, `gpucc@5990000`, `adreno_smmu@59a0000` (1-cell, `RPMPD_VDDCX`) | sm61x5-mainline barni2000/7.0-develop (c41e0655) | downstream-only |
+| K3 | `0003-dts-enable-gpu.patch` | Enable GPU + zap-shader `qcom/sm6125/xiaomi/laurel/a610_zap.mbn` en DTS de placa | sm61x5-mainline barni2000/7.0-develop | downstream-only (GPU fase 2) |
+
+Los tres parches aplican limpios en secuencia sobre v7.1 (verificado con
+`git apply --check` en árbol de prueba).
+
+Nota K3: el firmware `a610_zap.mbn` aún no está empaquetado (fase de
+firmware). Sin zap, la GPU no arranca con aceleración pero el sistema sigue
+booting con llvmpipe.
 
 ## Convención de estado
 
@@ -24,6 +42,13 @@ No están en sm61x5-mainline master (7a52441d) pero SÍ en la rama
 reciente, P1/P2/P4 no requieren parches externos. Ver
 `docs/PANEL-PATCH-HISTORY.md` y `docs/TOUCHSCREEN-PATCH-HISTORY.md`.
 
+Hallazgo M1b (2026-08-03): existe la rama `barni2000/7.0-develop` (base
+**7.0.8 estable**) con TODO el soporte laurel (panel `s6e8fc0`, GPU,
+FT3518, `sm61x5_defconfig`). Es el análogo exacto del patrón pmaports
+`linux-postmarketos-qcom-sm6350` (fork mainline a 7.0.8). Se usa como
+**fuente autoritativa de parches**; no como base de build por sus commits
+`fixup!`/`HACK`. Ver `docs/DTS-AUDIT.md`.
+
 ## Proceso (obligatorio)
 
 1. Verificar si el parche ya está en la base (git log).
@@ -36,6 +61,7 @@ reciente, P1/P2/P4 no requieren parches externos. Ver
 ## Notas
 
 - Con una base mainline reciente (v7.0+), los parches de panel/táctil ya
-  están dentro y solo quedarán los downstream de sm61x5-mainline.
-- Al cerrarse la issue #1 de sm61x5-mainline (release), se reevaluará si
-  conviene cambiar de base.
+  están dentro y solo quedan los downstream (K1-K3).
+- Si el proyecto sm61x5-mainline publica una release estable (issue #1), se
+  reevaluará si conviene cambiar la base a su fork (como pmaports hace con
+  sm6350-mainline).
