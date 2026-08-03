@@ -1,44 +1,74 @@
 {
-  "generated_at": "2026-08-02",
+  "generated_at": "2026-08-03",
+  "decision": {
+    "base": "linux-mainline-v7.1",
+    "kernel_version": "7.1",
+    "tag": "v7.1",
+    "commit": "b3f94b2b3f3e51ab880a51fc6510e1dafba654ed",
+    "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git",
+    "status": "decided",
+    "decision_doc": "docs/DECISIONS/0002-kernel-base.md",
+    "reason": "Panel S6E8FC0 (v7.1) y FT3518 (v7.0) ya aceptados upstream; MDSS resets en v7.1; estable y reproducible; mínimos parches downstream."
+  },
   "last_run": {
-    "workflow": "01-research-upstream",
-    "run_id": "30775362988",
-    "commit": "f9e3513dd8c95600b7190aea933086d620ad62d6",
+    "workflow": "investigacion-m1-local",
     "date": "2026-08-03",
-    "evidence": "sm61x5-mainline master 7a52441d: sin tag, sin rama sm61x5/6.19.5, sin sm61x5_defconfig"
+    "evidence": "mainline v7.1 = tag b3f94b2b (driver panel 49837b6babe7); DTS panel 493cb869874c NO en v7.1 (en v7.2/master con typo s6e8fco); GPU node sm6125 no en mainline (downstream en sm61x5 dev 92aacc57f7)"
   },
   "candidates": [
     {
       "id": "A",
-      "base": "mainline-estable-6.19.x",
-      "source_url": "https://www.kernel.org/",
-      "status": "evaluating",
-      "notes": "Parches display/GPU recientes. Se evaluará contra pmaports linux-postmarketos-qcom-sm6125."
+      "base": "linux-mainline-v7.1",
+      "tag": "v7.1",
+      "commit": "b3f94b2b3f3e51ab880a51fc6510e1dafba654ed",
+      "status": "selected",
+      "notes": "Panel+FT3518+MDSS resets incluidos. Necesita DTS GPU y DTS MDSS+panel (con typo corregido) como parches."
     },
     {
       "id": "B",
-      "base": "lts-6.12.x",
-      "source_url": "https://www.kernel.org/",
-      "status": "evaluating",
-      "notes": "Mantenimiento largo; posible backport manual de parches laurel."
+      "base": "linux-mainline-master-v7.2-rc6",
+      "tag": "v7.2-rc6",
+      "status": "rejected",
+      "notes": "DTS panel presente pero con typo s6e8fco (bug); no estable."
     },
     {
       "id": "C",
-      "base": "lts-6.6.x",
-      "source_url": "https://www.kernel.org/",
-      "status": "evaluating",
-      "notes": "Máxima estabilidad; backport mayor."
+      "base": "lts-6.12.x",
+      "status": "rejected",
+      "notes": "Backport manual de panel/touch/MDSS demasiado grande."
     },
     {
       "id": "D",
-      "base": "barni2000-6.19-develop",
-      "source_url": "https://codeberg.org/sm61x5-mainline/linux.git",
+      "base": "sm61x5-barni2000-6.19-develop",
       "branch": "barni2000/6.19-develop",
       "commit": "ae0eeba941898004657ab5335cabb4e342f7df49",
+      "status": "rejected-as-base",
+      "notes": "Fuente de parches; rama dev inestable, base 6.19."
+    },
+    {
+      "id": "E",
+      "base": "sm61x5-master",
+      "branch": "master",
+      "commit": "7a52441d10af679e27711b554411aa31a06aea67",
       "status": "rejected",
-      "notes": "Rama de desarrollo; no estable. Fuente de parches, no base."
+      "notes": "Sin panel/touch/GPU; sin sm61x5_defconfig."
     }
   ],
-  "decision_reference": "docs/DECISIONS/0002-kernel-branch-vs-lts.md",
+  "downstream_patches_required": [
+    {
+      "id": "DTS-MDSS-PANEL",
+      "title": "sm6125-xiaomi-laurel-sprout: Enable MDSS and add panel",
+      "upstream_commit": "493cb869874c",
+      "note": "Portar con compatible s6e8fc0 corregido (el commit upstream tiene typo s6e8fco)",
+      "source": "sm61x5-dev / lore panel-patches v5+"
+    },
+    {
+      "id": "DTS-GPU",
+      "title": "sm6125.dtsi gpu@5900000 + Enable GPU en laurel",
+      "upstream_commit": null,
+      "note": "Downstream-only; requiere a610_zap.mbn firmware",
+      "source": "sm61x5-dev commit 92aacc57f7"
+    }
+  ],
   "verification_reference": "docs/KERNEL-BASE-COMPARISON.md"
 }

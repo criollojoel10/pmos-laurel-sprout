@@ -24,16 +24,16 @@
     {
       "id": "H3",
       "claim": "existe sm61x5_defconfig",
-      "status": "needs-reverification",
-      "source": "sm61x5-mainline arch/arm64/configs (master y ramas dev)",
-      "notes": "NO existe en master (7a52441d) pero SÍ existe en la rama barni2000/6.19-develop (commit 727f79bb9ca0, 2026-03-30, 'arm64: add sm61x5_defconfig'). Pendiente de evaluar su contenido y vigencia."
+      "status": "confirmed",
+      "source": "investigación M1 (2026-08-03): ls-remote + API Codeberg",
+      "notes": "sm61x5_defconfig NO existe en sm61x5-mainline master (7a52441d) pero SÍ en barni2000/6.19-develop (727f79bb9ca0). Base elegida: mainline v7.1, que tampoco lo tiene; se usan fragments propios."
     },
     {
       "id": "H4",
       "claim": "laurel_sprout soportado en mainline (DTS + panel + táctil)",
-      "status": "needs-reverification",
-      "source": "sm61x5-mainline master 7a52441d + torvalds/linux mainline (investigación M1, 2026-08-03)",
-      "notes": "NO en sm61x5-mainline master (7a52441d), pero SÍ en Linux mainline: panel en v7.1 (49837b6babe7), táctil en v7.0 (5383e76483dc), DTS MDSS en v7.1 (493cb869874c). También presentes en barni2000/6.19-develop (backports). Pendiente de decidir la base del kernel."
+      "status": "confirmed",
+      "source": "Linux mainline v7.0/v7.1 (investigación M1, 2026-08-03)",
+      "notes": "Soporte completo en mainline: FT3518 en v7.0 (5383e76483dc), panel S6E8FC0 en v7.1 (49837b6babe7), MDSS resets en v7.1. DTS Enable MDSS+panel en v7.2/master con typo s6e8fco. No en sm61x5 master."
     },
     {
       "id": "H5",

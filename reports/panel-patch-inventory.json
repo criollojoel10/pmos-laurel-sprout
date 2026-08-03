@@ -96,11 +96,12 @@
       "title": "arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Enable MDSS and add panel",
       "tree": "mainline",
       "status": "accepted",
-      "mainline_version": "v7.1"
+      "mainline_version": "v7.2/master",
+      "bug": "El DTS mergeado usa compatible 'samsung,s6e8fco-m1906f9' (typo letra O), que NO coincide con el driver ('s6e8fc0', cero). Se aplicó desde la v4 del patchset (20260314) que aún tenía el typo; la corrección fue en v5 (2026-03-17). NO está en v7.1 (confirmado por compare v7.1...493cb869874c: ahead 1). Requiere fix local o esperar fix upstream."
     }
   ],
-  "classification": "accepted-not-present",
-  "classification_notes": "El panel ya está en Linux mainline (v7.1+). NO está en sm61x5-mainline master (7a52441d) pero SÍ está en la rama barni2000/6.19-develop de sm61x5-mainline y en SzczurekYT/linux rama laurel.",
+  "classification": "accepted-not-present-in-base",
+  "classification_notes": "El panel está en Linux mainline v7.1 (driver 49837b6babe7) y el DTS Enable MDSS+panel en v7.2/master (493cb869874c) PERO con typo s6e8fco. NO está en sm61x5-mainline master (7a52441d); SÍ en la rama barni2000/6.19-develop con el compatible correcto s6e8fc0. Para la base elegida (mainline v7.1) hay que portar el DTS enable con el compatible corregido.",
   "dependencies": [
     "arm64: dts: qcom: sm6125: Add missing MDSS core reset",
     "arm64: dts: qcom: sm6115: Add missing MDSS core reset",
