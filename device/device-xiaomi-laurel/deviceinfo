@@ -1,0 +1,45 @@
+# deviceinfo preliminar para Xiaomi Mi A3 (laurel_sprout)
+#
+# PRELIMINAR — basado en el port archivado de pmaports (MR 3105) y en la
+# metadata real del dispositivo (device-metadata/fastboot-sanitized.json).
+# Se revisa contra pmaports main en el workflow de investigación antes de
+# marcar cualquier estado como funcional.
+
+deviceinfo_format_version="0"
+deviceinfo_manufacturer="Xiaomi"
+deviceinfo_name="Mi A3"
+deviceinfo_codename="xiaomi-laurel"
+deviceinfo_year="2019"
+
+deviceinfo_arch="aarch64"
+deviceinfo_chassis="handset"
+deviceinfo_keyboard="false"
+
+# SoC / plataforma
+deviceinfo_soc="Qualcomm SM6125 (trinket)"
+deviceinfo_cpu="ARM Cortex-A75 (2) + A55 (6)"
+
+# Flash / boot (A/B)
+deviceinfo_flash_method="fastboot"
+deviceinfo_has_boot_b_partition="true"
+deviceinfo_has_system_b_partition="false"
+deviceinfo_bootimg_recovery_support="true"
+
+# Tamaños reales obtenidos del dispositivo (2026-08-02, slot a):
+#   boot:   0x4000000 (64 MiB)
+#   dtbo:   0x1800000 (24 MiB)   [no se modifica]
+#   vbmeta: 0x10000  (64 KiB)    [no se modifica]
+deviceinfo_boot_partition_start="0"
+deviceinfo_boot_partition_size="0x4000000"
+
+# Kernel mainline (DTB con guiones, no guion bajo)
+deviceinfo_kernel="qcom-sm6125"
+deviceinfo_kernel_cmdline="console=ttyMSM0,115200n8"
+
+# Display
+deviceinfo_screen_width="1560"
+deviceinfo_screen_height="720"
+deviceinfo_display_panel_type="samsung,s6e8fc0-m1906f9"
+
+# Touchscreen
+deviceinfo_touchscreen="focaltech,fts3518"

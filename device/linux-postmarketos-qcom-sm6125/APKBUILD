@@ -1,0 +1,64 @@
+# APKBUILD preliminar para el kernel mainline de SM6125 (trinket).
+#
+# PRELIMINAR — requiere ajuste tras la auditoría del commit fijado
+# (sources.lock.json, sm61x5-mainline master 7a52441d...). Este archivo no
+# es el APKBUILD de pmaports; es una plantilla de este repositorio.
+#
+# Referencias de pmaports (verificar en CI):
+#   - linux-postmarketos-qcom-sm6125 (si existe en main)
+#   - deviceinfo del port archivado xiaomi-laurel (MR 3105)
+
+pkgname=linux-postmarketos-qcom-sm6125
+pkgver=6.19
+pkgrel=0
+pkgdesc="Kernel mainline para Qualcomm SM6125 (trinket) — Xiaomi Mi A3 laurel_sprout"
+arch="aarch64"
+url="https://codeberg.org/sm61x5-mainline/linux"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps"
+makedepends="bash bison bc flex openssl-dev perl python3 py3-setuptools dtc-dev libelf-dev elfutils-dev clang lld"
+depends="postmarketos-mkinitfs"
+
+# COMMIT_BASE debe coincidir con sources.lock.json (sm61x5-mainline).
+# Se fija en 02-freeze-sources.
+_commit="7a52441d10af679e27711b554411aa31a06aea67"
+_source="linux.git"
+source="$pkgname-$pkgver.tar.gz::$url/archive/${_commit}.tar.gz"
+builddir="$srcdir/linux"
+
+_kernelname="qcom-sm6125"
+_kerneldir="$pkgdir/usr/src/linux-headers-$_kernelname"
+_dtbs="qcom/sm6125-xiaomi-laurel-sprout.dtb"
+
+prepare() {
+    cd "$builddir"
+    # La configuración se construye con fragments de este repositorio sobre
+    # la base del SoC (los fragments se inyectan en el build script).
+    :
+}
+
+build() {
+    cd "$builddir"
+    make CC=clang LD=ld.lld LLVM=1 defconfig
+    # fragments de configs/kernel/laurel-*.fragment se aplican aquí por el
+    # build script (build-kernel.sh).
+    make CC=clang LD=ld.lld LLVM=1 olddefconfig
+    make CC=clang LD=ld.lld LLVM=1 -j$(nproc)
+}
+
+package() {
+    cd "$builddir"
+    install -Dm644 "arch/arm64/boot/Image" "$pkgdir/boot/vmlinuz-$_kernelname"
+    install -Dm644 "arch/arm64/boot/dts/$_dtbs" "$pkgdir/boot/dtbs/$_dtbs"
+    install -Dm644 System.map "$pkgdir/boot/System.map-$_kernelname"
+    install -Dm644 .config "$pkgdir/boot/config-$_kernelname"
+
+    # Módulos
+    make CC=clang LD=ld.lld LLVM=1 INSTALL_MOD_PATH="$pkgdir" modules_install
+
+    # Headers para dkms/compilación de módulos
+    mkdir -p "$_kerneldir"
+    make CC=clang LD=ld.lld LLVM=1 INSTALL_HDR_PATH="$_kerneldir" headers_install
+}
+
+sha512sums="PENDIENTE"
