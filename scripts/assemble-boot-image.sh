@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # assemble-boot-image.sh
 #
 # Ensambla un boot.img Android para laurel_sprout usando mkbootimg/avbtool
@@ -17,7 +19,6 @@
 #     [--header-version N] [--base 0x...] [--pagesize N] \
 #     [--cmdline "..."] [--os-version x.y] [--os-patch-level ...] \
 #     [--dtbo-address 0x...] [--ramdisk-offset 0x...] [--tags-offset 0x...]
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

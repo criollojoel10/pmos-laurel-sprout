@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # verify-dtb.sh
 #
 # Descompila un DTB (o extrae del árbol fuente) y verifica los nodos
@@ -17,7 +19,6 @@
 #   - UFS, USB, GPU, IOMMU, reserved-memory, remoteproc
 #
 # Genera un informe Markdown. No declara GPU funcional por existir nodo GPU.
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

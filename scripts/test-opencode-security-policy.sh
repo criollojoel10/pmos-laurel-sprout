@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # test-opencode-security-policy.sh
 #
 # Verifica POR ANÁLISIS ESTÁTICO que la política de permisos de opencode
@@ -11,7 +13,6 @@
 #
 # Uso: scripts/test-opencode-security-policy.sh
 # Salida: 0 = política correcta; 1 = política rota.
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

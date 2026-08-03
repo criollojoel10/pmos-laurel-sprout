@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # read-fastboot-metadata.sh
 #
 # Consulta SOLO variables Fastboot de solo lectura sobre el Xiaomi Mi A3
@@ -9,7 +11,6 @@
 # NUNCA ejecuta fastboot boot/flash/erase/format/set_active/reboot.
 #
 # Uso: scripts/read-fastboot-metadata.sh
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

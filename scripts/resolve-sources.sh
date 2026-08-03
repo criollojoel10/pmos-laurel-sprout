@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # resolve-sources.sh
 #
 # Genera sources.lock.proposed.json a partir de sources.lock.json validando:
@@ -9,7 +11,6 @@
 #   - los checksums declarados son SHA-256.
 #
 # Uso: scripts/resolve-sources.sh [-o SALIDA]
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

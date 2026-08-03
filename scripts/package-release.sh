@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # package-release.sh
 #
 # Reúne artefactos validados y genera la GitHub prerelease experimental.
@@ -8,7 +10,6 @@
 # Uso:
 #   scripts/package-release.sh \
 #     --work-dir <dir> --tag <tag> --title <título> --repo <org/repo>
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

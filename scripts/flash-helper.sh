@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # flash-helper.sh
 #
 # Ayudante de planificación de pruebas NO destructivas. NO ejecuta fastboot:
@@ -11,7 +13,6 @@
 #
 # Uso: scripts/flash-helper.sh --dry-run [--image boot.img]
 #      scripts/flash-helper.sh --verify-metadata
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

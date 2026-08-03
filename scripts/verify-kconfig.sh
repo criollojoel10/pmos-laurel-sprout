@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # verify-kconfig.sh
 #
 # Comprueba que cada símbolo obligatorio de un fragmento Kconfig existe en el
@@ -10,7 +12,6 @@
 # Uso:
 #   scripts/verify-kconfig.sh --config <ruta-config> --tree <ruta-árbol>
 #   [--fragments frag1.fragment [frag2.fragment ...]] [--fail-missing]
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

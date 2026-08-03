@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # research-upstream.sh
 #
 # Ejecuta la auditoría upstream dentro de GitHub Actions (01-research-upstream).
@@ -20,7 +22,6 @@
 #
 # No sube fuentes, no construye kernel, no modifica el repositorio.
 # Uso: scripts/research-upstream.sh [--tmp DIR] [--out DIR]
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

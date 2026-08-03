@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # verify-rootfs.sh
 #
 # Valida un rootfs de postmarketOS: integridad, fsck no destructivo,
@@ -8,7 +10,6 @@
 #
 # Uso:
 #   scripts/verify-rootfs.sh --rootfs <imagen.img> [--plasma] --out <dir>
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

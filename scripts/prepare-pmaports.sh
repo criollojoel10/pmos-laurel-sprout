@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # prepare-pmaports.sh
 #
 # Prepara pmaports para construir las imágenes dentro de GitHub Actions:
@@ -9,7 +11,6 @@
 #
 # Uso:
 #   scripts/prepare-pmaports.sh --pmaports <dir> --commit <sha> [--apply-device]
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

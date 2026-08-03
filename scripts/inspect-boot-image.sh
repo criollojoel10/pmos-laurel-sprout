@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # inspect-boot-image.sh
 #
 # Extrae y verifica un boot.img Android: kernel, ramdisk, DTB, cmdline y
@@ -13,7 +15,6 @@
 #     --dtb <dtb-original> \
 #     --boot-limit <bytes> \
 #     --out <dir>
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

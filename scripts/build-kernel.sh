@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # build-kernel.sh
 #
 # Construye el kernel SM6125 (debug o release) para laurel_sprout dentro de
@@ -13,7 +15,6 @@
 #     --variant debug|release \
 #     --fragments <fragmento1> [<fragmento2>...] \
 #     --out <directorio-salida>
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # audit-patches.sh
 #
 # Audita los parches del repositorio antes de aplicarlos:
@@ -8,7 +10,6 @@
 #   - registra origen y licencia en reports/patch-audit.md.
 #
 # Uso: scripts/audit-patches.sh [--update-report]
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

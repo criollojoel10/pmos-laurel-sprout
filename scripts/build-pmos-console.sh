@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # build-pmos-console.sh
 #
 # Construye la imagen de postmarketOS CONSOLA (recuperación) para
@@ -10,7 +12,6 @@
 #     --pmaports <dir> \
 #     --packages configs/pmos/console-packages.txt \
 #     --out <dir>
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

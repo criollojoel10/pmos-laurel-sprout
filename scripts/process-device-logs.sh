@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # process-device-logs.sh
 #
 # Analiza logs sanitizados del dispositivo (dmesg/journalctl) dentro del
@@ -10,7 +12,6 @@
 #   - proposed-hardware-matrix.json
 #
 # Uso: scripts/process-device-logs.sh <dir-logs> [<dir-salida>]
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

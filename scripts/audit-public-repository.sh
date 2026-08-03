@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # audit-public-repository.sh
 #
 # Audita el árbol del repositorio antes de cada push para rechazarlo si
@@ -8,7 +10,6 @@
 # Uso: scripts/audit-public-repository.sh
 # Salida: 0 = seguro para publicar; 1 = se encontró contenido bloqueado.
 #
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 

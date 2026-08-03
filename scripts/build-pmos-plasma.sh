@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # build-pmos-plasma.sh
 #
 # Construye la imagen de postmarketOS PLASMA MOBILE para laurel_sprout dentro
@@ -10,7 +12,6 @@
 #     --pmaports <dir> \
 #     --packages configs/pmos/plasma-packages.txt \
 #     --out <dir>
-# Licencia: GPL-3.0-or-later
 
 set -Eeuo pipefail
 
