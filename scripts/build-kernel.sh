@@ -18,8 +18,6 @@
 
 set -Eeuo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
 TREE=""
 VARIANT="debug"
 FRAGMENTS=()
@@ -52,15 +50,6 @@ cd "$TREE"
 NPROC="$(nproc)"
 info "CPUs: $NPROC"
 info "vamos a compilar con $(( NPROC > 0 ? NPROC : 1 )) hilos"
-
-# Aplicar parches downstream (DTS MDSS+panel, DTSI GPU, DTS enable GPU)
-info "aplicando parches downstream..."
-for p in "$REPO_ROOT"/patches/kernel/*.patch; do
-  [[ -f "$p" ]] || continue
-  git apply --check "$p" || { echo "ERROR: $p no aplica limpio" >&2; exit 1; }
-  git apply "$p"
-  info "aplicado: $(basename "$p")"
-done
 
 # Defconfig objetivo (según árbol sm61x5-mainline)
 DEFCONFIG="qcom_defconfig"
