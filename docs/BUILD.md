@@ -3,6 +3,24 @@
 Toda la construcción pesada corre en GitHub Actions con `workflow_dispatch`.
 Localmente solo se editan archivos y se consulta Fastboot en solo lectura.
 
+## Herramientas locales (Fedora)
+
+Instaladas con dnf (2026-08-02) para validación estática y operación:
+
+```
+sudo dnf install -y ripgrep ShellCheck python3-pip yamllint python3-jsonschema android-tools gh git jq
+```
+
+Uso local:
+
+- `shellcheck -x scripts/*.sh` — valida los scripts (obligatorio antes de push).
+- `yamllint` — valida los workflows YAML.
+- `jsonschema -i opencode.json <schema oficial>` — valida `opencode.json`.
+- `rg` — búsquedas rápidas en el árbol.
+- `fastboot` — SOLO lecturas de `getvar` permitidas (AGENTS.md sección 0).
+
+Ninguna herramienta local compila; el trabajo pesado es exclusivo de CI.
+
 ## Orden de ejecución
 
 1. **01-research-upstream** — auditoría de fuentes upstream.
