@@ -60,7 +60,7 @@ cat > "$OUT/hardware-test-report.md" <<EOF
 # Informe de prueba de hardware — laurel_sprout
 
 Generado: $TODAY
-Logs analizados: $(ls "$LOGS" | tr '\n' ' ')
+Logs analizados: $(find "$LOGS" -maxdepth 1 -type f | sort | tr '\n' ' ')
 
 | Componente | Detección en logs |
 |---|---|
@@ -94,10 +94,10 @@ cat > "$OUT/suggested-next-actions.md" <<EOF
 Generado: $TODAY
 
 - [ ] Revisar $OUT/hardware-test-report.md.
-- [ ] Si hay IOMMU fault: capturar `dmesg` completo y subir como artifact.
+- [ ] Si hay IOMMU fault: capturar 'dmesg' completo y subir como artifact.
 - [ ] Si el panel no se enlaza: verificar DTS/panel compatible en sm61x5.
-- [ ] Si falta firmware Adreno/WLAN/BT: comprobar `firmware-manifest.json`.
-- [ ] Actualizar `reports/hardware-matrix.json` con estados honestos.
+- [ ] Si falta firmware Adreno/WLAN/BT: comprobar 'firmware-manifest.json'.
+- [ ] Actualizar 'reports/hardware-matrix.json' con estados honestos.
 EOF
 
 # Matriz propuesta (solo propuesta; no modifica main)

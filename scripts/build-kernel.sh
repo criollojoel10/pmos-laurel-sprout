@@ -48,7 +48,7 @@ cd "$TREE"
 
 NPROC="$(nproc)"
 info "CPUs: $NPROC"
-info "vamos a compilar con $((${NPROC} > 0 ? ${NPROC} : 1)) hilos"
+info "vamos a compilar con $(( NPROC > 0 ? NPROC : 1 )) hilos"
 
 # Defconfig objetivo (según árbol sm61x5-mainline)
 DEFCONFIG="qcom_defconfig"

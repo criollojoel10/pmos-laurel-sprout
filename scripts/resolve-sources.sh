@@ -30,7 +30,8 @@ jq empty "$INPUT" || { echo "ERROR: JSON inválido en $INPUT" >&2; exit 1; }
 
 FAIL=0
 
-while IFS= read -r idx; do
+N_SOURCES="$(jq -r '.sources | length' "$INPUT")"
+for (( idx = 0; idx < N_SOURCES; idx++ )); do
   name="$(jq -r ".sources[$idx].name" "$INPUT")"
   url="$(jq -r ".sources[$idx].url" "$INPUT")"
   commit="$(jq -r ".sources[$idx].commit" "$INPUT")"
@@ -46,12 +47,10 @@ while IFS= read -r idx; do
   esac
 
   # URLs de descarga "latest" que cambian silenciosamente
-  case "$url" in
-    *"/latest"*|*"download/latest"*|*"/releases/latest"*)
-      info "BLOQUEADO: $name usa URL que cambia silenciosamente: $url"
-      FAIL=1
-      ;;
-  esac
+  if printf '%s' "$url" | grep -qE '(/latest|/download/latest|/releases/latest)(/|$)'; then
+    info "BLOQUEADO: $name usa URL que cambia silenciosamente: $url"
+    FAIL=1
+  fi
 
   # Checksum declarado debe ser SHA-256 (64 hex)
   if [[ -n "$checksum" ]] && ! printf '%s' "$checksum" | grep -qE '^[0-9a-f]{64}$'; then
@@ -68,7 +67,7 @@ while IFS= read -r idx; do
       info "OK: $name -> $commit verificado"
     fi
   fi
-done < <(jq -r '.sources | length' "$INPUT" | xargs -I{} seq 0 $(( {} - 1 )))
+done
 
 if (( FAIL != 0 )); then
   info "resolución fallida: hay fuentes sin commit fijado o con URL inestable"

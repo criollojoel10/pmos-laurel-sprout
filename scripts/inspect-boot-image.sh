@@ -78,10 +78,6 @@ if [[ "$TOOL" == "unbootimg" ]]; then
 fi
 
 # Comparación por hashes si se extrajeron
-EXT_KERNEL="$OUT/kernel"
-EXT_RAMDISK="$OUT/ramdisk"   # nombre variable según herramienta
-EXT_DTB="$OUT/dtb"
-
 for pair in "kernel:$KERNEL" "ramdisk:$RAMDISK" "dtb:$DTB"; do
   name="${pair%%:*}"
   orig="${pair#*:}"
@@ -103,10 +99,12 @@ for pair in "kernel:$KERNEL" "ramdisk:$RAMDISK" "dtb:$DTB"; do
   fi
 done
 
-echo "" >> "$OUT/boot-image-report.md"
-echo "## Verificación DTB dentro del boot" >> "$OUT/boot-image-report.md"
-echo "" >> "$OUT/boot-image-report.md"
-echo "Se valida el DTB extraído (o el original) con scripts/verify-dtb.sh." >> "$OUT/boot-image-report.md"
+{
+  echo ""
+  echo "## Verificación DTB dentro del boot"
+  echo ""
+  echo "Se valida el DTB extraído (o el original) con scripts/verify-dtb.sh."
+} >> "$OUT/boot-image-report.md"
 
 info "informe: $OUT/boot-image-report.md"
 exit 0

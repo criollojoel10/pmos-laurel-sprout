@@ -112,7 +112,7 @@ check() {
   echo ""
   echo "- La existencia del nodo GPU **no** implica GPU funcional."
   echo "- La existencia del nodo panel **no** implica pantalla funcional."
-  echo "- Ver `docs/HARDWARE-STATUS.md` para los criterios de `working`."
+  echo "- Ver docs/HARDWARE-STATUS.md para los criterios de 'working'."
 } >> "$REPORT"
 
 info "informe generado: $REPORT"
