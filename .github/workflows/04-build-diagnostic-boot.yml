@@ -44,16 +44,17 @@ jobs:
           sudo apt-get install -y -qq \
             device-tree-compiler cpio zstd xz-utils gzip file \
             python3 busybox-static android-sdk-libsparse-utils \
-            e2fsprogs
-          # mkbootimg/avbtool disponibles vía pip (seguro, sin root)
-          python3 -m pip install -q --user mkbootimg || true
+            android-tools-mkbootimg e2fsprogs
+          # mkbootimg/unpack_bootimg/avbtool provistos por android-tools-mkbootimg
       - name: Descargar artefactos del kernel (workflow 03)
         # actions/download-artifact@v4.3.0 (SHA fijo)
+        # Descarga de OTRO run: requiere github-token + run-id.
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: kernel-debug
           path: /tmp/kernel-artifact
-        continue-on-error: true
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.inputs.kernel_artifact_run_id }}
       - name: Verificar artefactos del kernel
         run: |
           set -Eeuo pipefail
