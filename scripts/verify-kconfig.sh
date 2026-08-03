@@ -15,6 +15,8 @@
 
 set -Eeuo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 CONFIG=""
 TREE=""
 FAIL_MISSING=0
@@ -47,6 +49,9 @@ DISABLED_SYMBOLS=()
 # Recolectar símbolos de los fragmentos
 SYMBOLS=()
 for frag in "${FRAGMENTS[@]:-}"; do
+  if [[ "$frag" != /* && -f "$REPO_ROOT/$frag" ]]; then
+    frag="$REPO_ROOT/$frag"
+  fi
   [[ -f "$frag" ]] || { echo "ERROR: fragmento no existe: $frag" >&2; exit 1; }
   while IFS= read -r line; do
     case "$line" in

@@ -18,6 +18,8 @@
 
 set -Eeuo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 TREE=""
 VARIANT="debug"
 FRAGMENTS=()
@@ -63,9 +65,13 @@ info "defconfig: $DEFCONFIG"
 
 make ARCH=arm64 "$DEFCONFIG" 2>&1 | tee "$OUT/kconfig-setup.log"
 
-# Aplicar fragmentos con merge_config de scripts/kconfig
+# Aplicar fragmentos con merge_config de scripts/kconfig.
+# Las rutas relativas se interpretan desde la raíz del repo.
 FRAG_OPTS=()
 for f in "${FRAGMENTS[@]:-}"; do
+  if [[ "$f" != /* && -f "$REPO_ROOT/$f" ]]; then
+    f="$REPO_ROOT/$f"
+  fi
   [[ -f "$f" ]] || { echo "ERROR: fragmento no existe: $f" >&2; exit 1; }
   FRAG_OPTS+=("$f")
 done
