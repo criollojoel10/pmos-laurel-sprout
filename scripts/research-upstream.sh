@@ -131,16 +131,26 @@ if fetch_shallow "https://gitlab.postmarketos.org/postmarketOS/pmaports.git" "$P
     fi
   done
 
-  # Firmware-qcom-adreno-a610 en pmaports
+  # Firmware-qcom-adreno-a610 en pmaports.
+  # No es un directorio independiente: es un subpackage generado desde el
+  # APKBUILD padre firmware-qcom-adreno (device/community/firmware-qcom-adreno).
+  # Buscar el APKBUILD padre y analizar subpackages declarados.
   FW_A610=""
-  FW_A610_DIR="$(find "$PM" -maxdepth 4 -type d -name 'firmware-qcom-adreno-a610' 2>/dev/null | head -n1 || true)"
-  if [[ -n "$FW_A610_DIR" ]]; then
-    FW_A610="localizado ($FW_A610_DIR)"
-    FW_A610_APKBUILD="$FW_A610_DIR/APKBUILD"
-    [[ -f "$FW_A610_APKBUILD" ]] && FW_A610="$(awk -F= '/^pkgver=/{print "pkgver=" $2}' "$FW_A610_APKBUILD" 2>/dev/null || true)"
-    info "firmware-qcom-adreno-a610: $FW_A610"
+  FW_A610_PKG="$(find "$PM" -path '*firmware-qcom-adreno/APKBUILD' -type f 2>/dev/null | head -n1 || true)"
+  if [[ -n "$FW_A610_PKG" ]]; then
+    FW_A610_VER="$(awk -F= '/^pkgver=/{gsub(/"/,"",$2); print $2; exit}' "$FW_A610_PKG" 2>/dev/null || true)"
+    FW_A610_ARCH="$(awk -F= '/^arch=/{gsub(/"/,"",$2); print $2; exit}' "$FW_A610_PKG" 2>/dev/null || true)"
+    FW_A610_NAME="$(awk -F= '/^pkgname=/{gsub(/"/,"",$2); print $2; exit}' "$FW_A610_PKG" 2>/dev/null || true)"
+    FW_A610_SUBPKGS="$(awk '/^subpackages=/,/^"/' "$FW_A610_PKG" 2>/dev/null | tr -d '"' | tr '\t' ' ' | tr -s ' ' | sed "s/\$pkgname/${FW_A610_NAME:-firmware-qcom-adreno}/g" | grep -o 'firmware-qcom-adreno-a610[^ ]*' | head -n1 || true)"
+    if [[ -n "$FW_A610_SUBPKGS" ]]; then
+      FW_A610="subpackage generado: pkgver=$FW_A610_VER arch=$FW_A610_ARCH (padre: $FW_A610_PKG)"
+      info "firmware-qcom-adreno-a610: $FW_A610"
+    else
+      FW_A610="APKBUILD padre localizado pero sin subpackage a610 ($FW_A610_PKG)"
+    fi
   else
-    FW_A610="no localizado en main"
+    FW_A610="APKBUILD padre firmware-qcom-adreno no localizado en main"
+    info "$FW_A610"
   fi
 else
   info "AVISO: no se pudo descargar pmaports"
@@ -243,6 +253,7 @@ cat > "$OUT_DIR/source-candidates.json" <<EOF
         "firmware_dir": $(jq -n --arg v "${FW_DIR:-}" '$v')
       },
       "firmware_qcom_adreno_a610": $(jq -n --arg v "${FW_A610:-}" '$v'),
+      "firmware_qcom_adreno_a610_pkgpath": $(jq -n --arg v "${FW_A610_PKG:-}" '$v'),
       "reference_devices": $REF_DEVICES,
       "reference_keys_found": $REF_KEYS
     },
@@ -359,7 +370,13 @@ info "generando firmware-audit.md..."
   echo ""
   echo "Componentes de radio/vendedor necesarios para laurel_sprout:"
   echo ""
-  echo "- GPU: firmware-qcom-adreno-a610 (paquete pmaports: $FW_A610)"
+  echo "- GPU: firmware-qcom-adreno-a610 -> $FW_A610"
+  echo "  - Subpackage generado desde el APKBUILD padre firmware-qcom-adreno"
+  echo "    (device/community/firmware-qcom-adreno/APKBUILD)."
+  echo "  - El subpackage a610 es un metapaquete vacío (instala solo el"
+  echo "    directorio /usr/lib/firmware/qcom/) y depende de"
+  echo "    firmware-qcom-adreno-a630-sqe."
+  echo "  - a630-sqe instala qcom/a630_sqe.fw (el A610 no tiene GMU propio)."
   echo "- WLAN/BT: WCN3990 (qca6390 / qcom/wcn3990*)"
   echo "- Modem: mba.mbn + qdsp6.mbn (SM6125/trinket)"
   echo "- ADSP/CDSP: adsp.mbn, cdsp.mbn"
