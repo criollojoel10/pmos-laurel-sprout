@@ -7,44 +7,44 @@
   },
   "components": {
     "display": {
-      "status": "not-targeted",
-      "notes": "kernel aún no construido ni probado"
+      "status": "compiled",
+      "notes": "DTS MDSS+DSI+PHY habilitado y panel samsung,s6e8fc0-m1906f9 en DTB compilado (v7.1 + parche 0001). Sin boot aún."
     },
     "gpu": {
       "status": "source-available",
-      "notes": "firmware confirmado 2026-08-03: firmware-qcom-adreno-a610 (subpackage) + a630_sqe.fw; kernel aún no construido ni probado"
+      "notes": "firmware confirmado 2026-08-03: firmware-qcom-adreno-a610 (subpackage) + a630_sqe.fw; nodos GPU (gpu@5900000, gmu_wrapper, gpucc, adreno_smmu) añadidos al DTSI/DTS (parches 0002/0003). DTB compilado; sin boot ni validación en hardware."
     },
     "touchscreen": {
-      "status": "not-targeted",
-      "notes": "kernel aún no construido ni probado"
+      "status": "compiled",
+      "notes": "driver edt-ft5x06 (FT3518) en fragmento base; DTS touch habilitado en parche 0001. Sin boot aún."
     },
     "wifi": {
-      "status": "not-targeted",
-      "notes": "hardware por identificar"
+      "status": "source-available",
+      "notes": "ATH10K_SNOC (WCN3990) y WCN36XX en fragmento base; hardware por confirmar en boot"
     },
     "bluetooth": {
-      "status": "not-targeted",
-      "notes": "hardware por identificar"
+      "status": "source-available",
+      "notes": "BT_QCOMSMD en fragmento base; hardware por confirmar en boot"
     },
     "ufs": {
-      "status": "not-targeted",
-      "notes": ""
+      "status": "configured",
+      "notes": "SCSI_UFSHCD_PLATFORM + SCSI_UFS_QCOM en fragmento base (símbolos v7.1)"
     },
     "usb": {
-      "status": "not-targeted",
-      "notes": ""
+      "status": "configured",
+      "notes": "DWC3 + configfs en fragmento base (símbolos v7.1)"
     },
     "battery": {
       "status": "not-targeted",
-      "notes": ""
+      "notes": "PMI632 sin driver dedicado en mainline v7.1 (QCOM_BATT_METER/SPMI_SCHG son de fork)"
     },
     "thermal": {
-      "status": "not-targeted",
-      "notes": ""
+      "status": "configured",
+      "notes": "QCOM_TSENS + QCOM_SPMI_TEMP_ALARM en fragmento base"
     },
     "cpufreq": {
-      "status": "not-targeted",
-      "notes": ""
+      "status": "configured",
+      "notes": "ARM_QCOM_CPUFREQ_HW + CPUFREQ_DT en fragmento base"
     },
     "audio": {
       "status": "not-targeted",

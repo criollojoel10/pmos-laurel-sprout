@@ -9,21 +9,29 @@ Estado honesto de cada componente. Los estados permitidos son únicamente:
 La referencia canónica es `reports/hardware-matrix.json`. Este documento la
 resume y explica los criterios.
 
-## Estado actual (inicial)
+## Estado actual (2026-08-03)
 
 | Componente | Estado | Notas |
 |---|---|---|
-| Pantalla / DRM-KMS | `not-targeted` | Sin kernel ni prueba física aún. |
-| GPU Adreno 610 | `source-available` | Firmware confirmado: `firmware-qcom-adreno-a610` (subpackage) + `a630_sqe.fw` (2026-08-03). Sin kernel ni prueba física. |
-| Táctil FT3518 | `not-targeted` | Sin prueba física aún. |
-| Wi-Fi | `not-targeted` | Por determinar modelo/bus/firmware. |
-| Bluetooth | `not-targeted` | Por determinar modelo/bus/firmware. |
-| UFS | `not-targeted` | Sin prueba física aún. |
-| USB gadget | `not-targeted` | Sin prueba física aún. |
-| Batería / térmicas / CPUfreq | `not-targeted` | Sin prueba física aún. |
+| Pantalla / DRM-KMS | `compiled` | DTS MDSS+DSI+PHY habilitado y panel `samsung,s6e8fc0-m1906f9` incluidos en DTB compilado (mainline v7.1 + parche 0001). Sin boot aún. |
+| GPU Adreno 610 | `source-available` | Firmware confirmado: `firmware-qcom-adreno-a610` (subpackage) + `a630_sqe.fw` (2026-08-03). Nodos GPU (gpu@5900000, gmu_wrapper, gpucc, adreno_smmu) añadidos al DTSI/DTS (parches 0002/0003); DTB compilado. Sin boot. |
+| Táctil FT3518 | `compiled` | Driver `edt-ft5x06` (FT3518) en fragmento base; DTS touch habilitado (parche 0001). Sin boot. |
+| Wi-Fi | `source-available` | `ATH10K_SNOC` (WCN3990) y `WCN36XX` en fragmento base; modelo real por confirmar en boot. |
+| Bluetooth | `source-available` | `BT_QCOMSMD` en fragmento base; por confirmar en boot. |
+| UFS | `configured` | `SCSI_UFSHCD_PLATFORM` + `SCSI_UFS_QCOM` (símbolos v7.1). |
+| USB gadget | `configured` | DWC3 + configfs (símbolos v7.1). |
+| Batería | `not-targeted` | PMI632 sin driver dedicado en mainline v7.1 (`QCOM_BATT_METER`/`QCOM_SPMI_SCHG` son de fork sm61x5). |
+| Térmicas | `configured` | `QCOM_TSENS` + `QCOM_SPMI_TEMP_ALARM`. |
+| CPUfreq | `configured` | `ARM_QCOM_CPUFREQ_HW` + `CPUFREQ_DT`. |
 | Audio | `not-targeted` | Prioridad secundaria. |
 | Módem | `not-targeted` | Prioridad secundaria. |
 | Cámara | `not-targeted` | Prioridad secundaria. |
+
+Nota: el kernel debug compiló con éxito en CI (workflow 03, run 30786551830)
+sobre mainline v7.1 + parches downstream; `sm6125-xiaomi-laurel-sprout.dtb`
+generado (37KB) y verificado con `scripts/verify-dtb.sh`. El estado `compiled`
+se refiere a que el driver/nodo está integrado y compilado, NO a que funcione
+en hardware.
 
 ## Criterios de `working`
 
