@@ -44,8 +44,9 @@ jobs:
           sudo apt-get install -y -qq \
             device-tree-compiler cpio zstd xz-utils gzip file \
             python3 busybox-static android-sdk-libsparse-utils \
-            android-tools-mkbootimg e2fsprogs
-          # mkbootimg/unpack_bootimg/avbtool provistos por android-tools-mkbootimg
+            mkbootimg e2fsprogs
+          # mkbootimg/unpack_bootimg provistos por el paquete 'mkbootimg' (universe)
+          command -v mkbootimg && command -v unpack_bootimg
       - name: Descargar artefactos del kernel (workflow 03)
         # actions/download-artifact@v4.3.0 (SHA fijo)
         # Descarga de OTRO run: requiere github-token + run-id.
