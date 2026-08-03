@@ -1,0 +1,243 @@
+name: 02-m1-reference-audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m1-reference-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Auditoría de referencia M1 (laurel_sprout)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Herramientas y variables
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git python3-pip jq curl xz-utils zstd
+          mkdir -p /tmp/m1/{trees,out}
+          # Árboles y commits fijados (ver docs/KERNEL-BASE-COMPARISON.md)
+          echo "MAINLINE_COMMIT=075b74841bd0065a3bda3440873c747938e69b68" >> "$GITHUB_ENV"
+          echo "SM61X5_MASTER=7a52441d10af679e27711b554411aa31a06aea67" >> "$GITHUB_ENV"
+          echo "SM61X5_DEV=ae0eeba941898004657ab5335cabb4e342f7df49" >> "$GITHUB_ENV"
+          echo "V71=b3f94b2b3f3e51ab880a51fc6510e1dafba654ed" >> "$GITHUB_ENV"
+          echo "OUT=/tmp/m1/out" >> "$GITHUB_ENV"
+          echo "TREES=/tmp/m1/trees" >> "$GITHUB_ENV"
+      - name: Clonar árboles (shallow, commits fijados)
+        run: |
+          set -Eeuo pipefail
+          # Linux mainline (torvalds)
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/torvalds/linux.git "$TREES/mainline" 2>&1 | tail -1
+          git -C "$TREES/mainline" fetch origin "$MAINLINE_COMMIT" --depth=1 2>&1 | tail -1
+          git -C "$TREES/mainline" checkout -q "$MAINLINE_COMMIT"
+          # sm61x5-mainline master y rama dev (Codeberg, sin token)
+          git clone --filter=blob:none --no-checkout \
+            https://codeberg.org/sm61x5-mainline/linux.git "$TREES/sm61x5" 2>&1 | tail -1
+          git -C "$TREES/sm61x5" fetch origin "$SM61X5_MASTER" --depth=1 2>&1 | tail -1
+          git -C "$TREES/sm61x5" checkout -q -b master-audit "$SM61X5_MASTER"
+          git -C "$TREES/sm61x5" fetch origin "$SM61X5_DEV" --depth=1 2>&1 | tail -1
+          git -C "$TREES/sm61x5" checkout -q -b dev-audit "$SM61X5_DEV"
+          echo "OK: árboles clonados"
+          git -C "$TREES/mainline" rev-parse --short HEAD
+          git -C "$TREES/sm61x5" rev-parse --short master-audit dev-audit
+      - name: Auditar panel y táctil (mainline vs sm61x5)
+        run: |
+          set -Eeuo pipefail
+          {
+            echo "# Auditoría de referencia M1 — laurel_sprout"
+            echo
+            echo "Fecha: $(date -u +%Y-%m-%d)"
+            echo "Runner: $RUNNER_ARCH / $RUNNER_OS"
+            echo
+            echo "## Árboles auditados"
+            echo "- mainline (torvalds) HEAD: \`$MAINLINE_COMMIT\` (v7.2-rc6)"
+            echo "- sm61x5 master: \`$SM61X5_MASTER\`"
+            echo "- sm61x5 dev (barni2000/6.19-develop): \`$SM61X5_DEV\`"
+            echo
+            echo "## Panel S6E8FC0/M1906F9"
+            echo "| Árbol | Driver | DTS enable | Compatible |"
+            echo "|---|---|---|---|"
+          } > "$OUT/m1-reference-audit.md"
+          for tree in mainline sm61x5; do
+            if [ "$tree" = sm61x5 ]; then branch=master-audit; else branch=master; fi
+            d="$TREES/$tree"
+            drv=$(git -C "$d" cat-file -e "$branch:drivers/gpu/drm/panel/panel-samsung-s6e8fc0-m1906f9.c" 2>/dev/null && echo "sí" || echo "no")
+            dts=$(grep -l 's6e8fc\|s6e8fco' "$d/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts" 2>/dev/null && echo "sí" || echo "no")
+            # compatible exacto
+            comp=$(git -C "$d" show "$branch:arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts" 2>/dev/null | grep -oE 's6e8fc[o0]-m1906f9' | head -1 || true)
+            echo "| $tree ($branch) | $drv | $dts | ${comp:-—} |" >> "$OUT/m1-reference-audit.md"
+          done
+          # sm61x5 dev
+          d="$TREES/sm61x5"; branch=dev-audit
+          drv=$(git -C "$d" cat-file -e "$branch:drivers/gpu/drm/panel/panel-samsung-s6e8fc0-m1906f9.c" 2>/dev/null && echo "sí" || echo "no")
+          comp=$(git -C "$d" show "$branch:arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts" 2>/dev/null | grep -oE 's6e8fc[o0]-m1906f9' | head -1 || true)
+          echo "| sm61x5 (dev-audit) | $drv | sí | ${comp:-—} |" >> "$OUT/m1-reference-audit.md"
+          {
+            echo
+            echo "## Táctil FT3518 (edt-ft5x06)"
+            echo "| Árbol | Driver edt-ft5x06 | ft3518 en driver | DTS node |"
+            echo "|---|---|---|---|"
+          } >> "$OUT/m1-reference-audit.md"
+          for tree in mainline sm61x5; do
+            if [ "$tree" = sm61x5 ]; then branch=master-audit; else branch=master; fi
+            d="$TREES/$tree"
+            edt=$(git -C "$d" cat-file -e "$branch:drivers/input/touchscreen/edt-ft5x06.c" 2>/dev/null && echo "sí" || echo "no")
+            ft=$(git -C "$d" show "$branch:drivers/input/touchscreen/edt-ft5x06.c" 2>/dev/null | grep -c 'ft3518' || true)
+            dts=$(git -C "$d" show "$branch:arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts" 2>/dev/null | grep -c 'ft3518' || true)
+            echo "| $tree ($branch) | $edt | $ft | $dts |" >> "$OUT/m1-reference-audit.md"
+          done
+          d="$TREES/sm61x5"; branch=dev-audit
+          edt=$(git -C "$d" cat-file -e "$branch:drivers/input/touchscreen/edt-ft5x06.c" 2>/dev/null && echo "sí" || echo "no")
+          ft=$(git -C "$d" show "$branch:drivers/input/touchscreen/edt-ft5x06.c" 2>/dev/null | grep -c 'ft3518' || true)
+          dts=$(git -C "$d" show "$branch:arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts" 2>/dev/null | grep -c 'ft3518' || true)
+          echo "| sm61x5 (dev-audit) | $edt | $ft | $dts |" >> "$OUT/m1-reference-audit.md"
+      - name: Auditar GPU y firmware A610
+        run: |
+          set -Eeuo pipefail
+          d="$TREES/sm61x5"
+          echo "=== GPU node en sm6125.dtsi (dev) ==="
+          git -C "$d" show "dev-audit:arch/arm64/boot/dts/qcom/sm6125.dtsi" 2>/dev/null | grep -nE 'gpu@|qcom,adreno-610|zap-shader|firmware-name' | head -6
+          echo "=== GPU node en mainline ==="
+          git -C "$TREES/mainline" show "master:arch/arm64/boot/dts/qcom/sm6125.dtsi" 2>/dev/null | grep -cE 'gpu@|adreno' || echo "0"
+          echo "=== a610_zap firmware referencia en DTS laurel dev ==="
+          git -C "$d" show "dev-audit:arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts" 2>/dev/null | grep -nE 'a610_zap|zap-shader|firmware-name' | head
+          {
+            echo
+            echo "## GPU (adreno-610)"
+            echo "- Nodo gpu@5900000 en sm6125.dtsi mainline: $(git -C "$TREES/mainline" show master:arch/arm64/boot/dts/qcom/sm6125.dtsi 2>/dev/null | grep -cE 'gpu@|adreno' || echo 0)"
+            echo "- Nodo gpu@5900000 en sm61x5 dev: $(git -C "$d" show dev-audit:arch/arm64/boot/dts/qcom/sm6125.dtsi 2>/dev/null | grep -cE 'gpu@5900000' || echo 0)"
+            echo "- Driver msm/adreno soporta a610 en mainline: $(git -C "$TREES/mainline" show master:drivers/gpu/drm/msm/adreno/a6xx_gpu.c 2>/dev/null | grep -c 'adreno_is_a610' || echo 0)"
+            echo
+            echo "## Firmware A610"
+            echo "- Firmware requerido: \`qcom/sm6125/xiaomi/laurel/a610_zap.mbn\` (zap-shader)"
+            echo "- Paquete pmaports: \`firmware-qcom-adreno-a610\` (subpackage, metapaquete) + \`-a630-sqe\` con \`qcom/a630_sqe.fw\`"
+            echo "- H5: confirmado — A610 no tiene GMU; usa a630_sqe.fw"
+          } >> "$OUT/m1-reference-audit.md"
+      - name: Inventario de parches (JSON)
+        run: |
+          set -Eeuo pipefail
+          d="$TREES/sm61x5"
+          # lista de commits relevantes en dev (mensajes)
+          git -C "$d" log --oneline --no-decorate master-audit..dev-audit 2>/dev/null | grep -iE 'panel|s6e8|ft3518|touch|mdss|gpu|laurel' | head -40 > "$OUT/dev-relevant-commits.txt" || true
+          python3 - <<'PY'
+          import json, subprocess, os
+          trees="/tmp/m1/trees"; out="/tmp/m1/out"
+          def sh(c): return subprocess.run(c, shell=True, capture_output=True, text=True).stdout.strip()
+          main = {"tree":"mainline-master-v7.2rc6","commit":os.environ["MAINLINE_COMMIT"],
+                  "panel_driver": sh(f"git -C {trees}/mainline cat-file -e master:drivers/gpu/drm/panel/panel-samsung-s6e8fc0-m1906f9.c 2>/dev/null && echo present || echo absent"),
+                  "panel_compatible_dts": sh(f"git -C {trees}/mainline show master:arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts 2>/dev/null | grep -oE 's6e8fc[o0]-m1906f9' | head -1")}
+          dev = {"tree":"sm61x5-dev-6.19-develop","commit":os.environ["SM61X5_DEV"],
+                 "panel_driver": sh(f"git -C {trees}/sm61x5 cat-file -e dev-audit:drivers/gpu/drm/panel/panel-samsung-s6e8fc0-m1906f9.c 2>/dev/null && echo present || echo absent"),
+                 "panel_compatible_dts": sh(f"git -C {trees}/sm61x5 show dev-audit:arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts 2>/dev/null | grep -oE 's6e8fc[o0]-m1906f9' | head -1"),
+                 "defconfig": sh(f"git -C {trees}/sm61x5 cat-file -e dev-audit:arch/arm64/configs/sm61x5_defconfig 2>/dev/null && echo present || echo absent"),
+                 "gpu_node": sh(f"git -C {trees}/sm61x5 show dev-audit:arch/arm64/boot/dts/qcom/sm6125.dtsi 2>/dev/null | grep -c 'gpu@5900000' || true")}
+          m = {"generated_at": "2026-08-03",
+               "kernel_base_decision": "mainline-v7.1",
+               "mainline": main, "sm61x5_dev": dev,
+               "device_reference_matrix": [
+                 {"device":"Xiaomi Mi A3 (laurel_sprout)","soc":"SM6125 (trinket)","gpu":"Adreno 610","panel":"S6E8FC0/M1906F9","touch":"FT3518","base":"mainline v7.1"},
+                 {"device":"Xiaomi Redmi 8 (olive)","soc":"SM6115","gpu":"Adreno 610","panel":"?","touch":"?","base":"sm61x5"},
+                 {"device":"Xiaomi Redmi 9 (lancelot)","soc":"SM6115","gpu":"Adreno 610","panel":"?","touch":"?","base":"sm61x5"}]}
+          json.dump(m, open(f"{out}/device-reference-matrix.json","w"), indent=2, ensure_ascii=False)
+          print("device-reference-matrix.json escrito")
+          PY
+      - name: Auditoría de subpackage A610 en pmaports
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, urllib.request, os
+          base="https://gitlab.postmarketos.org/api/v4"
+          proj="postmarketOS%2Fpmaports"
+          ref="main"
+          # APKBUILD padre firmware-qcom-adreno
+          url=f"{base}/projects/{proj}/repository/files/device%2Fcommunity%2Ffirmware-qcom-adreno%2FAPKBUILD/raw?ref={ref}"
+          try:
+              with urllib.request.urlopen(url, timeout=30) as r:
+                  apk=r.read().decode()
+          except Exception as e:
+              apk=f"ERROR: {e}"
+          sub = "firmware-qcom-adreno-a610" in apk
+          sqe = "firmware-qcom-adreno-a630-sqe" in apk
+          pkgver=""
+          for line in apk.splitlines():
+              if line.startswith("pkgver="):
+                  pkgver=line.split("=",1)[1]
+          a610={
+            "subpackage_detected": sub,
+            "a630_sqe_dependency": sqe,
+            "pkgver": pkgver,
+            "apkbuild": apk[:2000],
+            "notes": "A610 es metapaquete vacío que instala /usr/lib/firmware/qcom/ y depende de -a630-sqe (a630_sqe.fw). Sin GMU en A610."
+          }
+          out=os.environ["OUT"]
+          json.dump(a610, open(f"{out}/pmaports-subpackage-audit.json","w"), indent=2, ensure_ascii=False)
+          # firmware-a610-audit.json
+          fw={"a610_zap_required":"qcom/sm6125/xiaomi/laurel/a610_zap.mbn",
+              "a630_sqe":"qcom/a630_sqe.fw (via firmware-qcom-adreno-a630-sqe)",
+              "linux_firmware_tag":"20260110",
+              "sha256_a630_sqe":"1c21b527d9183487cc550dabbb3f43e555df5a977a461934fc61f0635a9aa90c",
+              "status":"confirmed"}
+          json.dump(fw, open(f"{out}/firmware-a610-audit.json","w"), indent=2)
+          print("subpackage:", sub, "| a630-sqe dep:", sqe, "| pkgver:", pkgver)
+          PY
+      - name: Manifesto de fuentes y SHA256SUMS
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, hashlib, os, glob
+          out=os.environ["OUT"]
+          manifest=[
+            {"name":"linux-mainline","version":"7.2-rc6","commit":"075b74841bd0065a3bda3440873c747938e69b68","url":"https://github.com/torvalds/linux","purpose":"base de referencia (decisión v7.1)"},
+            {"name":"sm61x5-mainline-master","commit":"7a52441d10af679e27711b554411aa31a06aea67","url":"https://codeberg.org/sm61x5-mainline/linux","purpose":"árbol del ecosistema, referencia"},
+            {"name":"sm61x5-mainline-dev","commit":"ae0eeba941898004657ab5335cabb4e342f7df49","url":"https://codeberg.org/sm61x5-mainline/linux","branch":"barni2000/6.19-develop","purpose":"fuente de parches panel/touch/gpu"}]
+          json.dump(manifest, open(f"{out}/source-manifest.json","w"), indent=2)
+          # SHA256SUMS de los archivos del out
+          sums=[]
+          for f in sorted(glob.glob(f"{out}/*")):
+              h=hashlib.sha256(open(f,'rb').read()).hexdigest()
+              sums.append(f"{h}  {os.path.basename(f)}")
+          open(f"{out}/SHA256SUMS","w").write("\n".join(sums)+"\n")
+          print("manifest + SHA256SUMS escritos")
+          PY
+      - name: Comprimir logs
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          (cd /tmp/m1/out && tar --zstd -cf /tmp/m1/logs.tar.zst . 2>/dev/null || tar -cJf /tmp/m1/logs.tar.zst .) || true
+          ls -la /tmp/m1/logs.tar.zst || true
+      - name: Subir artefactos
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: m1-reference-audit
+          path: |
+            /tmp/m1/out/*
+          retention-days: 5
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: m1-audit-diagnostic
+          path: |
+            /tmp/m1/logs.tar.zst
+            *.log
+            **/*.log
+          retention-days: 3
+          if-no-files-found: ignore
