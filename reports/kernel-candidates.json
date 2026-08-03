@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-08-02",
+  "candidates": [
+    {
+      "id": "A",
+      "base": "mainline-estable-6.19.x",
+      "source_url": "https://www.kernel.org/",
+      "status": "evaluating",
+      "notes": "Parches display/GPU recientes. Se evaluará contra pmaports linux-postmarketos-qcom-sm6125."
+    },
+    {
+      "id": "B",
+      "base": "lts-6.12.x",
+      "source_url": "https://www.kernel.org/",
+      "status": "evaluating",
+      "notes": "Mantenimiento largo; posible backport manual de parches laurel."
+    },
+    {
+      "id": "C",
+      "base": "lts-6.6.x",
+      "source_url": "https://www.kernel.org/",
+      "status": "evaluating",
+      "notes": "Máxima estabilidad; backport mayor."
+    },
+    {
+      "id": "D",
+      "base": "barni2000-6.19-develop",
+      "source_url": "https://codeberg.org/sm61x5-mainline/linux.git",
+      "branch": "barni2000/6.19-develop",
+      "commit": "ae0eeba941898004657ab5335cabb4e342f7df49",
+      "status": "rejected",
+      "notes": "Rama de desarrollo; no estable. Fuente de parches, no base."
+    }
+  ],
+  "decision_reference": "docs/DECISIONS/0002-kernel-branch-vs-lts.md",
+  "verification_reference": "docs/KERNEL-BASE-COMPARISON.md"
+}

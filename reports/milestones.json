@@ -1,0 +1,47 @@
+{
+  "generated_at": "2026-08-02",
+  "milestones": [
+    {
+      "id": "M0",
+      "name": "Fundación",
+      "status": "in-progress",
+      "blockers": ["publicación del repo (requiere autorización)"],
+      "notes": "Estructura, scripts, workflows y metadata listos. Falta gh repo create y push."
+    },
+    {
+      "id": "M1",
+      "name": "Investigación y fuentes congeladas",
+      "status": "pending",
+      "blockers": ["M0", "workflow 01"],
+      "notes": "Decidir base del kernel y fijar sources.lock.json."
+    },
+    {
+      "id": "M2",
+      "name": "Kernel",
+      "status": "pending",
+      "blockers": ["M1"],
+      "notes": "APKBUILD preliminar, parches, build en CI."
+    },
+    {
+      "id": "M3",
+      "name": "Rootfs",
+      "status": "pending",
+      "blockers": ["M2"],
+      "notes": "Imágenes consola y Plasma, validación de rootfs."
+    },
+    {
+      "id": "M4",
+      "name": "Prueba física",
+      "status": "pending",
+      "blockers": ["M3", "autorización explícita", "respaldos"],
+      "notes": "FASE 8 obligatoria. Solo fastboot boot no destructivo."
+    },
+    {
+      "id": "M5",
+      "name": "Release",
+      "status": "pending",
+      "blockers": ["M4"],
+      "notes": "Prerelease con hashes y sin contenido sensible."
+    }
+  ]
+}

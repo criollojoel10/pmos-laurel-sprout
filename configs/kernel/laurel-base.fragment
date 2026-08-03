@@ -50,6 +50,8 @@ CONFIG_I2C=y
 CONFIG_I2C_QCOM_GENI=y
 
 # Touchscreen FT3518 (driver focaltech)
+# NOTA: verificar contra el Kconfig del commit fijado cuál es el símbolo real
+# del driver mainline para el FT3518; puede no ser CONFIG_TOUCHSCREEN_FOCALTECH_FTS.
 CONFIG_TOUCHSCREEN_FOCALTECH=y
 CONFIG_TOUCHSCREEN_FOCALTECH_FTS=y
 
