@@ -12,16 +12,16 @@
     {
       "id": "M1",
       "name": "Investigación y fuentes congeladas",
-      "status": "in-progress",
-      "blockers": ["decidir base de kernel (H4/H5 pendientes de verificación)"],
-      "notes": "Fuentes fijadas por commit (run 30775362988). Pendiente: localizar panel/táctil en ramas barni2000/* y firmware A610 (linux-firmware)."
+      "status": "completed",
+      "blockers": [],
+      "notes": "Base decidida: mainline v7.1 (DECISION-0002). Fuentes fijadas por commit (linux-mainline-v7.1=b3f94b2b). Audit M1 en CI (run 30785377934) confirma panel/táctil/GPU/firmware A610. Port pmaports xiaomi-laurel eliminado de pmaports main (deviceinfo a reconstruir). Kupfer documentado (docs/KUPFER.md)."
     },
     {
       "id": "M2",
       "name": "Kernel",
-      "status": "pending",
-      "blockers": ["M1"],
-      "notes": "APKBUILD preliminar, parches, build en CI."
+      "status": "in-progress",
+      "blockers": [],
+      "notes": "Kernel mainline v7.1 compilado con parches downstream DTS (MDSS+panel s6e8fc0, DTSI GPU, DTS enable) en CI (run 30786551830 success). DTB sm6125-xiaomi-laurel-sprout.dtb generado y verificado (37KB). Fragmentos Kconfig validados contra v7.1. Pendiente: artefactos completos (run 30789357941), validación DTB detallada, boot image."
     },
     {
       "id": "M3",
