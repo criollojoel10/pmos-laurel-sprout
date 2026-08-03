@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/pmos-laurel-sprout/pmos-laurel-sprout/main/.../schema (pendiente)",
+  "generated_at": "2026-08-03",
   "device": {
     "manufacturer": "Xiaomi",
     "model": "Mi A3",
@@ -8,55 +8,55 @@
   "components": {
     "display": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": "kernel aún no construido ni probado"
     },
     "gpu": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": "kernel aún no construido ni probado"
     },
     "touchscreen": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": "kernel aún no construido ni probado"
     },
     "wifi": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": "hardware por identificar"
     },
     "bluetooth": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": "hardware por identificar"
     },
     "ufs": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": ""
     },
     "usb": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": ""
     },
     "battery": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": ""
     },
     "thermal": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": ""
     },
     "cpufreq": {
       "status": "not-targeted",
-      "notes": "Sin prueba física aún."
+      "notes": ""
     },
     "audio": {
       "status": "not-targeted",
-      "notes": "Prioridad secundaria."
+      "notes": "prioridad secundaria"
     },
     "modem": {
       "status": "not-targeted",
-      "notes": "Prioridad secundaria."
+      "notes": "prioridad secundaria"
     },
     "camera": {
       "status": "not-targeted",
-      "notes": "Prioridad secundaria."
+      "notes": "prioridad secundaria"
     }
   },
   "states_allowed": [

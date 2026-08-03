@@ -1,19 +1,21 @@
 # Auditoría de parches
 
-Registro de parches aplicados o pendientes. Cada parche se documenta con:
-origen, licencia, estado (upstream/accepted/queued/pending/downstream-only/
-local-workaround) y dependencias.
+Generado: 2026-08-03
 
-## Reglas
+Áreas a investigar: display (s6e8fc0-m1906f9), touchscreen (FT3518),
+GPU, wifi, bluetooth, power.
 
-- Verificar si el parche está upstream, en la rama sm61x5 o en el commit
-  fijado antes de aplicarlo.
-- Ejecutar `git apply --check` previamente.
-- Evitar duplicados.
-- Conservar autoría y Signed-off-by.
+## Panel S6E8FC0
 
-## Estado
+- Compatible objetivo: `samsung,s6e8fc0-m1906f9` (con CERO, no O).
+- Corrección v2 (2026-06-08, Yedaya Katsman): typo `s6e8fco` -> `s6e8fc0`.
+- DTS sm61x5: `pendiente`
+- Driver sm61x5: `pendiente`
 
-| Parche | Área | Estado | Origen | Notas |
-|---|---|---|---|---|
-| _pendiente_ | — | — | — | Ejecutar `01-research-upstream`. |
+## Táctil FT3518
+
+- DTS sm61x5: `pendiente`
+- Driver sm61x5: `pendiente`
+
+Estado de cada parche (upstream/accepted/queued/pending/downstream-only/
+local-workaround) se registra al aplicar.
