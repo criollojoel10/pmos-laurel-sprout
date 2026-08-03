@@ -30,7 +30,7 @@ jobs:
       - name: Ejecutar investigación upstream
         run: |
           set -Eeuo pipefail
-          bash scripts/research-upstream.sh /tmp/research-upstream reports
+          bash scripts/research-upstream.sh --tmp /tmp/research-upstream --out reports
           echo "::group::source-audit.md"
           cat reports/source-audit.md
           echo "::endgroup::"
