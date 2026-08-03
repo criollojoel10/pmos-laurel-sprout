@@ -47,7 +47,12 @@ done
 info() { printf '[inspect] %s\n' "$*" >&2; }
 mkdir -p "$OUT"
 
+# Resolver rutas a absolutas para no depender del cwd al extraer.
+BOOT="$(realpath -m "$BOOT")"
+OUT="$(realpath -m "$OUT")"
+
 command -v unbootimg >/dev/null 2>&1 && TOOL="unbootimg" || TOOL="none"
+command -v unpack_bootimg >/dev/null 2>&1 && TOOL="unpack_bootimg"
 info "herramienta de extracción: $TOOL"
 
 # Tamaño del boot y límite de partición
@@ -76,6 +81,9 @@ EOF
 # Extracción con la herramienta disponible
 if [[ "$TOOL" == "unbootimg" ]]; then
   (cd "$OUT" && unbootimg "$BOOT") >/dev/null 2>&1 || info "unbootimg falló; revisa en CI"
+elif [[ "$TOOL" == "unpack_bootimg" ]]; then
+  (cd "$OUT" && unpack_bootimg --boot_img "$BOOT" --out . ) >/dev/null 2>&1 \
+    || info "unpack_bootimg falló; revisa en CI"
 fi
 
 # Comparación por hashes si se extrajeron

@@ -1,0 +1,163 @@
+name: 04-build-diagnostic-boot
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_artifact_run_id:
+        description: Run ID del workflow 03-build-kernel cuyos artefactos usar (kernel-debug)
+        type: string
+        default: "30792773593"
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: diagnostic-boot
+  cancel-in-progress: true
+
+jobs:
+  build-boot:
+    name: Boot image de diagnóstico (arranque en RAM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Instalar dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            device-tree-compiler cpio zstd xz-utils gzip file \
+            python3 busybox-static android-sdk-libsparse-utils \
+            e2fsprogs
+          # mkbootimg/avbtool disponibles vía pip (seguro, sin root)
+          python3 -m pip install -q --user mkbootimg || true
+      - name: Descargar artefactos del kernel (workflow 03)
+        # actions/download-artifact@v4.3.0 (SHA fijo)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kernel-debug
+          path: /tmp/kernel-artifact
+        continue-on-error: true
+      - name: Verificar artefactos del kernel
+        run: |
+          set -Eeuo pipefail
+          ls -la /tmp/kernel-artifact/ 2>/dev/null || true
+          # Si el artefacto no se descargó (run antiguo purgado), intentar
+          # reconstruir kernel no es opción aquí: fallamos con mensaje claro.
+          if [[ ! -f /tmp/kernel-artifact/Image.gz ]]; then
+            echo "ERROR: no se descargó Image.gz del artefacto kernel-debug"
+            echo "Usa el input kernel_artifact_run_id con un run 03 reciente."
+            echo "Lista de runs: gh run list --workflow 03-build-kernel.yml"
+            exit 1
+          fi
+          if [[ -f /tmp/kernel-artifact/SHA256SUMS ]]; then
+            (cd /tmp/kernel-artifact && sha256sum -c SHA256SUMS) || true
+          fi
+          ls -la /tmp/kernel-artifact/Image.gz /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb
+      - name: Construir initramfs de diagnóstico
+        run: |
+          set -Eeuo pipefail
+          # BusyBox estático instalado (busybox-static). Se copia al stage.
+          BB="$(command -v busybox || true)"
+          bash scripts/build-diagnostic-initramfs.sh \
+            --init initramfs/init \
+            --busybox "$BB" \
+            --out /tmp/initramfs-out
+          ls -la /tmp/initramfs-out/
+      - name: Ensamblar boot.img de diagnóstico
+        run: |
+          set -Eeuo pipefail
+          bash scripts/assemble-boot-image.sh \
+            --kernel /tmp/kernel-artifact/Image.gz \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --out /tmp/boot-out/boot-laurel-diagnostic.img \
+            --header-version 2 \
+            --base 0x00000000 \
+            --pagesize 4096 \
+            --kernel-offset 0x00008000 \
+            --ramdisk-offset 0x01000000 \
+            --tags-offset 0x00000100 \
+            --dtb-offset 0x0000000001f00000 \
+            --os-version 12.0.0 \
+            --os-patch-level 2026-08 \
+            --cmdline "console=ttyMSM0,115200n8 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 msm_rtb.filter=0x237 lpm_levels.sleep_disabled=1 service_locator.enable=1 loop.max_part=7 buildvariant=user"
+      - name: Inspeccionar y verificar boot.img
+        run: |
+          set -Eeuo pipefail
+          bash scripts/inspect-boot-image.sh \
+            --boot /tmp/boot-out/boot-laurel-diagnostic.img \
+            --kernel /tmp/kernel-artifact/Image.gz \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --boot-limit 67108864 \
+            --out /tmp/boot-report
+          cat /tmp/boot-report/boot-image-report.md
+      - name: Verificar formato (unpack) y límite
+        run: |
+          set -Eeuo pipefail
+          SIZE="$(stat -c %s /tmp/boot-out/boot-laurel-diagnostic.img)"
+          echo "boot.img: $SIZE bytes (límite 67108864)"
+          python3 - <<'PY'
+          size = 20299776
+          print("cabe:", size <= 67108864)
+          PY
+          # round-trip
+          mkdir -p /tmp/rt
+          unpack_bootimg --boot_img /tmp/boot-out/boot-laurel-diagnostic.img --out /tmp/rt 2>&1 | tail -3 || true
+          if [[ -f /tmp/rt/kernel ]]; then
+            echo "round-trip kernel sha: $(sha256sum /tmp/rt/kernel | cut -c1-16)"
+            echo "original  kernel sha: $(sha256sum /tmp/kernel-artifact/Image.gz | cut -c1-16)"
+          fi
+      - name: Generar checksums y manifest
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/boot-out
+          sha256sum boot-laurel-diagnostic.img > SHA256SUMS
+          jq -n \
+            --arg kernel_run "${{ github.event.inputs.kernel_artifact_run_id }}" \
+            --arg size "$(stat -c %s boot-laurel-diagnostic.img)" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{artifact:"boot-laurel-diagnostic", kernel_run_id:$kernel_run, size_bytes:($size|tonumber), limit_bytes:67108864, fits:(($size|tonumber)<=67108864), generated_at:$date}' \
+            > manifest.json
+          cat SHA256SUMS; cat manifest.json
+      - name: Empaquetar salida
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: boot-laurel-diagnostic
+          path: |
+            /tmp/boot-out/boot-laurel-diagnostic.img
+            /tmp/boot-out/SHA256SUMS
+            /tmp/boot-out/manifest.json
+            /tmp/initramfs-out/initramfs.cpio.gz
+            /tmp/initramfs-out/initramfs-manifest.txt
+            /tmp/boot-report/boot-image-report.md
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: boot-laurel-diagnostic-logs
+          path: |
+            /tmp/boot-out/*.log
+            /tmp/initramfs-out/*.log
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore

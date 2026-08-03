@@ -1,0 +1,54 @@
+{
+  "rom": {
+    "name": "laurel_sprout_global_images_V12.0.26.0.RFQMIXM",
+    "region": "global",
+    "android_version": "11",
+    "build": "V12.0.26.0.RFQMIXM",
+    "build_date": "2022-08-08",
+    "device": "laurel_sprout",
+    "sha256": "0e6b3c1b17aa860bacae1b979d4f63dd007a060f84291363263aef577444fe3c",
+    "source": "local-private/rom-references/"
+  },
+  "boot.img": {
+    "file": "images/boot.img",
+    "bytes": 67108864,
+    "md5": "814dd1c32cb4666d3c451bd0fe70e269",
+    "magic": "ANDROID!",
+    "header_version": 2,
+    "os_version": "11.0.0",
+    "os_patch_level": "2022-08",
+    "product": "",
+    "page_size": 4096,
+    "base": "0x00000000",
+    "kernel_offset": "0x8000",
+    "ramdisk_offset": "0x1000000",
+    "tags_offset": "0x100",
+    "second_offset": "0",
+    "dtb_offset": "0x1f00000",
+    "cmdline": "console=ttyMSM0,115200n8 androidboot.hardware=qcom androidboot.console=ttyMSM0 androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 swiotlb=1 earlycon=msm_geni_serial,0x4a90000 loop.max_part=7 cgroup.memory=nokmem,nosocket buildvariant=user",
+    "additional_cmdline": "",
+    "second_size": 0,
+    "recovery_dtbo_size": 0,
+    "kernel_compression": "gzip",
+    "kernel_orig_size": 35164672,
+    "ramdisk_compression": "gzip",
+    "ramdisk_orig_size": 19917056
+  },
+  "dtb_section": {
+    "format": "multi-dtb concatenado (NO QCDT)",
+    "total_bytes": 1161664,
+    "dtb_count": 11,
+    "selection": "qcom,msm-id / qcom,board-id",
+    "entries": {
+      "dtb07": { "model": "TRINKET IOT IDP", "soc": "qcom,trinket-iot" },
+      "dtb08": { "model": "TRINKET SoC", "soc": "qcom,trinket", "msm_id": "<0x18a 0x10000>", "board_id": "<0x00 0x00>" },
+      "dtb09": { "model": "TRINKETP SoC", "soc": "qcom,trinketp-iot" }
+    }
+  },
+  "notes": [
+    "laurel_sprout espera el DTB coincidente por msm-id/board-id",
+    "multi-DTB seleccionado por aboot mediante msm-id/board-id",
+    "el boot.img del stock embebe el DTB, no depende de dtbo",
+    "boot.img paginado a 4096 con header v2"
+  ]
+}

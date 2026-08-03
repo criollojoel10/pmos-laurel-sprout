@@ -1,0 +1,74 @@
+{
+  "rom": {
+    "name": "e-4.1.1-a16-20260717651040-community-laurel_sprout",
+    "kind": "LineageOS/e-OS base (payload.bin)",
+    "android_version": "16 (lineage 4.1.1)",
+    "build_date": "2026-07-17",
+    "device": "laurel_sprout",
+    "sha256_zip": "66b8ea986951d0ecf789719ae3d3a6757af2d88612f708827a0e62fc1ecb1e40",
+    "recovery_img_sha256": "87ceeb4211d46e445ab1e5532d4c0178d4aa20ed288b85773a300dc2477241fb",
+    "source": "local-private/rom-references/ (payload.bin extraido con scripts/payload_extract.py)"
+  },
+  "boot.img": {
+    "bytes": 67108864,
+    "sha256": "87ceeb4211d46e445ab1e5532d4c0178d4aa20ed288b85773a300dc2477241fb",
+    "magic": "ANDROID!",
+    "header_version": 2,
+    "os_version": "16.0.0",
+    "os_patch_level": "2026-07",
+    "page_size": 4096,
+    "base": "0x00000000",
+    "kernel_offset": "0x8000",
+    "ramdisk_offset": "0x1000000",
+    "tags_offset": "0x100",
+    "dtb_offset": "0x1f00000",
+    "cmdline": "console=null androidboot.hardware=qcom androidboot.console=ttyMSM0 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 swiotlb=1 loop.max_part=7 cgroup.memory=nokmem,nosocket buildvariant=user androidboot.init_fatal_reboot_target=recovery",
+    "kernel_compression": "gzip",
+    "kernel_orig_size": 44380184,
+    "ramdisk_compression": "gzip",
+    "ramdisk_orig_size": 39004928,
+    "dtb_section": {
+      "total_bytes": 466682,
+      "format": "single DTB (no multi)",
+      "model": "Qualcomm Technologies, Inc. TRINKET SoC",
+      "compatible": "qcom,trinket"
+    }
+  },
+  "dtbo.img": {
+    "bytes": 8388608,
+    "sha256": "033b4ac5d36f123bb45879014df61f88fb927e64ec6ee5590bb9d05f0413ad64",
+    "format": "DTBO v0 (1 entrada)",
+    "entry0": { "model": "QRD", "compatible": "qcom,trinket-qrd", "msm_id": "<0x18a 0x00>" }
+  },
+  "vbmeta.img": {
+    "bytes": 4096,
+    "sha256": "b5c6ca4a36c942d21544c2f0d715114108175b4a9fc576638a5a70f4ca15560f",
+    "avb": {
+      "min_avb_version": "1.0",
+      "algorithm": "SHA256_RSA4096",
+      "public_key_sha1": "2597c218aae470a130f61162feaae70afd97f011",
+      "flags": 3,
+      "flags_note": "hashtree y verificacion AVB deshabilitadas (permite boot con vendor/recovery no firmados)",
+      "prop_boot_fingerprint": "Xiaomi/laurel_sprout/laurel_sprout:11/RKQ1.200903.002/V12.0.26.0.RFQMIXM:user/release-keys"
+    }
+  },
+  "recovery.img": {
+    "note": "identical al boot.img (sha256 igual): e/OS usa recovery-in-boot",
+    "bytes": 67108864
+  },
+  "comparison_vs_stock": {
+    "header_version": "mismo v2",
+    "page_size": "mismo 4096",
+    "base_offsets": "identicos (base 0x0, kernel 0x8000, ramdisk 0x1000000, dtb 0x1f00000)",
+    "dtb_selection": "e/OS usa single qcom,trinket; stock usa multi-DTB (11) seleccionado por msm-id/board-id",
+    "cmdline": "e/OS: console=null y androidboot.init_fatal_reboot_target=recovery; stock: console=ttyMSM0,115200n8 + earlycon",
+    "dtbo": "e/OS 1 entrada QRD; stock 17 entradas IDP/QRD/RUMI",
+    "vbmeta": "e/OS flags=3 (sin verificar); stock flags=0 + chain system + hashes boot/dtbo",
+    "ramdisk": "ambos initramfs Android; e/OS init symlink /system/bin/init igual que stock"
+  },
+  "notes": [
+    "boot.img del port mainline: header v2, page 4096, base 0x0, offsets identicos a los observados",
+    "se puede usar un DTB trinket generico embebido (como e/OS) o multi-DTB con msm-id 0x18a",
+    "vbmeta de e/OS flags=3 no es requerido para fastboot boot (no toca verificacion del slot)"
+  ]
+}

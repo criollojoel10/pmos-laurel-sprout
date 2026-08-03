@@ -32,6 +32,7 @@ PAGESIZE="4096"
 CMDLINE="androidboot.hardware=laurel_sprout console=ttyMSM0,115200n8"
 OS_VERSION=""
 OS_PATCH=""
+KERNEL_OFFSET=""
 DTBO_ADDR=""
 RAMDISK_OFFSET=""
 TAGS_OFFSET=""
@@ -53,7 +54,8 @@ while (( $# > 0 )); do
     --cmdline) CMDLINE="$2"; shift 2 ;;
     --os-version) OS_VERSION="$2"; shift 2 ;;
     --os-patch-level) OS_PATCH="$2"; shift 2 ;;
-    --dtbo-address) DTBO_ADDR="$2"; shift 2 ;;
+    --kernel-offset) KERNEL_OFFSET="$2"; shift 2 ;;
+    --dtb-offset) DTBO_ADDR="$2"; shift 2 ;;
     --ramdisk-offset) RAMDISK_OFFSET="$2"; shift 2 ;;
     --tags-offset) TAGS_OFFSET="$2"; shift 2 ;;
     *) usage ;;
@@ -81,6 +83,7 @@ ARGS=(
 )
 [[ -n "$OS_VERSION" ]] && ARGS+=(--os_version "$OS_VERSION")
 [[ -n "$OS_PATCH" ]] && ARGS+=(--os_patch_level "$OS_PATCH")
+[[ -n "$KERNEL_OFFSET" ]] && ARGS+=(--kernel_offset "$KERNEL_OFFSET")
 [[ -n "$DTBO_ADDR" ]] && ARGS+=(--dtb_offset "$DTBO_ADDR")
 [[ -n "$RAMDISK_OFFSET" ]] && ARGS+=(--ramdisk_offset "$RAMDISK_OFFSET")
 [[ -n "$TAGS_OFFSET" ]] && ARGS+=(--tags_offset "$TAGS_OFFSET")

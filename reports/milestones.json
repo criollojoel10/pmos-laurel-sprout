@@ -21,7 +21,7 @@
       "name": "Kernel",
       "status": "in-progress",
       "blockers": [],
-      "notes": "Kernel mainline v7.1 compilado con parches downstream DTS (MDSS+panel s6e8fc0, DTSI GPU, DTS enable) en CI (run 30786551830 success). DTB sm6125-xiaomi-laurel-sprout.dtb generado y verificado (37KB). Fragmentos Kconfig validados contra v7.1. Pendiente: artefactos completos (run 30789357941), validación DTB detallada, boot image."
+      "notes": "Kernel mainline v7.1 compilado con parches downstream DTS (MDSS+panel s6e8fc0, DTSI GPU, DTS enable) en CI (run 30786551830 success). DTB sm6125-xiaomi-laurel-sprout.dtb generado y verificado (37KB). Fragmentos Kconfig validados contra v7.1. Artefactos finales del run 30792773593 verificados (Image 68MB, Image.gz 20MB, DTB, SHA256SUMS OK). Boot image de diagnóstico construida y validada localmente (header v2, page 4096, offsets verificados contra stock; 20.3MB < 64MiB; round-trip byte-por-byte). Workflow 04-build-diagnostic-boot listo."
     },
     {
       "id": "M3",

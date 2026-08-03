@@ -1,0 +1,73 @@
+#!/bin/sh
+#
+# Licencia: GPL-3.0-or-later
+#
+# init — initramfs mínimo de diagnóstico para Xiaomi Mi A3 (laurel_sprout)
+# arrancado vía `fastboot boot boot.img` (RAM, no destructivo).
+#
+# Objetivo: confirmar que el kernel mainline (v7.1) arranca, que la consola
+# serial (ttyMSM0) responde y que podemos recoger logs para el diagnóstico.
+# NO monta el rootfs del dispositivo ni toca flash.
+#
+# Para este init no se requiere util-linux/network; solo BusyBox y shell.
+# Se ejecuta como PID 1 por el kernel (RD_INIT).
+
+set -e
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+log() { echo "[diag-init] $*"; }
+diag() { echo "[diag] $*"; }
+
+# Consola de diagnóstico (boot.img cmdline la define igualmente).
+CONSOLE="${console:-ttyMSM0}"
+
+log "=== initramfs de diagnóstico laurel_sprout (mainline v7.1) ==="
+log "kernel: $(uname -r) [$(uname -m)]"
+log "uptime: $(awk '{print $1}' /proc/uptime 2>/dev/null) s"
+
+# 1) pseudo-filesystems de diagnóstico
+mkdir -p /proc /sys /dev /run /tmp /mnt
+mount -t proc     none /proc 2>&1 || true
+mount -t sysfs    none /sys  2>&1 || true
+mount -t devtmpfs none /dev  2>&1 || true
+
+log "--- mtab ---"
+mount | sed 's/^/  /'
+
+# 2) Diagnóstico de hardware visible en mainline
+diag "nodos de video (drm):"
+ls -l /dev/dri 2>/dev/null | sed 's/^/  /' || diag "  sin /dev/dri (DRM no hay /panel no probado)"
+diag "framebuffer simple:"
+ls -l /dev/fb* 2>/dev/null | sed 's/^/  /' || diag "  sin /dev/fbX (simple-framebuffer no enlazado)"
+diag "bloques UFS/emmc:"
+ls -l /dev/sd* /dev/mmcblk* 2>/dev/null | sed 's/^/  /' || diag "  sin blkdevs"
+diag "ramoops/pstore:"
+ls -la /sys/fs/pstore 2>/dev/null | sed 's/^/  /' || diag "  /sys/fs/pstore sin montar"
+mount -t pstore pstore /sys/fs/pstore 2>/dev/null && diag "  pstore montado" || true
+
+log "=== diagnostico de dispositivos (cpufreq /regulators) ==="
+diag "gobernadores: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo n/d)"
+diag "reguladores pm6125: $(ls /sys/class/regulator 2>/dev/null | wc -l | tr -d ' ') vregs"
+
+# 3) Firmware zap-shader (GPU) — solo info, no se carga aquí
+diag "firmware: $(ls /lib/firmware/qcom/sm6125/xiaomi/laurel 2>/dev/null || echo 'sin-fw (no necesario para este initramfs)')"
+
+log "=== fin del init (a partir de aqui: consola + triggers) ==="
+log "linea de comandos del kernel: $(cat /proc/cmdline)"
+
+# --- 4) Abrir una shell en la consola serial principal (ttyMSM0) ---
+# Cuando el serial (UART a 115200) esta conectado, esto da interaccion.
+# Si no hay terminal, se queda en esta consola (no panics).
+if test -c /dev/ttyMSM0; then
+    for try in /dev/ttyMSM0 /dev/ttyS0 /dev/console; do
+        if test -c "$try"; then
+            log "lanzando shell en $try"
+            setsid sh -c "exec 3<$try; exec 4>$try; sh <&3 >&4 2>&4" &
+            break
+        fi
+    done
+fi
+# getty sobre la consola del kernel
+PS1='pmos-diag# ' sh </dev/console >/dev/console 2>&1 &
+wait_or_sleep() { sleep 3600; }
+wait_or_sleep
