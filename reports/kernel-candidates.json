@@ -1,5 +1,12 @@
 {
   "generated_at": "2026-08-02",
+  "last_run": {
+    "workflow": "01-research-upstream",
+    "run_id": "30775362988",
+    "commit": "f9e3513dd8c95600b7190aea933086d620ad62d6",
+    "date": "2026-08-03",
+    "evidence": "sm61x5-mainline master 7a52441d: sin tag, sin rama sm61x5/6.19.5, sin sm61x5_defconfig"
+  },
   "candidates": [
     {
       "id": "A",

@@ -1,84 +1,88 @@
 {
-  "$comment": "Registro de hipótesis. Estados: confirmed / refuted / needs-reverification / unverified / deferred. Regenerado también por scripts/research-upstream.sh.",
-  "generated_at": "2026-08-02",
+  "generated_at": "2026-08-03",
+  "last_run": {
+    "workflow": "01-research-upstream",
+    "run_id": "30775362988",
+    "branch": "main",
+    "commit": "f9e3513dd8c95600b7190aea933086d620ad62d6",
+    "started_at": "2026-08-03T00:49:07Z",
+    "conclusion": "success"
+  },
   "hypotheses": [
     {
       "id": "H1",
       "claim": "la rama sm61x5/6.19.5 existe en sm61x5-mainline",
       "status": "refuted",
-      "source": "sm61x5-mainline git ls-remote (2026-08-02)",
-      "notes": "Solo existen master, barni2000/6.19-develop, barni2000/7.0-develop."
+      "source": "sm61x5-mainline git ls-remote (local y CI)"
     },
     {
       "id": "H2",
-      "claim": "existe tag v6.19.5-r0 en sm61x5-mainline",
+      "claim": "existe tag v6.19.5-r0",
       "status": "refuted",
-      "source": "sm61x5-mainline git ls-remote (2026-08-02)",
-      "notes": "Sin tags."
+      "source": "sm61x5-mainline git ls-remote"
     },
     {
       "id": "H3",
       "claim": "existe sm61x5_defconfig",
       "status": "refuted",
-      "source": "issue #1 sm61x5-mainline y ls-remote (2026-08-02)",
-      "notes": "Task sin completar en la issue."
+      "source": "árbol sm61x5-mainline arch/arm64/configs"
     },
     {
       "id": "H4",
       "claim": "laurel_sprout soportado en mainline 6.19 (DTS + panel + táctil)",
       "status": "needs-reverification",
-      "source": "parches v3 2026-03 (MDSS+panel) y DTS de Lux Aliaga",
-      "notes": "El DTS y MDSS+panel están en mainline (v3). Verificar en la base elegida."
+      "source": "árbol sm61x5-mainline master 7a52441d (CI)",
+      "notes": "DTS presente (sm6125-xiaomi-laurel-sprout.dts) pero panel/táctil NO localizados en master; buscar en ramas barni2000/* o parches."
     },
     {
       "id": "H5",
-      "claim": "firmware-qcom-adreno-a610 empaquetado en pmaports main",
-      "status": "needs-reverification",
-      "source": "pmaports (workflow 01)",
-      "notes": "Se verifica en CI."
+      "claim": "firmware-qcom-adreno-a610 empaquetado en pmaports",
+      "status": "refuted",
+      "source": "pmaports main (CI)",
+      "notes": "NO localizado en pmaports main. Verificar en linux-firmware o empaquetar blob propio según licencia."
     },
     {
       "id": "H6",
       "claim": "WCN3990 es el combo WLAN/BT de laurel_sprout",
       "status": "unverified",
-      "source": "referencias Android / LineageOS",
-      "notes": "Por confirmar en DTS y firmware."
+      "source": "referencias Android"
     },
     {
       "id": "H7",
       "claim": "fastboot boot funciona para arranque no destructivo",
       "status": "unverified",
-      "source": "por probar en hardware",
-      "notes": "Solo con autorización (FASE 8)."
+      "source": "por probar en hardware, SOLO con autorización"
     },
     {
       "id": "H8",
       "claim": "DTB mainline en boot.img (QCDT) es suficiente sin partición dtbo",
       "status": "unverified",
-      "source": "por validar",
-      "notes": "Depende del bootloader/lk2nd."
+      "source": "por validar"
     },
     {
       "id": "H9",
       "claim": "borrar dtbo/vbmeta es necesario para arrancar mainline",
-      "status": "refuted",
-      "source": "estrategia no destructiva",
-      "notes": "Se evita; con DTB integrado no debería ser necesario."
+      "status": "unverified",
+      "source": "dudoso; se evita (no destructivo)"
     },
     {
       "id": "H10",
       "claim": "card0/simpledrm activo implica GPU y display funcionales",
       "status": "refuted",
-      "source": "AGENTS.md honestidad técnica",
-      "notes": "DPU funcional != aceleración 3D; simpledrm != DRM/MSM."
+      "source": "no confundir DRM básico con aceleración; honestidad AGENTS.md"
     },
     {
       "id": "H11",
       "claim": "6.19 es la mejor base frente a LTS/estable",
       "status": "needs-reverification",
-      "source": "docs/KERNEL-BASE-COMPARISON.md",
-      "notes": "Pendiente de build de referencia."
+      "source": "docs/KERNEL-BASE-COMPARISON.md"
     }
   ],
-  "states_allowed": ["confirmed", "refuted", "needs-reverification", "unverified", "deferred"]
+  "states_allowed": [
+    "confirmed",
+    "refuted",
+    "needs-reverification",
+    "unverified",
+    "deferred"
+  ]
 }

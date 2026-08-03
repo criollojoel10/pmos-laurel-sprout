@@ -1,19 +1,20 @@
 {
   "generated_at": "2026-08-02",
+  "last_updated": "2026-08-03",
   "milestones": [
     {
       "id": "M0",
       "name": "Fundación",
-      "status": "in-progress",
-      "blockers": ["publicación del repo (requiere autorización)"],
-      "notes": "Estructura, scripts, workflows y metadata listos. Falta gh repo create y push."
+      "status": "completed",
+      "blockers": [],
+      "notes": "Repo publicado en GitHub (public). 00-quality e investigación (01) pasan en CI. Estructura, scripts, workflows y metadata listos."
     },
     {
       "id": "M1",
       "name": "Investigación y fuentes congeladas",
-      "status": "pending",
-      "blockers": ["M0", "workflow 01"],
-      "notes": "Decidir base del kernel y fijar sources.lock.json."
+      "status": "in-progress",
+      "blockers": ["decidir base de kernel (H4/H5 pendientes de verificación)"],
+      "notes": "Fuentes fijadas por commit (run 30775362988). Pendiente: localizar panel/táctil en ramas barni2000/* y firmware A610 (linux-firmware)."
     },
     {
       "id": "M2",
