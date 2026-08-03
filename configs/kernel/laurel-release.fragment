@@ -8,8 +8,6 @@ CONFIG_IKCONFIG_PROC=y
 
 # Reducción de verbose innecesario en release
 CONFIG_HUSH_PARSER=y
-CONFIG_MODULE_COMPRESS=y
-CONFIG_MODULE_COMPRESS_ZSTD=y
 
 # Hibernación/suspensión si el árbol lo soporta (verify-kconfig lo valida)
 CONFIG_SUSPEND=y

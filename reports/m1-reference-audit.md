@@ -63,6 +63,27 @@ resets`, bindings correspondientes.
   1c21b527d9183487cc550dabbb3f43e555df5a977a461934fc61f0635a9aa90c).
 - El A610 no tiene GMU; el driver MSM carga `a630_sqe.fw` como SQE.
 
+## Confirmación CI (workflow 02-m1-reference-audit, run 30785377934)
+
+Ejecutado el 2026-08-03 sobre árboles reales (mainline master v7.2-rc6
+`075b7484`, sm61x5 master `7a52441d`, sm61x5 dev `barni2000/6.19-develop`
+`ae0eeba9`):
+
+| Árbol | Driver panel | Compatible DTS | FT3518 | gpu@5900000 |
+|---|---|---|---|---|
+| mainline master (v7.2-rc6) | sí | `s6e8fco-m1906f9` (typo) | sí (3) | no |
+| sm61x5 master | no | — | no | no |
+| sm61x5 dev (6.19-develop) | sí | `s6e8fc0-m1906f9` | sí (3) | sí |
+
+- La matriz CI (`device-reference-matrix.json`) registra la decisión de base
+  como **`mainline-v7.1`** (consistente con DECISION-0002).
+- `firmware-a610-audit.json` confirma: `a610_zap.mbn` obligatorio
+  (`qcom/sm6125/xiaomi/laurel/a610_zap.mbn`), `a630_sqe.fw` (sha256
+  `1c21b527…aa90c`, linux-firmware tag 20260110), H5 confirmado (A610 sin GMU).
+- `pmaports-subpackage-audit.json` confirma que el subpackage A610 es un
+  metapaquete vacío que depende de `-a630-sqe`; el zap-shader no se distribuye
+  (es específico del dispositivo).
+
 ## Pendientes
 
 - Verificar el contenido exacto de `sm61x5_defconfig` en barni2000/6.19-develop.

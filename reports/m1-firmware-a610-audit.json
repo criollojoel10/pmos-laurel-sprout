@@ -1,0 +1,7 @@
+{
+  "a610_zap_required": "qcom/sm6125/xiaomi/laurel/a610_zap.mbn",
+  "a630_sqe": "qcom/a630_sqe.fw (via firmware-qcom-adreno-a630-sqe)",
+  "linux_firmware_tag": "20260110",
+  "sha256_a630_sqe": "1c21b527d9183487cc550dabbb3f43e555df5a977a461934fc61f0635a9aa90c",
+  "status": "confirmed"
+}

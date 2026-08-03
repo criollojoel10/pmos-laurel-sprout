@@ -1,0 +1,44 @@
+{
+  "generated_at": "2026-08-03",
+  "kernel_base_decision": "mainline-v7.1",
+  "mainline": {
+    "tree": "mainline-master-v7.2rc6",
+    "commit": "075b74841bd0065a3bda3440873c747938e69b68",
+    "panel_driver": "present",
+    "panel_compatible_dts": "s6e8fco-m1906f9"
+  },
+  "sm61x5_dev": {
+    "tree": "sm61x5-dev-6.19-develop",
+    "commit": "ae0eeba941898004657ab5335cabb4e342f7df49",
+    "panel_driver": "present",
+    "panel_compatible_dts": "s6e8fc0-m1906f9",
+    "defconfig": "present",
+    "gpu_node": "1"
+  },
+  "device_reference_matrix": [
+    {
+      "device": "Xiaomi Mi A3 (laurel_sprout)",
+      "soc": "SM6125 (trinket)",
+      "gpu": "Adreno 610",
+      "panel": "S6E8FC0/M1906F9",
+      "touch": "FT3518",
+      "base": "mainline v7.1"
+    },
+    {
+      "device": "Xiaomi Redmi 8 (olive)",
+      "soc": "SM6115",
+      "gpu": "Adreno 610",
+      "panel": "?",
+      "touch": "?",
+      "base": "sm61x5"
+    },
+    {
+      "device": "Xiaomi Redmi 9 (lancelot)",
+      "soc": "SM6115",
+      "gpu": "Adreno 610",
+      "panel": "?",
+      "touch": "?",
+      "base": "sm61x5"
+    }
+  ]
+}
