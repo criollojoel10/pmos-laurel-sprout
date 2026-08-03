@@ -30,8 +30,11 @@ systemd) para el Xiaomi Mi A3 `laurel_sprout`
 
 ## Objetivos
 
-- Kernel Linux 6.19.x o base posterior compatible sobre `sm61x5-mainline`
-  fijado por commit.
+- Kernel **Linux mainline v7.1** (tag `v7.1` = commit
+  `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`), fijado por commit en
+  `sources.lock.json`. Referencias históricas a `sm61x5-mainline`/6.19.x solo
+  como investigación; la base de build actual es mainline v7.1 (ver
+  `docs/DECISIONS/0002-kernel-base.md`).
 - DTB `qcom/sm6125-xiaomi-laurel-sprout.dtb`.
 - systemd + KDE Plasma Mobile (KWin Wayland, Qt 6).
 - DRM/KMS, DPU/MDSS/DSI, panel S6E8FC0, brillo, táctil FT3518.

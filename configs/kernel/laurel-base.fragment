@@ -22,6 +22,17 @@ CONFIG_SCSI_UFS_BSG=y
 CONFIG_SCSI_UFS_CRYPTO=y
 CONFIG_SCSI_UFS_QCOM=y
 
+# PHYs Qualcomm (built-in: obligatorios para UFS y USB en el initramfs)
+CONFIG_PHY_QCOM_QMP=y
+CONFIG_PHY_QCOM_QMP_UFS=y
+CONFIG_PHY_QCOM_QUSB2=y
+
+# pstore/ramoops (built-in: evidencia tras crash/reboot en initramfs)
+CONFIG_PSTORE=y
+CONFIG_PSTORE_RAM=y
+CONFIG_PSTORE_CONSOLE=y
+CONFIG_PSTORE_PMSG=y
+
 # USB / DWC3 / gadget
 CONFIG_USB=y
 CONFIG_USB_XHCI_HCD=y

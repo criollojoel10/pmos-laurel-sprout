@@ -4,8 +4,11 @@ Visión general del port postmarketOS para el Xiaomi Mi A3 `laurel_sprout`.
 
 ## Capas
 
-1. **Kernel** — Linux 6.19.x sobre la base `sm61x5-mainline` (Codeberg),
-   fijado por commit, con DTB `qcom/sm6125-xiaomi-laurel-sprout.dtb`.
+1. **Kernel** — **Linux mainline v7.1** (tag `v7.1` = commit
+   `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`, fijado en `sources.lock.json`),
+   con DTB `qcom/sm6125-xiaomi-laurel-sprout.dtb`. Las referencias a
+   `sm61x5-mainline`/6.19.x son investigación histórica; el árbol construido es
+   mainline v7.1 + parches downstream (`patches/kernel/`).
 2. **postmarketOS Edge** — rootfs AArch64 con systemd.
 3. **Interfaz** — KDE Plasma Mobile 6 (KWin Wayland, Qt 6); imagen consola de
    recuperación (Weston/Foot) como respaldo.

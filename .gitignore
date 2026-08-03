@@ -58,6 +58,7 @@ rootfs*/
 # Logs with potentially identifying content
 *.log
 *.log.*
+session-*.md
 
 # OS noise
 .DS_Store

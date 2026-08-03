@@ -14,8 +14,8 @@
     "slot_count": "2",
     "has_slot": {
       "boot": "yes",
-      "dtbo": "yes",
-      "vbmeta": "yes"
+      "dtbo": "not-defined",
+      "vbmeta": "not-defined"
     }
   },
   "partitions": {
