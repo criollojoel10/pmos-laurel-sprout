@@ -1,0 +1,26 @@
+# Licencia
+
+GPL-3.0-or-later
+
+## pmos-laurel-sprout
+
+This project is licensed under the GNU General Public License v3.0 or later
+(GPL-3.0-or-later). This applies to the original integration code, scripts,
+workflows and documentation authored in this repository.
+
+## Upstream components
+
+Upstream software referenced, packaged or patched by this project retains its
+own copyright and license:
+
+- Linux kernel: GPL-2.0-only (with exception headers).
+- postmarketOS / pmaports: GPL-3.0-or-later unless stated otherwise in each
+  APKBUILD.
+- Mesa: MIT/X11.
+- Device Trees authored upstream: GPL-2.0-only (kernel convention).
+- Firmware blobs: not covered by GPL; distributed under their own permissive
+  licenses or not redistributed at all (see `configs/firmware/firmware-manifest.json`).
+
+This repository does NOT relicense third-party work. Do not relicense third
+party patches, device trees, firmware or documentation. Firmware under GPL is
+not included where that would be inappropriate.

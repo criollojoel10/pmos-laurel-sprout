@@ -1,0 +1,78 @@
+# Local private data — NEVER commit
+local-private/
+*.raw
+*.img
+*.img.xz
+*.img.gz
+*.boot
+*.dtb
+*.dtbo
+*.vbmeta
+
+# Secrets & credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_rsa.pub
+id_ed25519
+*.jks
+*.keystore
+
+# Tokens & API keys
+token*
+*.token
+ghs_*
+ghp_*
+github_pat_*
+
+# Android partition dumps / backups
+persist*.img
+modemst*.img
+fsg*.img
+fsc*.img
+efs*.img
+boot_*.img
+dtbo_*.img
+vbmeta_*.img
+backup*/
+*.lz4
+*.zst
+*.xz
+
+# Build artifacts (kept local, never pushed)
+build/
+out/
+artifacts/
+dist/
+*.tar
+*.tar.gz
+*.tar.zst
+modules/
+rootfs*/
+
+# Logs with potentially identifying content
+*.log
+*.log.*
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+*.swp
+.idea/
+.vscode/
+*.code-workspace
+
+# Python
+__pycache__/
+*.pyc
+
+# Vim
+*.un~
+*~
