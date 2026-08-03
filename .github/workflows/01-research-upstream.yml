@@ -43,6 +43,10 @@ jobs:
             reports/source-audit.md
             reports/source-candidates.json
             reports/patch-audit.md
+            reports/device-comparison.md
+            reports/firmware-audit.md
+            reports/boot-image-layout.md
+            reports/hypothesis-registry.json
             reports/hardware-matrix.json
           retention-days: 7
       - name: Subir logs de diagnóstico (siempre)
