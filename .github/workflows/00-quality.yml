@@ -13,6 +13,9 @@ concurrency:
 
 env:
   SHELLCHECK_VERSION: "0.10.0"
+  # SHA-256 del tarball oficial shellcheck-v0.10.0.linux.x86_64.tar.xz.
+  # ShellCheck no publica fichero .sha256sum; el hash se fija aquí.
+  SHELLCHECK_SHA256: "6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87"
 
 jobs:
   static-validation:
@@ -91,7 +94,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           curl -sSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" -o /tmp/shellcheck.tar.xz
-          printf '%s  %s\n' "$(curl -sSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz.sha256sum" | awk '{print $1}')" /tmp/shellcheck.tar.xz > /tmp/shellcheck.sha256
+          printf '%s  %s\n' "$SHELLCHECK_SHA256" /tmp/shellcheck.tar.xz > /tmp/shellcheck.sha256
           sha256sum -c /tmp/shellcheck.sha256
           tar -xJf /tmp/shellcheck.tar.xz -C /tmp
           echo "/tmp/shellcheck-v${SHELLCHECK_VERSION}/" >> "$GITHUB_PATH"
