@@ -1,0 +1,124 @@
+{
+  "generated_at": "2026-08-03",
+  "subsystem": "display",
+  "panel": "Samsung S6E8FC0 / M1906F9",
+  "compatible": "samsung,s6e8fc0-m1906f9",
+  "driver_file": "drivers/gpu/drm/panel/panel-samsung-s6e8fc0-m1906f9.c",
+  "dts_file": "arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts",
+  "summary": "Soporte del panel S6E8FC0/M1906F9 para Xiaomi Mi A3, aplicado upstream en drm-misc-next y presente en Linux mainline v7.1. Patchset de Yedaya Katsman con coautoría de Kamil Gołda. El typo s6e8fco->s6e8fc0 se corrigió en v5 (2026-03-17).",
+  "revisions": [
+    {
+      "version": "v1",
+      "author": "Yedaya Katsman",
+      "date": "2026-02-23",
+      "message_id": "20260223-panel-patches-v1-0-7756209477f9@gmail.com",
+      "base_commit": "d4906ae14a5f136ceb671bb14cedbf13fa560da6",
+      "changes": "Primera versión del patchset (3 parches: dt-bindings, driver, DTS).",
+      "status": "superseded",
+      "notes": "Usaba S6E8FCO (typo) en lugar de S6E8FC0."
+    },
+    {
+      "version": "v2",
+      "author": "Yedaya Katsman",
+      "date": "2026-02-23",
+      "message_id": "20260223-panel-patches-v2-0-1b6ad471d540@gmail.com",
+      "base_commit": "d4906ae14a5f136ceb671bb14cedbf13fa560da6",
+      "changes": "Cambió el título del commit (como pidió Dmitry); arregló los años del copyright.",
+      "status": "superseded"
+    },
+    {
+      "version": "v3",
+      "author": "Yedaya Katsman",
+      "date": "2026-03-12",
+      "message_id": "20260312-panel-patches-v3-0-6ed8c006d0be@gmail.com",
+      "base_commit": "d4906ae14a5f136ceb671bb14cedbf13fa560da6",
+      "changes": "Driver/bindings/compatible específicos de M1906F9; ajuste de escala y brillo por defecto; de-mistificar escrituras DSI; mover pinctrl de MDSS al nodo del panel; renombrar reguladores según esquemático; tratar vreg_l9a como entrada de vddi; añadirse al copyright.",
+      "status": "superseded",
+      "notes": "Todavía S6E8FCO (typo). Confirmado en spinics: patch v3 2/3 'Add Samsung S6E8FCO DSI controller'."
+    },
+    {
+      "version": "v4",
+      "author": "Yedaya Katsman",
+      "date": "2026-03-14",
+      "message_id": "20260314-panel-patches-v4-0-1ecbb2c0c3c8@gmail.com",
+      "base_commit": "d4906ae14a5f136ceb671bb14cedbf13fa560da6",
+      "changes": "Usar binding existente en lugar de crear una nueva; mencionar fuente de DSI PHY en el mensaje; quitar VIDEOMODE_HELPERS; recoger trailers.",
+      "status": "superseded"
+    },
+    {
+      "version": "v5",
+      "author": "Yedaya Katsman",
+      "date": "2026-03-17",
+      "message_id": "20260317-panel-patches-v5-0-ef99f7b280da@gmail.com",
+      "base_commit": "d4906ae14a5f136ceb671bb14cedbf13fa560da6",
+      "changes": "Fix typo s6e8fco -> s6e8fc0 (zero, no O). El typo venía de downstream, pero el sitio web de Samsung termina con 0.",
+      "status": "superseded"
+    },
+    {
+      "version": "v6",
+      "author": "Yedaya Katsman",
+      "date": "2026-03-18",
+      "message_id": "20260318-panel-patches-v6-0-7a30c2f85e0b@gmail.com",
+      "base_commit": "d4906ae14a5f136ceb671bb14cedbf13fa560da6",
+      "changes": "Renombrar algunos identificadores para que sean más genéricos del panel (como pidió David).",
+      "status": "superseded"
+    },
+    {
+      "version": "v7",
+      "author": "Yedaya Katsman",
+      "date": "2026-03-20",
+      "message_id": "20260320-panel-patches-v7-0-3eaefc4b3878@gmail.com",
+      "base_commit": "d4906ae14a5f136ceb671bb14cedbf13fa560da6",
+      "changes": "Marcar modo como DRM_MODE_TYPE_PREFERRED. Revisado por David Heidelberg, Dmitry Baryshkov, Konrad Dybcio.",
+      "status": "accepted",
+      "applied_commit": "49837b6babe71fac84cda2a0d3cf9c085bf3a2f9",
+      "applied_tree": "drm-misc-next (https://gitlab.freedesktop.org/drm/misc/kernel.git)",
+      "accepted": "2026-03-20"
+    }
+  ],
+  "upstream_commits": [
+    {
+      "id": "f4693b88bc730cddc6d69f6f11b64e6d93a8e373",
+      "title": "dt-bindings: display: panel: Add Samsung S6E8FC0-M1906F9",
+      "tree": "drm-misc-next",
+      "status": "accepted"
+    },
+    {
+      "id": "49837b6babe71fac84cda2a0d3cf9c085bf3a2f9",
+      "title": "drm: panel: Add Samsung S6E8FC0 DSI controller for M1906F9 panel",
+      "tree": "drm-misc-next",
+      "status": "accepted",
+      "mainline_version": "v7.1",
+      "mainline_date": "2026-06-14"
+    },
+    {
+      "id": "493cb869874c",
+      "title": "arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Enable MDSS and add panel",
+      "tree": "mainline",
+      "status": "accepted",
+      "mainline_version": "v7.1"
+    }
+  ],
+  "classification": "accepted-not-present",
+  "classification_notes": "El panel ya está en Linux mainline (v7.1+). NO está en sm61x5-mainline master (7a52441d) pero SÍ está en la rama barni2000/6.19-develop de sm61x5-mainline y en SzczurekYT/linux rama laurel.",
+  "dependencies": [
+    "arm64: dts: qcom: sm6125: Add missing MDSS core reset",
+    "arm64: dts: qcom: sm6115: Add missing MDSS core reset",
+    "clk: qcom: dispcc-sm6125: Add missing MDSS resets",
+    "clk: qcom: dispcc-sm6115: Add missing MDSS resets",
+    "dt-bindings: clock: qcom,dispcc-sm6125: Define MDSS resets"
+  ],
+  "typo_fix": {
+    "issue": "s6e8fco (typo) vs s6e8fc0 (correcto)",
+    "fixed_in": "v5",
+    "fixed_date": "2026-03-17",
+    "notes": "La corrección del compatible a s6e8fc0 se aplicó en v5 del patchset; el resumen previo decía 'fix v2 2026-06-08', lo que era un error de interpretación del resumen compactado. La evidencia de lore/patchew muestra que el typo se corrigió en v5 (2026-03-17)."
+  },
+  "sources": [
+    "https://lkml.iu.edu/2603.2/11150.html",
+    "https://yhbt.net/lore/phone-devel/177451575929.103892.7506565955077481700.b4-ty@linaro.org/T/",
+    "https://www.spinics.net/lists/devicetree/msg904178.html",
+    "https://www.spinics.net/lists/kernel/msg6060321.html",
+    "https://gitlab.freedesktop.org/drm/misc/kernel/-/commit/49837b6babe71fac84cda2a0d3cf9c085bf3a2f9"
+  ]
+}

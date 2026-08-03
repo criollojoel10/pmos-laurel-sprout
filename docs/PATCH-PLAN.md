@@ -1,6 +1,6 @@
 # Plan de parches
 
-Estado: actualizado con CI (2026-08-03, run 30775362988, commit f9e3513).
+Estado: actualizado (2026-08-03, investigación M1 completa).
 
 ## Convención de estado
 
@@ -11,16 +11,18 @@ Estado: actualizado con CI (2026-08-03, run 30775362988, commit f9e3513).
 
 | # | Parche | Origen | Estado upstream | Relevancia |
 |---|---|---|---|---|
-| P1 | Fix compatible panel `s6e8fc0` (v2, Yedaya Katsman, 2026-06-08) | lore.kernel.org | pending (NO en sm61x5 master, confirmado por CI) | display |
-| P2 | Enable MDSS + panel (v3, Yedaya Katsman, 2026-03) | lore.kernel.org | pending (NO en sm61x5 master, confirmado por CI) | display |
-| P3 | DTS initial support laurel_sprout (Lux Aliaga, v6/v7 2023) | mainline | accepted (presente en sm61x5 master) | DTS base |
-| P4 | Soporte touchscreen FT3518 | por localizar (NO en sm61x5 master) | por verificar | táctil |
+| P1 | Fix compatible panel `s6e8fc0` (v5 del patchset, Yedaya Katsman, 2026-03-17) | mainline | **accepted** (mainline v7.1, `49837b6babe7`) | display |
+| P2 | Enable MDSS + panel (v7, Yedaya Katsman, 2026-03-20) | mainline | **accepted** (mainline v7.1, `493cb869874c`) | display |
+| P3 | DTS initial support laurel_sprout (Lux Aliaga, 2023) | mainline | accepted (presente en sm61x5 master) | DTS base |
+| P4 | Soporte touchscreen FT3518 (edt-ft5x06, Yedaya Katsman) | mainline | **accepted** (mainline v7.0, `5383e76483dc`; DTS `8cbbb339048a`) | táctil |
 | P5 | Parches de sm61x5-mainline no presentes en la base elegida | codeberg | downstream | varios |
+| P6 | Enable GPU laurel + fix a610 highest_bank_bit | sm61x5/SzczurekYT | downstream (parte en mainline) | GPU |
 
-CI confirmó que ni el DTS de panel ni el driver de panel/táctil están en
-sm61x5-mainline master (7a52441d): P1, P2 y P4 deben recuperarse de ramas
-`barni2000/*` (p. ej. `barni2000/6.19-develop`) o de lore.kernel.org, y
-verificarse antes de aplicar.
+Hallazgo M1: panel y FT3518 están **aceptados en Linux mainline** (v7.0/v7.1).
+No están en sm61x5-mainline master (7a52441d) pero SÍ en la rama
+`barni2000/6.19-develop` (backports upstream). Si la base elegida es mainline
+reciente, P1/P2/P4 no requieren parches externos. Ver
+`docs/PANEL-PATCH-HISTORY.md` y `docs/TOUCHSCREEN-PATCH-HISTORY.md`.
 
 ## Proceso (obligatorio)
 
@@ -33,7 +35,7 @@ verificarse antes de aplicar.
 
 ## Notas
 
-- Con la base mainline (DECISION-0001), la mayoría de los parches de
-  sm61x5-mainline serán `downstream-only` o `local-workaround`.
+- Con una base mainline reciente (v7.0+), los parches de panel/táctil ya
+  están dentro y solo quedarán los downstream de sm61x5-mainline.
 - Al cerrarse la issue #1 de sm61x5-mainline (release), se reevaluará si
   conviene cambiar de base.

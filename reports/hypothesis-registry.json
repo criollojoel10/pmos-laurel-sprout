@@ -24,15 +24,16 @@
     {
       "id": "H3",
       "claim": "existe sm61x5_defconfig",
-      "status": "refuted",
-      "source": "árbol sm61x5-mainline arch/arm64/configs"
+      "status": "needs-reverification",
+      "source": "sm61x5-mainline arch/arm64/configs (master y ramas dev)",
+      "notes": "NO existe en master (7a52441d) pero SÍ existe en la rama barni2000/6.19-develop (commit 727f79bb9ca0, 2026-03-30, 'arm64: add sm61x5_defconfig'). Pendiente de evaluar su contenido y vigencia."
     },
     {
       "id": "H4",
-      "claim": "laurel_sprout soportado en mainline 6.19 (DTS + panel + táctil)",
+      "claim": "laurel_sprout soportado en mainline (DTS + panel + táctil)",
       "status": "needs-reverification",
-      "source": "árbol sm61x5-mainline master 7a52441d (CI)",
-      "notes": "DTS presente (sm6125-xiaomi-laurel-sprout.dts) pero panel/táctil NO localizados en master; buscar en ramas barni2000/* o parches."
+      "source": "sm61x5-mainline master 7a52441d + torvalds/linux mainline (investigación M1, 2026-08-03)",
+      "notes": "NO en sm61x5-mainline master (7a52441d), pero SÍ en Linux mainline: panel en v7.1 (49837b6babe7), táctil en v7.0 (5383e76483dc), DTS MDSS en v7.1 (493cb869874c). También presentes en barni2000/6.19-develop (backports). Pendiente de decidir la base del kernel."
     },
     {
       "id": "H5",

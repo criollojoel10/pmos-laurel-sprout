@@ -1,0 +1,107 @@
+{
+  "generated_at": "2026-08-03",
+  "subsystem": "input",
+  "touchscreen": "FocalTech FT3518",
+  "driver_file": "drivers/input/touchscreen/edt-ft5x06.c",
+  "dts_file": "arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts",
+  "summary": "Soporte FT3518 en el driver EDT-FT5x06 para Xiaomi Mi A3, aplicado upstream por Dmitry Torokhov (v3, 2026-01-18) y presente en Linux mainline v7.0. El DTS del touchscreen se aplicó por separado (v5, 2026-02-08) vía Bjorn Andersson.",
+  "revisions": [
+    {
+      "version": "v1",
+      "author": "Yedaya Katsman",
+      "date": "2026-01-13",
+      "message_id": "20260113-touchscreen-patches-v1-0-a10957f32dd8@gmail.com",
+      "base_commit": "b71e635feefc852405b14620a7fc58c4c80c0f73",
+      "changes": "Primera versión del patchset (3 parches: dt-bindings, driver, DTS).",
+      "status": "superseded"
+    },
+    {
+      "version": "v2",
+      "author": "Yedaya Katsman",
+      "date": "2026-01-14",
+      "message_id": "20260114-touchscreen-patches-v2-0-4215f94c8aba@gmail.com",
+      "base_commit": "b71e635feefc852405b14620a7fc58c4c80c0f73",
+      "changes": "Arreglar nombre y email en los signoffs.",
+      "status": "superseded"
+    },
+    {
+      "version": "v3",
+      "author": "Yedaya Katsman",
+      "date": "2026-01-18",
+      "message_id": "20260118-touchscreen-patches-v3-0-1c6a729c5eb4@gmail.com",
+      "base_commit": "b71e635feefc852405b14620a7fc58c4c80c0f73",
+      "changes": "Renombrar nodo regulador y reordenar nodos; añadir configuración de pinctrl pmx_ts_* en sm6125; sin config para gpio 83 porque no está documentado downstream.",
+      "status": "accepted",
+      "applied_commit": "5383e76483dc",
+      "applied_by": "Dmitry Torokhov",
+      "accepted": "2026-01-18",
+      "notes": "Revisado por Dmitry Baryshkov. 'Applied, thank you.' (Dmitry Torokhov)."
+    },
+    {
+      "version": "v4",
+      "author": "Yedaya Katsman",
+      "date": "2026-01-20",
+      "message_id": "20260120-touchscreen-patches-v4-0-30145da9d6d3@gmail.com",
+      "base_commit": "b71e635feefc852405b14620a7fc58c4c80c0f73",
+      "changes": "Seguir el estilo dts para nodos pinctrl; no referenciar la config 'release' del touchscreen.",
+      "status": "superseded",
+      "notes": "Sobrepasada; el DTS del touch siguió con v5."
+    },
+    {
+      "version": "v5",
+      "author": "Yedaya Katsman",
+      "date": "2026-02-08",
+      "message_id": "20260208-touchscreen-patches-v5-1-5821dff9c9a2@gmail.com",
+      "base_commit": "b71e635feefc852405b14620a7fc58c4c80c0f73",
+      "changes": "Versión final del DTS del touchscreen. Revisado por Konrad Dybcio. Aplicado por Bjorn Andersson.",
+      "status": "accepted",
+      "applied_commit": "8cbbb339048a",
+      "applied_by": "Bjorn Andersson",
+      "accepted": "2026-02-08"
+    }
+  ],
+  "upstream_commits": [
+    {
+      "id": "9b352327add1",
+      "title": "dt-bindings: input: touchscreen: edt-ft5x06: Add FocalTech FT3518",
+      "tree": "mainline",
+      "status": "accepted",
+      "mainline_version": "v7.0"
+    },
+    {
+      "id": "5383e76483dc",
+      "title": "Input: edt-ft5x06 - add support for FocalTech FT3518",
+      "tree": "mainline",
+      "status": "accepted",
+      "mainline_version": "v7.0",
+      "applied_by": "Dmitry Torokhov"
+    },
+    {
+      "id": "8cbbb339048a",
+      "title": "arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Add Focaltech FT3518 touchscreen",
+      "tree": "mainline",
+      "status": "accepted",
+      "mainline_version": "v7.0",
+      "applied_by": "Bjorn Andersson"
+    }
+  ],
+  "classification": "accepted-not-present",
+  "classification_notes": "El FT3518 ya está en Linux mainline (v7.0+). NO está en sm61x5-mainline master (7a52441d) pero SÍ está en la rama barni2000/6.19-develop de sm61x5-mainline y en SzczurekYT/linux rama laurel.",
+  "dependencies": [
+    "Enable qupv3_id_0 e i2c2 bus para el touchscreen",
+    "pinctrl pmx_ts_int_* / pmx_ts_reset_* en sm6125",
+    "regulator vdd (2.8V) para el touch"
+  ],
+  "hardware": {
+    "i2c_bus": "i2c2 (qupv3_id_0)",
+    "i2c_address": "0x38",
+    "reset_gpio": "gpio 83 (no documentado downstream; sin pinctrl config)",
+    "max_support_points": 10
+  },
+  "sources": [
+    "https://patchew.org/linux/20260120-touchscreen-patches-v4-0-30145da9d6d3@gmail.com/",
+    "https://lists.openwall.net/linux-kernel/2026/01/18/608",
+    "https://lists.openwall.net/linux-kernel/2026/01/18/607",
+    "https://www.spinics.net/lists/devicetree/msg886851.html"
+  ]
+}
