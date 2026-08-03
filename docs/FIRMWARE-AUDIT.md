@@ -1,13 +1,12 @@
 # Auditoría de firmware
 
-Estado: registro inicial (2026-08-02). Detalles por componente se completan
-en el workflow 01 (`reports/firmware-audit.md`).
+Estado: actualizado con CI (2026-08-03, run 30775362988, commit f9e3513).
 
 ## Componentes requeridos para laurel_sprout
 
 | Componente | Blobs / paquete | Origen | Licencia | Estado |
 |---|---|---|---|---|
-| GPU Adreno 610 | `firmware-qcom-adreno-a610` (pmaports) | linux-firmware / pmaports | por verificar | pendiente |
+| GPU Adreno 610 | `firmware-qcom-adreno-a610` | **NO localizado en pmaports main** (CI) → verificar en linux-firmware | por verificar | pendiente |
 | WLAN/BT | WCN3990 (`qcom/wcn3990*`, `qca6390`) | linux-firmware | por verificar | pendiente |
 | Modem | `mba.mbn`, `qdsp6.mbn` | firmware stock Xiaomi | propietario | pendiente (no redistribuir) |
 | ADSP/CDSP | `adsp.mbn`, `cdsp.mbn` | firmware stock Xiaomi | propietario | pendiente |
@@ -22,6 +21,8 @@ en el workflow 01 (`reports/firmware-audit.md`).
 
 ## Verificación
 
-- `firmware-qcom-adreno-a610` presente en pmaports main: se verifica en CI.
+- `firmware-qcom-adreno-a610` en pmaports main: **no localizado** (CI).
+  Confirmado que debe obtenerse de `linux-firmware` o empaquetarse con su
+  licencia (a610: Qualcomm, redistribuible con su propia licencia).
 - Correspondencia entre `linux-firmware` y el manifiesto: `verify-kconfig.sh`
   y auditoría.

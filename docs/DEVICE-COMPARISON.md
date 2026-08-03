@@ -1,7 +1,6 @@
 # Comparativa de dispositivos de referencia
 
-Estado: registro inicial (2026-08-02). Los datos reales de pmaports se
-completan con el workflow 01 (`reports/device-comparison.md`).
+Estado: actualizado con CI (2026-08-03, run 30775362988, commit f9e3513).
 
 ## Criterio de selección
 
@@ -27,6 +26,13 @@ Dispositivos ya soportados en postmarketOS con:
 - Paquete de firmware (`firmware-qcom-adreno-a610`, etc.).
 - DTS mainline (si está soportado).
 
-## Estado
+## Estado en pmaports main (confirmado por CI)
 
-Pendiente de completar en CI: `reports/device-comparison.md`.
+- `device-xiaomi-willow` (Redmi Note 8T): **presente** en main → fuente de
+  config SM6125 y deviceinfo.
+- `device-xiaomi-laurel` (Mi A3): presente (port **archivado** en
+  `device/archived/device-xiaomi-laurel`); solo deviceinfo, sin
+  kernel_apkbuild ni firmware.
+- `device-xiaomi-ginkgo` / `device-xiaomi-sofia`: **NO localizados** en main.
+- Sony pdx201/doha no aparecen en la lista de `device-xiaomi-*`; se revisan
+  con prefijo `device-sony-*` en una iteración posterior si hacen falta.

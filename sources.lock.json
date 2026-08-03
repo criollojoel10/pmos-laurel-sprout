@@ -1,5 +1,5 @@
 {
-  "$comment": "Fuentes del proyecto. Verificadas y fijadas por commit el 2026-08-02 (auditoría research/sm61x5-reference-audit). Una build reproducible rechaza main/master/HEAD/latest sin commit fijado, URLs que cambien silenciosamente y artefactos sin SHA-256. Los commits de HEAD se fijarán congelando en 02-freeze-sources.",
+  "$comment": "Fuentes del proyecto. Verificadas y fijadas por commit el 2026-08-02 y confirmadas por CI (01-research-upstream run 30775362988, commit f9e3513, 2026-08-03). Una build reproducible rechaza main/master/HEAD/latest sin commit fijado, URLs que cambien silenciosamente y artefactos sin SHA-256. Los commits de HEAD se fijarán congelando en 02-freeze-sources.",
   "format_version": 1,
   "sources": [
     {

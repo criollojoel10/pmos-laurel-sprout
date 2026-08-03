@@ -1,7 +1,6 @@
 # Plan de parches
 
-Estado: registro inicial (2026-08-02). Se actualiza al auditar cada parche
-antes de aplicarlo (AGENTS.md sección 6).
+Estado: actualizado con CI (2026-08-03, run 30775362988, commit f9e3513).
 
 ## Convención de estado
 
@@ -12,11 +11,16 @@ antes de aplicarlo (AGENTS.md sección 6).
 
 | # | Parche | Origen | Estado upstream | Relevancia |
 |---|---|---|---|---|
-| P1 | Fix compatible panel `s6e8fc0` (v2, Yedaya Katsman, 2026-06-08) | lore.kernel.org | pending (a verificar si está en sm61x5) | display |
-| P2 | Enable MDSS + panel (v3, Yedaya Katsman, 2026-03) | lore.kernel.org | pending | display |
-| P3 | DTS initial support laurel_sprout (Lux Aliaga, v6/v7 2023) | mainline | accepted en mainline | DTS base |
-| P4 | Soporte touchscreen FT3518 | por localizar | por verificar | táctil |
+| P1 | Fix compatible panel `s6e8fc0` (v2, Yedaya Katsman, 2026-06-08) | lore.kernel.org | pending (NO en sm61x5 master, confirmado por CI) | display |
+| P2 | Enable MDSS + panel (v3, Yedaya Katsman, 2026-03) | lore.kernel.org | pending (NO en sm61x5 master, confirmado por CI) | display |
+| P3 | DTS initial support laurel_sprout (Lux Aliaga, v6/v7 2023) | mainline | accepted (presente en sm61x5 master) | DTS base |
+| P4 | Soporte touchscreen FT3518 | por localizar (NO en sm61x5 master) | por verificar | táctil |
 | P5 | Parches de sm61x5-mainline no presentes en la base elegida | codeberg | downstream | varios |
+
+CI confirmó que ni el DTS de panel ni el driver de panel/táctil están en
+sm61x5-mainline master (7a52441d): P1, P2 y P4 deben recuperarse de ramas
+`barni2000/*` (p. ej. `barni2000/6.19-develop`) o de lore.kernel.org, y
+verificarse antes de aplicar.
 
 ## Proceso (obligatorio)
 

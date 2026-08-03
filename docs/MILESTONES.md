@@ -1,22 +1,25 @@
 # Hitos del proyecto
 
-Estado: plan (2026-08-02). Cada hito se actualiza en `reports/milestones.json`.
+Estado: actualizado (2026-08-03). Cada hito se actualiza en `reports/milestones.json`.
 
-## M0 — Fundación (en curso)
+## M0 — Fundación (completado)
 
 - [x] Repositorio local con estructura, scripts y workflows.
 - [x] Metadata Fastboot sanitizada.
 - [x] Auditoría upstream inicial (URLs, commits, ramas).
-- [ ] Repositorio GitHub publicado (bloqueado: autorización).
-- [ ] Workflow 01 ejecutado y resultados incorporados.
+- [x] Repositorio GitHub publicado (public).
+- [x] Workflow 01 ejecutado y resultados incorporados (run 30775362988).
 
 ## M1 — Investigación y fuentes congeladas
 
-- [ ] Workflow 01 completo (referencias, firmware, boot layout).
+- [x] Workflow 01 completo (referencias, firmware, boot layout).
 - [ ] Decisión de base del kernel (DECISION-0002).
 - [ ] `sources.lock.json` con commits fijados y SHA-256.
-- [ ] `reports/kernel-candidates.json` y `docs/KERNEL-BASE-COMPARISON.md`.
+- [x] `reports/kernel-candidates.json` y `docs/KERNEL-BASE-COMPARISON.md`.
 - [ ] `02-freeze-sources` aprobado.
+
+Pendiente de M1: localizar panel/táctil (H4) en ramas `barni2000/*` y
+firmware A610 (H5, no en pmaports main).
 
 ## M2 — Kernel
 
