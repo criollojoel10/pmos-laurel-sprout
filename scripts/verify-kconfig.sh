@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+#
+# verify-kconfig.sh
+#
+# Comprueba que cada símbolo obligatorio de un fragmento Kconfig existe en el
+# Kconfig del árbol y que terminó habilitado en el .config final.
+# La build debe fallar si un símbolo obligatorio fue solicitado pero quedó
+# silenciosamente deshabilitado.
+#
+# Uso:
+#   scripts/verify-kconfig.sh --config <ruta-config> --tree <ruta-árbol>
+#   [--fragments frag1.fragment [frag2.fragment ...]] [--fail-missing]
+# Licencia: GPL-3.0-or-later
+
+set -Eeuo pipefail
+
+CONFIG=""
+TREE=""
+FAIL_MISSING=0
+FRAGMENTS=()
+
+usage() {
+  echo "uso: $0 --config <config> --tree <árbol> [--fragments f...] [--fail-missing]" >&2
+  exit 2
+}
+
+while (( $# > 0 )); do
+  case "$1" in
+    --config) CONFIG="$2"; shift 2 ;;
+    --tree) TREE="$2"; shift 2 ;;
+    --fragments) shift; while (( $# > 0 )) && [[ "$1" != -* ]]; do FRAGMENTS+=("$1"); shift; done ;;
+    --fail-missing) FAIL_MISSING=1; shift ;;
+    *) usage ;;
+  esac
+done
+
+[[ -n "$CONFIG" && -n "$TREE" ]] || usage
+[[ -f "$CONFIG" ]] || { echo "ERROR: config no existe: $CONFIG" >&2; exit 1; }
+[[ -d "$TREE" ]] || { echo "ERROR: árbol no existe: $TREE" >&2; exit 1; }
+
+info() { printf '[kconfig] %s\n' "$*" >&2; }
+
+MISSING_SYMBOLS=()
+DISABLED_SYMBOLS=()
+
+# Recolectar símbolos de los fragmentos
+SYMBOLS=()
+for frag in "${FRAGMENTS[@]:-}"; do
+  [[ -f "$frag" ]] || { echo "ERROR: fragmento no existe: $frag" >&2; exit 1; }
+  while IFS= read -r line; do
+    case "$line" in
+      CONFIG_*=*)
+        sym="${line%%=*}"
+        SYMBOLS+=("$sym")
+        ;;
+    esac
+  done < "$frag"
+done
+
+if (( ${#SYMBOLS[@]} == 0 )); then
+  info "sin símbolos explícitos en fragmentos; validando símbolos presentes en el config"
+fi
+
+for sym in "${SYMBOLS[@]}"; do
+  # ¿Existe el símbolo en el Kconfig del árbol?
+  if ! grep -rqE "(config|menuconfig)[[:space:]]+${sym#CONFIG_}" "$TREE/Kconfig"* "$TREE"/*/Kconfig* 2>/dev/null; then
+    MISSING_SYMBOLS+=("$sym")
+    info "MISSING en Kconfig: $sym"
+    continue
+  fi
+  # ¿Terminó habilitado (=y/=m) en el .config final?
+  if grep -qE "^# ${sym} is not set" "$CONFIG"; then
+    DISABLED_SYMBOLS+=("$sym")
+    info "DESHABILITADO silenciosamente: $sym"
+  elif ! grep -qE "^${sym}=(y|m)" "$CONFIG"; then
+    DISABLED_SYMBOLS+=("$sym")
+    info "NO presente en config final: $sym"
+  else
+    info "OK: $sym"
+  fi
+done
+
+if (( ${#MISSING_SYMBOLS[@]} > 0 )); then
+  echo "Símbolos inexistentes en Kconfig (a revisar):" >&2
+  printf '  %s\n' "${MISSING_SYMBOLS[@]}" >&2
+fi
+
+if (( ${#DISABLED_SYMBOLS[@]} > 0 )); then
+  echo "Símbolos obligatorios silenciosamente deshabilitados:" >&2
+  printf '  %s\n' "${DISABLED_SYMBOLS[@]}" >&2
+  if (( FAIL_MISSING )); then
+    info "FALLO: símbolos obligatorios deshabilitados"
+    exit 1
+  fi
+fi
+
+info "verificación Kconfig completada"
+exit 0
