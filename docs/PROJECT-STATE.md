@@ -98,8 +98,11 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
 4. ✅ **FASE D (boot image de diagnóstico)**: `scripts/build-boot-image.py`
    (builder autocontenido, header v2 verificado byte-por-byte vs mkbootimg) +
    workflow `04-build-diagnostic-boot.yml`. **Boot image construido y validado
-   en CI** (run 30835329663, 21.4 MB < 64 MiB, round-trip kernel/ramdisk/dtb
-   OK). Artefacto `boot-laurel-diagnostic`.
+   en CI** (run 30916017707, 21.5 MB < 64 MiB, round-trip kernel/ramdisk/dtb
+   OK, busybox arm64 estático). Artefacto `boot-laurel-diagnostic`.
+   [2026-08-04] El artefacto previo (run 30835329663) tenía busybox x86-64;
+   se reconstruyó con busybox 1.38.0 arm64 compilado en CI
+   (`scripts/build-busybox-arm64.sh`).
 5. **FASE E (prueba no destructiva, REQUIERE autorización)**: presentar el
    comando `fastboot boot` (FASE 8). El boot.img de CI está listo para
    descargar y probar en RAM sin tocar particiones.

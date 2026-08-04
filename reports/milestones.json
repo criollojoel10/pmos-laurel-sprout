@@ -21,7 +21,7 @@
       "name": "Kernel",
       "status": "in-progress",
       "blockers": [],
-      "notes": "Kernel mainline v7.1 compilado con parches downstream DTS (MDSS+panel s6e8fc0, DTSI GPU, DTS enable) en CI (run 30786551830 success). DTB sm6125-xiaomi-laurel-sprout.dtb generado y verificado (37KB). Fragmentos Kconfig validados contra v7.1. Artefactos finales del run 30792773593 verificados (Image 68MB, Image.gz 20MB, DTB, SHA256SUMS OK). Boot image de diagnóstico construida y validada localmente (header v2, page 4096, offsets verificados contra stock; 20.3MB < 64MiB; round-trip byte-por-byte). Workflow 04-build-diagnostic-boot listo."
+      "notes": "Kernel mainline v7.1 compilado con parches downstream DTS (MDSS+panel s6e8fc0, DTSI GPU, DTS enable) en CI (run 30786551830 success). DTB sm6125-xiaomi-laurel-sprout.dtb generado y verificado (37KB). Fragmentos Kconfig validados contra v7.1. Artefactos finales del run 30792773593 verificados (Image 68MB, Image.gz 20MB, DTB, SHA256SUMS OK). Boot image de diagnóstico construida y validada localmente (header v2, page 4096, offsets verificados contra stock; 20.3MB < 64MiB; round-trip byte-por-byte). Workflow 04-build-diagnostic-boot listo. [2026-08-04] INCIDENTE: artefacto 30835329663 tenía busybox x86-64 (exec format error en aarch64); resuelto compilando busybox 1.38.0 estático arm64 en CI (build-busybox-arm64.sh; se deshabilita applet tc; run 30916017707 success). Nuevo boot.img verificado: busybox 'ARM aarch64 statically linked', SHA256 66e7005f…, roundtrip kernel/ramdisk/dtb OK."
     },
     {
       "id": "M3",
