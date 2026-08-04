@@ -62,14 +62,23 @@ cd "$WORK/busybox-${VERSION}"
 info "configurando (ARCH=$ARCH CROSS=$CROSS, estático)"
 make ARCH="$ARCH" CROSS_COMPILE="$CROSS" defconfig >/dev/null
 sed -i 's/^# CONFIG_STATIC is not set$/CONFIG_STATIC=y/' .config
+# El applet tc (networking/tc.c) usa constantes CBQ (TCA_CBQ_*) que ya no
+# existen en los headers de linux del runner (kernel >= 6.13 las eliminó).
+# El initramfs de diagnóstico no necesita tc, así que lo deshabilitamos.
+sed -i 's/^CONFIG_TC=y$/# CONFIG_TC is not set/' .config
+# Reconciliar dependencias (las sub-opciones de TC se descartan solas).
+make ARCH="$ARCH" CROSS_COMPILE="$CROSS" olddefconfig >/dev/null
 grep -q '^CONFIG_STATIC=y$' .config || { echo "ERROR: no se pudo habilitar CONFIG_STATIC" >&2; exit 1; }
+grep -q '^# CONFIG_TC is not set$' .config || { echo "ERROR: no se pudo deshabilitar CONFIG_TC" >&2; exit 1; }
 
 info "compilando (puede tardar 1-2 min)"
 # Volcamos TODO el log de make a un archivo y, si falla, mostramos las
 # últimas 60 líneas en stderr (sin truncar con pipe, para no perder el error).
-if ! make -j"$(nproc)" ARCH="$ARCH" CROSS_COMPILE="$CROSS" busybox >"$WORK/make.log" 2>&1; then
+RC=0
+make -j"$(nproc)" ARCH="$ARCH" CROSS_COMPILE="$CROSS" busybox >"$WORK/make.log" 2>&1 || RC=$?
+if (( RC != 0 )); then
   cp "$WORK/make.log" "$OUT/make.log" 2>/dev/null || true
-  echo "ERROR: make falló (código $?). Log completo: $OUT/make.log" >&2
+  echo "ERROR: make falló (código $RC). Log completo: $OUT/make.log" >&2
   tail -n 60 "$WORK/make.log" >&2
   exit 1
 fi
