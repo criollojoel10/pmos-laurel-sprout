@@ -66,8 +66,6 @@ sed -i 's/^# CONFIG_STATIC is not set$/CONFIG_STATIC=y/' .config
 # existen en los headers de linux del runner (kernel >= 6.13 las eliminó).
 # El initramfs de diagnóstico no necesita tc, así que lo deshabilitamos.
 sed -i 's/^CONFIG_TC=y$/# CONFIG_TC is not set/' .config
-# Reconciliar dependencias (las sub-opciones de TC se descartan solas).
-make ARCH="$ARCH" CROSS_COMPILE="$CROSS" olddefconfig >/dev/null
 grep -q '^CONFIG_STATIC=y$' .config || { echo "ERROR: no se pudo habilitar CONFIG_STATIC" >&2; exit 1; }
 grep -q '^# CONFIG_TC is not set$' .config || { echo "ERROR: no se pudo deshabilitar CONFIG_TC" >&2; exit 1; }
 
