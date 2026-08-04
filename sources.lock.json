@@ -107,6 +107,19 @@
       "notes": "URL legal a confirmar en investigación. No se redistribuye sin verificación de licencia."
     },
     {
+      "name": "busybox-1.38.0",
+      "url": "https://busybox.net/downloads/busybox-1.38.0.tar.bz2",
+      "vcs": null,
+      "branch_informational": null,
+      "commit": null,
+      "commit_date": "2026-05-13",
+      "license": "GPL-2.0-only",
+      "purpose": "BusyBox estático arm64 para el initramfs de diagnóstico (boot no destructivo). Se compila en CI (workflow 04) para aarch64; el paquete busybox-static de Ubuntu (x86-64) es incompatible con el dispositivo.",
+      "verification_status": "verified",
+      "last_audited": "2026-08-03",
+      "notes": "Tarball fijado por SHA-256 (34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2). Verificado en el workflow 04 (sha256sum -c). Version 1.38.0 estable."
+    },
+    {
       "name": "sm6125-mainline-linux",
       "url": "https://gitlab.com/sm6125-mainline/linux.git",
       "vcs": "git",

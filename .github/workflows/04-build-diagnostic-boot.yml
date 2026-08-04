@@ -43,11 +43,14 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             device-tree-compiler cpio zstd xz-utils gzip file \
-            python3 busybox-static android-sdk-libsparse-utils \
+            python3 crossbuild-essential-arm64 android-sdk-libsparse-utils \
             e2fsprogs
           # mkbootimg/unpack_bootimg: inspección usa el paquete 'mkbootimg'
           # (universe) para unpack; el ensamblado usa scripts/build-boot-image.py
           # (autocontenido, sin dependencias de distro).
+          # OJO: NO usar el paquete busybox-static de Ubuntu (x86-64). El
+          # initramfs se monta en el dispositivo (aarch64); el busybox debe
+          # compilarse estático para arm64 (paso 'Construir BusyBox arm64').
       - name: Descargar artefactos del kernel (workflow 03)
         # actions/download-artifact@v4.3.0 (SHA fijo)
         # Descarga de OTRO run: requiere github-token + run-id.
@@ -73,14 +76,20 @@ jobs:
             (cd /tmp/kernel-artifact && sha256sum -c SHA256SUMS) || true
           fi
           ls -la /tmp/kernel-artifact/Image.gz /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb
+      - name: Construir BusyBox arm64 estático
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-busybox-arm64.sh --out /tmp/busybox-out
+          file /tmp/busybox-out/busybox
+          cat /tmp/busybox-out/busybox.SHA256
       - name: Construir initramfs de diagnóstico
         run: |
           set -Eeuo pipefail
-          # BusyBox estático instalado (busybox-static). Se copia al stage.
-          BB="$(command -v busybox || true)"
+          # BusyBox estático arm64 construido en el paso anterior (no el
+          # busybox-static de Ubuntu, que es x86-64).
           bash scripts/build-diagnostic-initramfs.sh \
             --init initramfs/init \
-            --busybox "$BB" \
+            --busybox /tmp/busybox-out/busybox \
             --out /tmp/initramfs-out
           ls -la /tmp/initramfs-out/
       - name: Ensamblar boot.img de diagnóstico

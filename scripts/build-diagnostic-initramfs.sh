@@ -49,7 +49,18 @@ if [[ -z "$BUSYBOX" ]]; then
   fi
 fi
 if [[ -n "$BUSYBOX" && -f "$BUSYBOX" ]]; then
-  file "$BUSYBOX" | grep -qi "static" || info "AVISO: busybox no parece estático ($BUSYBOX)"
+  # El dispositivo es aarch64 (SM6125). Un busybox x86-64 haría fallar el
+  # initramfs con 'exec format error' (incidente registrado en FASE E0).
+  FB="$(file -b "$BUSYBOX")"
+  info "busybox: $FB"
+  [[ "$FB" == *"ARM aarch64"* ]] || {
+    echo "ERROR: busybox NO es aarch64 (dispositivo arm64): $FB" >&2
+    exit 1
+  }
+  [[ "$FB" == *"static"* ]] || {
+    echo "ERROR: busybox NO es estático: $FB" >&2
+    exit 1
+  }
   mkdir -p "$STAGE/bin" "$STAGE/sbin" "$STAGE/usr/bin" "$STAGE/usr/sbin"
   cp "$BUSYBOX" "$STAGE/bin/busybox"
   # applets
@@ -85,7 +96,7 @@ info "initramfs creado: $OUT/initramfs.cpio.gz"
 ls -la "$OUT/initramfs.cpio.gz"
 cat > "$OUT/initramfs-manifest.txt" <<EOF
 initramfs de diagnóstico laurel_sprout (mainline v7.1)
-- BusyBox estático con applets shell básicos
+- BusyBox estático aarch64 (arm64) con applets shell básicos
 - init: initramfs/init (PID 1)
 - consola serial ttyMSM0 + /dev/console
 - NADA se monta del rootfs del dispositivo
