@@ -172,6 +172,7 @@ jobs:
           path: |
             /tmp/boot-out/*.log
             /tmp/initramfs-out/*.log
+            /tmp/busybox-out/*.log
             *.log
           retention-days: 3
           if-no-files-found: ignore

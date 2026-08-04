@@ -65,7 +65,15 @@ sed -i 's/^# CONFIG_STATIC is not set$/CONFIG_STATIC=y/' .config
 grep -q '^CONFIG_STATIC=y$' .config || { echo "ERROR: no se pudo habilitar CONFIG_STATIC" >&2; exit 1; }
 
 info "compilando (puede tardar 1-2 min)"
-make -j"$(nproc)" ARCH="$ARCH" CROSS_COMPILE="$CROSS" busybox 2>&1 | tail -20
+# Volcamos TODO el log de make a un archivo y, si falla, mostramos las
+# últimas 60 líneas en stderr (sin truncar con pipe, para no perder el error).
+if ! make -j"$(nproc)" ARCH="$ARCH" CROSS_COMPILE="$CROSS" busybox >"$WORK/make.log" 2>&1; then
+  cp "$WORK/make.log" "$OUT/make.log" 2>/dev/null || true
+  echo "ERROR: make falló (código $?). Log completo: $OUT/make.log" >&2
+  tail -n 60 "$WORK/make.log" >&2
+  exit 1
+fi
+tail -n 8 "$WORK/make.log"
 
 BB="$WORK/busybox-${VERSION}/busybox"
 [[ -f "$BB" ]] || { echo "ERROR: no se generó el binario busybox" >&2; exit 1; }
