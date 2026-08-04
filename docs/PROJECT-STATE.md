@@ -15,7 +15,7 @@ Punto de control para sesiones futuras. Documento canónico de progreso:
 |---|---|---|
 | M0 | Fundación (repo, CI, estructura) | completado |
 | M1 | Investigación y fuentes congeladas | completado (2026-08-03) |
-| M2 | Kernel | en progreso — kernel debug compilado en CI |
+| M2 | Kernel | en progreso — kernel debug compilado + boot image de diagnóstico en CI |
 | M3 | Rootfs | pendiente (bloquea M2) |
 | M4 | Prueba física | pendiente (FASE 8 + respaldos) |
 | M5 | Release | pendiente |
@@ -86,8 +86,22 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
 
 ## Próximos pasos
 
-1. Recolectar artefactos del build debug (run 30789357941) y validar
-   SHA256SUMS + DTB.
-2. Construir boot image (`boot.img`) no destructiva en CI.
-3. FASE 5: rootfs consola/Plasma (workflows 04/05), deviceinfo real.
-4. Prueba física bajo FASE 8 (solo `fastboot boot`, previa autorización).
+1. ✅ **FASE B0 (auditoría de boot layout)**: stock V12.0.26.0 y /e/OS 4.1.1
+   analizados (header v2, page 4096, offsets verificados; vbmeta /e/OS
+   flags=3). Referencias en `local-private/rom-analysis/`, informes en
+   `reports/`.
+2. ✅ **FASE B1 (contraste histórico)**: guía postmarketOS 2022 recuperada vía
+   Wayback; deviceinfo/APKBUILD históricos de pmaports (fork SM61x5). Informe
+   `reports/postmarketos-history-analysis.md`.
+3. ✅ **FASE C (initramfs de diagnóstico)**: `initramfs/init` (busybox, serial
+   ttyMSM0, sin tocar flash) + `scripts/build-diagnostic-initramfs.sh`.
+4. ✅ **FASE D (boot image de diagnóstico)**: `scripts/build-boot-image.py`
+   (builder autocontenido, header v2 verificado byte-por-byte vs mkbootimg) +
+   workflow `04-build-diagnostic-boot.yml`. **Boot image construido y validado
+   en CI** (run 30835329663, 21.4 MB < 64 MiB, round-trip kernel/ramdisk/dtb
+   OK). Artefacto `boot-laurel-diagnostic`.
+5. **FASE E (prueba no destructiva, REQUIERE autorización)**: presentar el
+   comando `fastboot boot` (FASE 8). El boot.img de CI está listo para
+   descargar y probar en RAM sin tocar particiones.
+6. FASE 5: rootfs consola/Plasma (workflows 04/05), deviceinfo real.
+7. Prueba física bajo FASE 8 (solo `fastboot boot`, previa autorización).

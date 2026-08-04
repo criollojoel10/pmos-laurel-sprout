@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-03",
+  "generated_at": "2026-08-04",
   "device": {
     "manufacturer": "Xiaomi",
     "model": "Mi A3",
@@ -8,15 +8,15 @@
   "components": {
     "display": {
       "status": "compiled",
-      "notes": "DTS MDSS+DSI+PHY habilitado y panel samsung,s6e8fc0-m1906f9 en DTB compilado (v7.1 + parche 0001). Sin boot aún."
+      "notes": "DTS MDSS+DSI+PHY habilitado y panel samsung,s6e8fc0-m1906f9 en DTB compilado (v7.1 + parche 0001). Nodos MDSS/DSI/panel verificados presentes en el DTB descompilado (verify-dtb). Boot image de diagnóstico construido (CI + local). Sin boot aún."
     },
     "gpu": {
-      "status": "source-available",
-      "notes": "firmware confirmado 2026-08-03: firmware-qcom-adreno-a610 (subpackage) + a630_sqe.fw; nodos GPU (gpu@5900000, gmu_wrapper, gpucc, adreno_smmu) añadidos al DTSI/DTS (parches 0002/0003). DTB compilado; sin boot ni validación en hardware."
+      "status": "compiled",
+      "notes": "firmware confirmado 2026-08-03: firmware-qcom-adreno-a610 (subpackage) + a630_sqe.fw; nodos GPU (gpu@5900000, gmu_wrapper, gpucc, adreno_smmu) añadidos al DTSI/DTS (parches 0002/0003). Nodo GPU + SMMU verificados en el DTB descompilado. Sin boot ni validación en hardware."
     },
     "touchscreen": {
       "status": "compiled",
-      "notes": "driver edt-ft5x06 (FT3518) en fragmento base; DTS touch habilitado en parche 0001. Sin boot aún."
+      "notes": "driver edt-ft5x06 (FT3518) en fragmento base; DTS touch + I2C habilitado en parche 0001. Nodo táctil verificado en el DTB descompilado. Sin boot aún."
     },
     "wifi": {
       "status": "source-available",
@@ -28,23 +28,23 @@
     },
     "ufs": {
       "status": "configured",
-      "notes": "SCSI_UFSHCD_PLATFORM + SCSI_UFS_QCOM en fragmento base (símbolos v7.1)"
+      "notes": "SCSI_UFSHCD_PLATFORM + SCSI_UFS_QCOM en fragmento base (símbolos v7.1); nodo UFS verificado en DTB descompilado"
     },
     "usb": {
       "status": "configured",
-      "notes": "DWC3 + configfs en fragmento base (símbolos v7.1)"
+      "notes": "DWC3 + configfs en fragmento base (símbolos v7.1); nodo USB/DWC3 verificado en DTB descompilado"
     },
     "battery": {
       "status": "not-targeted",
-      "notes": "PMI632 sin driver dedicado en mainline v7.1 (QCOM_BATT_METER/SPMI_SCHG son de fork)"
+      "notes": "PMI632 sin driver dedicado en mainline v7.1 (QCOM_BATT_METER/SPMI_SCHG son de fork); nodo power-supply no presente en DTB (verify-dtb: FALTA)"
     },
     "thermal": {
       "status": "configured",
-      "notes": "QCOM_TSENS + QCOM_SPMI_TEMP_ALARM en fragmento base"
+      "notes": "QCOM_TSENS + QCOM_SPMI_TEMP_ALARM en fragmento base; nodo tsens verificado en DTB descompilado"
     },
     "cpufreq": {
       "status": "configured",
-      "notes": "ARM_QCOM_CPUFREQ_HW + CPUFREQ_DT en fragmento base"
+      "notes": "ARM_QCOM_CPUFREQ_HW + CPUFREQ_DT en fragmento base; nodo cpufreq no presente en DTB (verify-dtb: FALTA)"
     },
     "audio": {
       "status": "not-targeted",
