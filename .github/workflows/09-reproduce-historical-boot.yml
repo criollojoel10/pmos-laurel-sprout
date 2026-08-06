@@ -1,0 +1,426 @@
+name: 09-reproduce-historical-boot
+
+# Reproduce el boot.img HISTÓRICO del port postmarketOS xiaomi-laurel
+# (kernel 6.1 @77de535b + config congelada @7aaee51a + header v0 +
+# append_dtb + cmdline 'clk_ignore_unused'), más una variante v0 con el
+# kernel 7.1 actual para aislar la hipótesis del header v2 vs v0.
+#
+# NO flashea: solo produce artefactos auditables (boot.img + vbmeta flags=2).
+# Fuentes congeladas en sources.lock.json (entradas *-historical).
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_v7_1_variant:
+        description: Construir también kernel 7.1 actual (variante v0-header test)
+        type: boolean
+        default: true
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reproduce-historical-boot
+  cancel-in-progress: true
+
+jobs:
+  kernel-6-1:
+    name: Kernel histórico 6.1 (77de535b)
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Instalar dependencias de build
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            crossbuild-essential-arm64 device-tree-compiler \
+            flex bison libssl-dev libelf-dev bc python3 cpio xz-utils kmod
+      - name: Clonar sm6125-mainline/linux en el commit histórico
+        run: |
+          set -Eeuo pipefail
+          KC=77de535b8dbd8f483b5802c8937cb714bab5b485
+          git clone --filter=blob:none --no-checkout \
+            https://gitlab.com/sm6125-mainline/linux.git kernel61
+          cd kernel61
+          git fetch --depth 1 origin "$KC"
+          git checkout -q "$KC"
+          echo "Árbol en: $(git rev-parse HEAD)"
+      - name: Descargar config congelada y verificar SHA-256
+        run: |
+          set -Eeuo pipefail
+          URL="https://gitlab.postmarketos.org/api/v4/projects/postmarketOS%2Fpmaports/repository/files/device%2Ftesting%2Flinux-postmarketos-qcom-sm6125%2Fconfig-postmarketos-qcom-sm6125.aarch64/raw?ref=7aaee51a"
+          curl -fsSL "$URL" -o kernel61/.config
+          EXPECTED="08bcee71d4164ef3e7c1244cdf4d5a0e4e7e2eedcadd9e5576166f8661417c4a"
+          GOT="$(sha256sum kernel61/.config | awk '{print $1}')"
+          echo "config sha256: $GOT"
+          if [[ "$GOT" != "$EXPECTED" ]]; then
+            echo "ERROR: la config no coincide con la congelada" >&2
+            exit 1
+          fi
+          head -3 kernel61/.config
+      - name: Compilar kernel histórico 6.1
+        run: |
+          set -Eeuo pipefail
+          cd kernel61
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig > /tmp/k61-olddefconfig.log 2>&1
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+            -j"$(nproc)" Image.gz dtbs > /tmp/k61-build.log 2>&1 || {
+            echo "ERROR: build kernel 6.1 falló (log al final)"; tail -60 /tmp/k61-build.log; exit 1; }
+          ls -la arch/arm64/boot/Image.gz
+          DTB=$(find arch/arm64/boot/dts -name 'sm6125-xiaomi-laurel_sprout.dtb' | head -n1)
+          if [[ -z "$DTB" ]]; then
+            echo "ERROR: no se generó sm6125-xiaomi-laurel_sprout.dtb" >&2
+            exit 1
+          fi
+          echo "DTB: $DTB"
+          cp arch/arm64/boot/Image.gz /tmp/k61-Image.gz
+          cp "$DTB" /tmp/k61-laurel.dtb
+          cp .config /tmp/k61-config
+      - name: Empaquetar y subir artefacto kernel 6.1
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/k61-out
+          cp /tmp/k61-Image.gz /tmp/k61-out/Image.gz
+          cp /tmp/k61-laurel.dtb /tmp/k61-out/sm6125-xiaomi-laurel_sprout.dtb
+          cp /tmp/k61-config /tmp/k61-out/kernel.config
+          cp /tmp/k61-build.log /tmp/k61-out/k61-build.log
+          cp /tmp/k61-olddefconfig.log /tmp/k61-out/k61-olddefconfig.log
+          cd /tmp/k61-out
+          sha256sum Image.gz sm6125-xiaomi-laurel_sprout.dtb kernel.config > SHA256SUMS
+          jq -n --arg kc "77de535b8dbd8f483b5802c8937cb714bab5b485" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{artifact:"kernel-6-1-historical", kernel_commit:$kc, generated_at:$date}' > manifest.json
+          ls -la
+          cat SHA256SUMS
+      - name: Upload kernel 6.1
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: kernel-6-1-historical
+          path: /tmp/k61-out/
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: kernel-6-1-historical-logs
+          path: |
+            /tmp/k61-*.log
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore
+
+  kernel-7-1:
+    name: Kernel 7.1 actual (v7.1 base)
+    if: ${{ github.event.inputs.build_v7_1_variant != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Instalar dependencias de build
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            crossbuild-essential-arm64 device-tree-compiler \
+            flex bison libssl-dev libelf-dev bc python3 cpio xz-utils kmod
+      - name: Determinar commit del kernel 7.1
+        id: kcommit
+        run: |
+          set -Eeuo pipefail
+          KC="$(jq -r '.sources[] | select(.name=="linux-mainline-v7.1") | .commit // empty' sources.lock.json || true)"
+          if [[ -z "$KC" || "$KC" == "null" ]]; then
+            echo "ERROR: no hay commit fijado para linux-mainline-v7.1" >&2
+            exit 1
+          fi
+          echo "commit=$KC" >> "$GITHUB_OUTPUT"
+          echo "Usando commit kernel 7.1: $KC"
+      - name: Clonar Linux mainline v7.1 (commit fijado)
+        run: |
+          set -Eeuo pipefail
+          KC="${{ steps.kcommit.outputs.commit }}"
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/torvalds/linux.git kernel
+          cd kernel
+          git fetch --depth 1 origin "$KC"
+          git checkout -q "$KC"
+          echo "Árbol en: $(git rev-parse HEAD)"
+      - name: Aplicar parches downstream
+        run: |
+          set -Eeuo pipefail
+          bash scripts/apply-kernel-patches.sh kernel
+      - name: Compilar kernel 7.1
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-kernel.sh \
+            --tree kernel \
+            --variant debug \
+            --fragments configs/kernel/laurel-base.fragment configs/kernel/laurel-debug.fragment \
+            --out /tmp/k71-out
+          ls -la /tmp/k71-out/
+      - name: Generar checksums y manifest 7.1
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/k71-out
+          sha256sum Image.gz sm6125-xiaomi-laurel-sprout.dtb kernel.config > SHA256SUMS
+          jq -n --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{artifact:"kernel-7-1", kernel_base:"linux-mainline-v7.1", generated_at:$date}' > manifest.json
+          cat SHA256SUMS
+          cat manifest.json
+      - name: Upload kernel 7.1
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: kernel-7-1
+          path: |
+            /tmp/k71-out/Image.gz
+            /tmp/k71-out/sm6125-xiaomi-laurel-sprout.dtb
+            /tmp/k71-out/SHA256SUMS
+            /tmp/k71-out/manifest.json
+            /tmp/k71-out/kernel.config
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: kernel-7-1-logs
+          path: |
+            /tmp/k71-out/*.log
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore
+
+  boot-v0:
+    name: Ensamblar boot.img v0 histórico + vbmeta flags=2
+    needs: [kernel-6-1]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Instalar dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            device-tree-compiler cpio zstd xz-utils gzip file python3 \
+            crossbuild-essential-arm64 e2fsprogs
+          # avbtool: preferir paquete de distro; si no existe, instalarlo en un
+          # venv dedicado (nunca pip global con sudo).
+          if ! command -v avbtool >/dev/null 2>&1; then
+            sudo apt-get install -y -qq avbtool 2>/dev/null || true
+          fi
+          if ! command -v avbtool >/dev/null 2>&1; then
+            python3 -m venv /tmp/avb-venv
+            /tmp/avb-venv/bin/pip install --quiet avbtool
+            mkdir -p /tmp/bin
+            ln -sf /tmp/avb-venv/bin/avbtool /tmp/bin/avbtool
+            echo "/tmp/bin" >> "$GITHUB_PATH"
+          fi
+          command -v avbtool
+          avbtool --version 2>/dev/null || avbtool 2>&1 | head -2 || true
+      - name: Descargar kernel 6.1 histórico (mismo run)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kernel-6-1-historical
+          path: /tmp/k61
+      - name: Descargar kernel 7.1 (mismo run, si se construyó)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kernel-7-1
+          path: /tmp/k71
+        continue-on-error: true
+      - name: Verificar kernels descargados
+        run: |
+          set -Eeuo pipefail
+          if [[ -f /tmp/k61/Image.gz && -f /tmp/k61/sm6125-xiaomi-laurel_sprout.dtb ]]; then
+            (cd /tmp/k61 && sha256sum -c SHA256SUMS) || true
+            echo "K61 OK: $(stat -c %s /tmp/k61/Image.gz) bytes"
+          else
+            echo "ERROR: falta kernel 6.1 histórico" >&2
+            exit 1
+          fi
+          if [[ -f /tmp/k71/Image.gz ]]; then
+            echo "K71 OK: $(stat -c %s /tmp/k71/Image.gz) bytes"
+          else
+            echo "AVISO: kernel 7.1 no disponible; solo se ensamblará el histórico"
+          fi
+      - name: Construir BusyBox arm64 estático
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-busybox-arm64.sh --out /tmp/busybox-out
+          file /tmp/busybox-out/busybox
+      - name: Construir initramfs de diagnóstico
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-diagnostic-initramfs.sh \
+            --init initramfs/init \
+            --busybox /tmp/busybox-out/busybox \
+            --out /tmp/initramfs-out
+          ls -la /tmp/initramfs-out/
+      - name: Ensamblar boot.img histórico (kernel 6.1, header v0, append_dtb)
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/boot-out
+          python3 scripts/build-boot-image.py \
+            --kernel /tmp/k61/Image.gz \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --dtb /tmp/k61/sm6125-xiaomi-laurel_sprout.dtb \
+            --out /tmp/boot-out/boot-laurel-kernel-6.1-historical-v0.img \
+            --header-version 0 \
+            --append-dtb \
+            --base 0x00000000 \
+            --page-size 4096 \
+            --kernel-offset 0x00008000 \
+            --ramdisk-offset 0x01000000 \
+            --tags-offset 0x00000100 \
+            --cmdline "clk_ignore_unused" \
+            --os-version 1.0.0 \
+            --os-patch-level 2022-12
+      - name: Ensamblar variante v0 con kernel 7.1 (si está)
+        if: ${{ hashFiles('/tmp/k71/Image.gz') != '' }}
+        run: |
+          set -Eeuo pipefail
+          DTB71="/tmp/k71/sm6125-xiaomi-laurel-sprout.dtb"
+          if [[ ! -f "$DTB71" ]]; then
+            echo "AVISO: sin DTB 7.1; omitiendo variante 7.1 v0"
+            exit 0
+          fi
+          python3 scripts/build-boot-image.py \
+            --kernel /tmp/k71/Image.gz \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --dtb "$DTB71" \
+            --out /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img \
+            --header-version 0 \
+            --append-dtb \
+            --base 0x00000000 \
+            --page-size 4096 \
+            --kernel-offset 0x00008000 \
+            --ramdisk-offset 0x01000000 \
+            --tags-offset 0x00000100 \
+            --cmdline "console=ttyMSM0,115200n8 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 msm_rtb.filter=0x237 lpm_levels.sleep_disabled=1 service_locator.enable=1 loop.max_part=7 buildvariant=user" \
+            --os-version 12.0.0 \
+            --os-patch-level 2026-08
+      - name: Generar vbmeta histórico (flags=2, avbtool)
+        run: |
+          set -Eeuo pipefail
+          avbtool make_vbmeta_image --flags 2 --padding_size 4096 \
+            --output /tmp/boot-out/vbmeta-historical-flags2.img
+          avbtool info_image --image /tmp/boot-out/vbmeta-historical-flags2.img | head -12
+      - name: Verificar estructura de los boot.img v0
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/boot-out
+          bash scripts/verify-boot-v0-appenddtb.sh \
+            --boot /tmp/boot-out/boot-laurel-kernel-6.1-historical-v0.img \
+            --kernel /tmp/k61/Image.gz \
+            --dtb /tmp/k61/sm6125-xiaomi-laurel_sprout.dtb \
+            --cmdline "clk_ignore_unused" \
+            --boot-limit 67108864 \
+            --out /tmp/boot-out
+          if [[ -f /tmp/k71/Image.gz && -f /tmp/k71/sm6125-xiaomi-laurel_sprout.dtb && -f /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img ]]; then
+            bash scripts/verify-boot-v0-appenddtb.sh \
+              --boot /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img \
+              --kernel /tmp/k71/Image.gz \
+              --dtb /tmp/k71/sm6125-xiaomi-laurel_sprout.dtb \
+              --cmdline "console=ttyMSM0,115200n8 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 msm_rtb.filter=0x237 lpm_levels.sleep_disabled=1 service_locator.enable=1 loop.max_part=7 buildvariant=user" \
+              --boot-limit 67108864 \
+              --out /tmp/boot-out
+          fi
+          cat /tmp/boot-out/v0-verification.md
+      - name: Generar reporte de unpack (header + offsets)
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import struct, glob, os
+          rows = []
+          for f in sorted(glob.glob("/tmp/boot-out/boot-laurel-kernel-*.img")):
+              d = open(f, "rb").read()
+              ks, ka, rs, ra, ss, sa, ta, ps, hv, ov = struct.unpack("<10I", d[8:48])
+              cmd = d[64:576].rstrip(b"\x00").decode("latin1")
+              koff = ps
+              roff = koff + ((ks + ps - 1) // ps) * ps
+              rows.append(
+                  f"| {os.path.basename(f)} | {len(d)} | {hv} | {ps} | "
+                  f"0x{ka:x} | 0x{ra:x} | 0x{ta:x} | {ks} | {rs} | {cmd[:40]} |"
+              )
+          with open("/tmp/boot-out/unpack-report.md", "w") as fh:
+              fh.write("# Unpack report (roundtrip)\n\n")
+              fh.write("| archivo | total B | header v | page | kernel_addr | ramdisk_addr | tags_addr | kernel B | ramdisk B | cmdline |\n")
+              fh.write("|---|---|---|---|---|---|---|---|---|---|\n")
+              fh.write("\n".join(rows) + "\n")
+          print("\n".join(rows))
+          PY
+      - name: Generar checksums y manifest
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/boot-out
+          sha256sum *.img > SHA256SUMS
+          jq -n \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg run "${{ github.run_id }}" \
+            '{artifact:"historical-boot-images", generated_at:$date, run_id:$run,
+              header_version:0, append_dtb:true, cmdline_historica:"clk_ignore_unused",
+              vbmeta_flags:2}' > manifest.json
+          cat SHA256SUMS
+          cat manifest.json
+      - name: Empaquetar salida
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: historical-boot-images
+          path: |
+            /tmp/boot-out/boot-laurel-kernel-6.1-historical-v0.img
+            /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img
+            /tmp/boot-out/vbmeta-historical-flags2.img
+            /tmp/boot-out/v0-verification.md
+            /tmp/boot-out/unpack-report.md
+            /tmp/boot-out/SHA256SUMS
+            /tmp/boot-out/manifest.json
+            /tmp/initramfs-out/initramfs.cpio.gz
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: historical-boot-images-logs
+          path: |
+            /tmp/boot-out/*.log
+            /tmp/initramfs-out/*.log
+            /tmp/busybox-out/*.log
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore
