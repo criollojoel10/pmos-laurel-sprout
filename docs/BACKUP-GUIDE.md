@@ -50,12 +50,17 @@ Registrar las rutas exactas de:
 | Partición | Ruta esperada | Tamaño esperado |
 |---|---|---|
 | boot_a / boot_b | /dev/block/by-name/boot_a / boot_b | 64 MiB (0x4000000) |
-| dtbo_a / dtbo_b | /dev/block/by-name/dtbo_a / dtbo_b | 8 MiB (0x800000) |
-| vbmeta_a / vbmeta_b | /dev/block/by-name/vbmeta_a / vbmeta_b | 4 KiB (0x1000) |
+| dtbo_a / dtbo_b | /dev/block/by-name/dtbo_a / dtbo_b | 24 MiB (0x1800000) |
+| vbmeta_a / vbmeta_b | /dev/block/by-name/vbmeta_a / vbmeta_b | 64 KiB (0x10000) |
 | persist | /dev/block/by-name/persist | ~16 MiB |
 | modemst1 / modemst2 | /dev/block/by-name/modemst1 / modemst2 | ~4 MiB c/u |
 | fsg / fsc | /dev/block/by-name/fsg / fsc | ~4 MiB c/u |
 | modem | /dev/block/by-name/modem | ~100-200 MiB |
+
+> NOTA: tamaños medidos por `fastboot getvar partition-size:*` (2026-08-06,
+> lecturas de solo lectura). Este dispositivo NO tiene partición `super`;
+> `system_a`/`system_b` son particiones ext4 físicas de 3 GiB (0xC0000000)
+> que contienen /e/OS y NO se respaldan.
 
 Verificar los tamaños contra `device-metadata/fastboot-sanitized.json`
 (preflight-fastboot-sanitized.txt).
@@ -105,8 +110,8 @@ sha256sum local-private/backups/<fecha-iso>/*.img > local-private/backups/<fecha
 ls -la local-private/backups/<fecha-iso>/
 ```
 
-Verificar que los tamaños coinciden con el preflight (64 MiB boot, 8 MiB dtbo,
-4 KiB vbmeta) y que el contenido no está vacío ni es todo ceros.
+Verificar que los tamaños coinciden con el preflight (64 MiB boot, 24 MiB
+dtbo, 64 KiB vbmeta) y que el contenido no está vacío ni es todo ceros.
 
 ## Paso 6 — Registrar
 
