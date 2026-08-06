@@ -103,8 +103,14 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
    [2026-08-04] El artefacto previo (run 30835329663) tenía busybox x86-64;
    se reconstruyó con busybox 1.38.0 arm64 compilado en CI
    (`scripts/build-busybox-arm64.sh`).
-5. **FASE E (prueba no destructiva, REQUIERE autorización)**: presentar el
-   comando `fastboot boot` (FASE 8). El boot.img de CI está listo para
-   descargar y probar en RAM sin tocar particiones.
+5. **FASE E (prueba física, REQUIERE autorización)**: el intento no destructivo
+   `fastboot boot` (2026-08-04) quedó bloqueado por ESTE bootloader
+   (`FAILED remote: 'unknown command'`, `FASTBOOT_BOOT_COMMAND_UNSUPPORTED`).
+   No hubo ejecución de kernel/initramfs ni rechazo del contenido del boot.img.
+   Estrategia planificada: prueba persistente controlada escribiendo el boot
+   image de diagnóstico en `boot_<TARGET_SLOT>` (slot inactivo) **solo** bajo
+   FASE 8, con recovery-kit preparado en `local-private/phase-e-flash/recovery-kit/`
+   (TEST_IMG, KNOWN_GOOD_BOOT /e/OS 4.1.1, SHA256SUMS, recovery-manifest.json,
+   recovery-commands.txt, preflight sanitizado). ORIGINAL_SLOT=a, TARGET_SLOT=b.
 6. FASE 5: rootfs consola/Plasma (workflows 04/05), deviceinfo real.
 7. Prueba física bajo FASE 8 (solo `fastboot boot`, previa autorización).

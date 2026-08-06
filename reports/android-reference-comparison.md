@@ -87,8 +87,10 @@ Auditoría (solo lectura) de `flash_all.sh` / `flash_all_except_data_storage.sh`
 Aprendizajes para nuestro uso (no flasheable aquí):
 - Un flash de seguridad (si un día se repara) debe respetar **en ambos slots** las particiones de arranque y
   borrar `userdata` solo si se quiere borrado total (excepto `_except_data` conserva datos).
-- NO se debe ejecutar `fastboot erase dtbo` por la guía histórica; el layout demuestra que dtbo es solo overlay
-  de devboard y el DTB va en boot.img. Eliminar dtbo es innecesario y arriesgado para el SO stock.
+- La guía histórica pmOS ejecutaba `fastboot erase dtbo` (como root); NO era opcional ni comentado
+  (corrección 2026-08-05, ver `reports/historical-installation-correction.md`). Para un experimento,
+  ese `erase` se reproduciría SOLO sobre `dtbo_b` con respaldo físico previo (H3), nunca sobre `dtbo_a` o
+  de forma global sin gate autorizado.
 
 ## /e/OS initramfs (referencia al initramfs Android, no a la nuestra)
 

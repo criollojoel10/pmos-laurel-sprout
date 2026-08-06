@@ -43,17 +43,21 @@ El fork histórico confirma:
 
 ## Clasificación de los pasos de la guía histórica
 
-La wiki daba el siguiente flujo (con `#` como comentarios del guion original):
+La wiki daba el siguiente flujo (los prefijos `$` y `#` son **prompts de shell**:
+`$` = usuario normal, `#` = root; NO son comentarios de script):
 
 ```
 $ pmbootstrap init
 $ pmbootstrap install
-# fastboot erase dtbo
+# fastboot erase dtbo            → sudo fastboot erase dtbo
 $ pmbootstrap flasher flash_vbmeta
 $ pmbootstrap flasher flash_rootfs
 $ pmbootstrap flasher flash_kernel
-# fastboot reboot
+# fastboot reboot                → sudo fastboot reboot
 ```
+
+> CORRECCIÓN (2026-08-05): `erase dtbo` y `reboot` NO estaban comentados. El
+> prefijo `#` es el prompt de root. Ver `reports/historical-installation-correction.md`.
 
 Clasificación respecto a NUESTRO objetivo (boot no destructivo vía `fastboot boot`):
 
@@ -61,15 +65,19 @@ Clasificación respecto a NUESTRO objetivo (boot no destructivo vía `fastboot b
 |---|---|---|
 | `pmbootstrap init` | `con modificación` | En nuestro flujo no hay pmbootstrap; la build es GH Actions (workflow 04). |
 | `pmbootstrap install` | `con modificación` | Nosotros generamos rootfs en GH Actions; para diagnóstico no se instala rootfs. |
-| `fastboot erase dtbo` | **`peligroso / obsoleto`** | La wiki lo tenía como comentario. El layout (B0) demuestra que dtbo solo contiene overlays de devboard (IDP/QRD/RUMI); no aporta al arranque mainline (DTB va en boot.img). Borrarlo es innecesario y degrada el stock. NO se ejecuta. |
-| `pmbootstrap flasher flash_vbmeta` | `peligroso / no aplica` | Solo necesario cuando se instala rootfs permanente (vbmeta con flags para deshabilitar verificación, como hace /e/OS). Para `fastboot boot` no hace falta y NO se flashea. |
-| `pmbootstrap flasher flash_rootfs` | `no aplica (fase posterior)` | Fuera del objetivo actual; sería escritura destructiva con respaldos previos. |
-| `pmbootstrap flasher flash_kernel` | `no aplica` | Idéntico; no se flashea boot en este proyecto. |
-| `fastboot reboot` | `no aplica` | No hay flash previo; el dispositivo ya está en Fastboot y tras `fastboot boot` (FASE E) arranca la imagen temporal; no se invoca reboot manual. |
+| `sudo fastboot erase dtbo` | **`peligroso / a verificar** | **Activo en el flujo original** (no comentado). El layout (B0) sugiere que dtbo contiene overlays de devboard; sin embargo el port histórico lo ejecutaba como root. Para nuestro arranque experimental, si se prueba un día, se hará SOLO sobre `dtbo_b` con respaldo previo (H3). NO se ejecuta sin gate/autorización. |
+| `pmbootstrap flasher flash_vbmeta` | `peligroso / no aplica ahora` | Solo necesario cuando se instala rootfs permanente (vbmeta con flags para deshabilitar verificación). Parte del flujo de instalación completo, no del arranque puntual. |
+| `pmbootstrap flasher flash_rootfs` | `no aplica (fase posterior)` | Escritura destructiva que requiere respaldos previos; parte del flujo completo. |
+| `pmbootstrap flasher flash_kernel` | `no aplica` | No se flashea boot en este proyecto (diagnóstico). |
+| `fastboot reboot` | `no aplica` | Con arranque temporal (`fastboot boot`) no se invoca reboot manual; el dispositivo ya está en Fastboot. |
 
-Conclusión B1: **Ningún paso de escritura de la guía histórica se reproduce aquí.** Solo los datos de
-configuración (offsets, pagesize, DTB, cmdline `clk_ignore_unused`) se toman como referencia, y ya coinciden
-con el análisis de B0 y el DTS mainline v7.1.
+Conclusión B1 (revisada): La guía histórica describe un **flujo completo de
+instalación** (init → install → erase dtbo → flash vbmeta → flash rootfs →
+flash kernel → reboot). Ningún paso de escritura se reproduce aquí como tal, pero
+**no debe afirmarse que `erase dtbo` era opcional/comentado**: era parte activa y
+obligatoria del flujo original ejecutada como root. Los datos de configuración
+(offsets, padding, DTB, cmdline `clk_ignore_unused`) se mantienen como
+referencia y ya coinciden con el análisis de B0 y el DTS mainline v7.1.
 
 ## Reglas transaccionales de slot (confirmadas)
 

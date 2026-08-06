@@ -61,6 +61,10 @@ Señala en tu registro exactamente qué partición toca cada comando.
 ## Qué NO hacer
 
 - No `fastboot erase dtbo` sin verificación previa.
+- Nota histórica: el flujo pmOS original SÍ ejecutaba `sudo fastboot erase dtbo`
+  (prefijo `#` = prompt root, no comentario). Ver
+  `reports/historical-installation-correction.md`. Si se reproduce, será solo sobre
+  `dtbo_b` con respaldo físico previo y gate autorizado.
 - No escribir `vbmeta` si no es estrictamente necesario.
 - No formatear `userdata` en la primera prueba.
 - No combinar boot+dtbo+vbmeta+userdata en una sola operación.

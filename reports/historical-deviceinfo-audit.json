@@ -1,0 +1,72 @@
+{
+  "report": "historical-deviceinfo-audit",
+  "date": "2026-08-05",
+  "source_path": "device/testing/device-xiaomi-laurel/deviceinfo",
+  "source_commit": "a27a7ce7373a6e2125a2c3125370e40d04bf65df",
+  "source_mr": 3727,
+  "source_date": "2022-12-14",
+  "local_copy": "local-private/historical-port/sources/deviceinfo-xiaomi-laurel.a27a7ce.txt",
+  "local_copy_sha256": "54f9766e1540d3a75e1fe1d2d7606bc68afa62fd17db93b503e484878138751a",
+  "deviceinfo": {
+    "deviceinfo_format_version": "0",
+    "deviceinfo_name": "Xiaomi Mi A3",
+    "deviceinfo_manufacturer": "Xiaomi",
+    "deviceinfo_codename": "xiaomi-laurel",
+    "deviceinfo_year": "2019",
+    "deviceinfo_dtb": "qcom/sm6125-xiaomi-laurel_sprout",
+    "deviceinfo_arch": "aarch64",
+    "deviceinfo_chassis": "handset",
+    "deviceinfo_keyboard": "false",
+    "deviceinfo_external_storage": "true",
+    "deviceinfo_screen_width": "720",
+    "deviceinfo_screen_height": "1560",
+    "deviceinfo_flash_method": "fastboot",
+    "deviceinfo_kernel_cmdline": "clk_ignore_unused",
+    "deviceinfo_generate_bootimg": "true",
+    "deviceinfo_flash_fastboot_partition_vbmeta": "vbmeta",
+    "deviceinfo_bootimg_qcdt": "false",
+    "deviceinfo_bootimg_mtk_mkimage": "false",
+    "deviceinfo_bootimg_dtb_second": "false",
+    "deviceinfo_append_dtb": "true",
+    "deviceinfo_rootfs_image_sector_size": "4096",
+    "deviceinfo_flash_pagesize": "4096",
+    "deviceinfo_flash_sparse": "true",
+    "deviceinfo_flash_offset_base": "0x00000000",
+    "deviceinfo_flash_offset_kernel": "0x00008000",
+    "deviceinfo_flash_offset_ramdisk": "0x01000000",
+    "deviceinfo_flash_offset_second": "0x00f00000",
+    "deviceinfo_flash_offset_tags": "0x00000100"
+  },
+  "not_defined": [
+    "deviceinfo_flash_fastboot_partition_kernel",
+    "deviceinfo_flash_fastboot_partition_system",
+    "deviceinfo_flash_fastboot_partition_dtbo",
+    "deviceinfo_flash_fastboot_max_size"
+  ],
+  "flasher_defaults": {
+    "partition_kernel": "boot",
+    "partition_system": "system",
+    "partition_vbmeta": "vbmeta",
+    "partition_dtbo": null,
+    "pagesize": 4096
+  },
+  "bootimg_semantics": {
+    "append_dtb": "kernel payload = Image.gz + DTB concatenados; variable $DTB='-dtb' en pmbootstrap 1.50.0",
+    "bootimg_qcdt": "false -> no tabla QCDT; layout AOSP header v2 con kernel+ramdisk(+dtb)",
+    "dtb_second": "false -> DTB no va en 'second'",
+    "distinction": {
+      "dtb_appended_to_kernel": "modo histórico",
+      "dtb_section_header_v2": "lo usado en TEST_IMG IT1 (campo dtb_size/dtb_addr)",
+      "qcdt_table": "mecanismo Qualcomm multi-DTB (no usado)",
+      "dtbo_overlay_partition": "partición aparte con overlays (no flasheada por pmbootstrap)"
+    }
+  },
+  "vbmeta_historical": {
+    "generator": "avbtool make_vbmeta_image",
+    "flags": 2,
+    "padding_size": 4096,
+    "generated_on_the_fly": true,
+    "note": "flags=2 = AVB_VBMETA_IMAGE_FLAGS_VERIFICATION_DISABLED (deshabilita verificación AVB de la cadena; NO hashtree). /e/OS usa flags=3 (verification+verity off)."
+  },
+  "conclusion": "La variante IT3/V2 (append_dtb=true, qcdt=false, dtb_size=0) reproduce la entrega de DTB del histórico. La cmdline histórica es solo 'clk_ignore_unused'. Rootfs->system, boot->boot, vbmeta->vbmeta (nombres sin sufijo A/B)."
+}

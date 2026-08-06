@@ -3,6 +3,15 @@
 Estado: boot image de diagnóstico **construido y validado en CI** (2026-08-04).
 Pendiente: autorización explícita para la prueba física en hardware (FASE 8).
 
+> 2026-08-05: `fastboot boot` (boot en RAM) fue rechazado por ESTE bootloader
+> (`FAILED remote: 'unknown command'`), registrado como
+> `FASTBOOT_BOOT_COMMAND_UNSUPPORTED` (`reports/h0-first-boot.md`,
+> `reports/h0-fastboot-command-result.md`). No se ejecutó el kernel ni el
+> initramfs; no hubo rechazo del contenido de la imagen. La vía no destructiva
+> está **bloqueada en este dispositivo**, por lo que la prueba persistente
+> controlada (escribir el boot image en `boot_<TARGET_SLOT>`) es la estrategia
+> planificada, con recovery-kit en `local-private/phase-e-flash/recovery-kit/`.
+
 ## Principios
 
 - El dispositivo es de SOLO LECTURA hasta autorización explícita.
