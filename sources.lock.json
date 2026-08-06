@@ -196,6 +196,19 @@
       "verification_status": "verified",
       "last_audited": "2026-08-05",
       "notes": "Tarball 0.6.1 descargado y extraído en local-private/historical-port/sources/boot-deploy-0.6.1/ (SHA256 28b8b6b56bd2634968ca6b7bc4e3d3c1a2903676b1c65178c4ef889426b7a02d). PMAPORTS main/boot-deploy @7aaee51a. create_bootimg(): sin header_version, sin qcdt, sin dtb_second -> header v0, kernel=vmlinuz-dtb concatenado."
+    },
+    {
+      "name": "pmbootstrap-1.52.0",
+      "url": "https://gitlab.postmarketos.org/postmarketOS/pmbootstrap/-/archive/1.52.0/pmbootstrap-1.52.0.tar.gz",
+      "vcs": "tarball",
+      "branch_informational": "tag 1.52.0 (2023-04-18)",
+      "commit": "tag 1.52.0",
+      "commit_date": "2023-04-18",
+      "license": "GPL-3.0-or-later",
+      "purpose": "pmbootstrap mínimo que soporta Alpine v3.17 (canal v22.12): usado para reproducir el rootfs histórico en CI (workflow 10). Solo v3.12-v3.17+edge (v3.18+ requiere pmbootstrap >=1.52.x posterior). No usa distutils/imp, compatible con Python moderno.",
+      "verification_status": "verified",
+      "last_audited": "2026-08-06",
+      "notes": "Tarball descargado y verificado (SHA256 a05fef2bb495a2e0d8e0369e4a8a1038baf50b7514ec89582b5ec785f9bfa7cb, 16203324 B). El flujo usa --config-channels config/pmos-historical-channels.cfg (edge->v22.12/Alpine v3.17) con el checkout pmaports @7aaee51a (channel=edge) para no cambiar de rama. Categoría: TOOL."
     }
   ]
 }
