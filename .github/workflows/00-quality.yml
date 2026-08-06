@@ -135,6 +135,10 @@ jobs:
             exit 1
           fi
           echo "[OK] todas las acciones externas fijadas por SHA"
+      - name: Ejecutar unit tests del builder de boot image
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s tests -v
       - name: Comprobar licencias de scripts propios
         run: |
           set -Eeuo pipefail
