@@ -276,12 +276,18 @@ jobs:
           name: kernel-6-1-historical
           path: /tmp/k61
           run-id: ${{ github.event.inputs.kernel_run_id || github.run_id }}
+          # Requerido por download-artifact v4 para descargas desde OTRO run
+          # (README: "required when downloading artifacts ... from a
+          # different workflow run"). Sin github-token busca en el run
+          # actual y falla con "Artifact not found".
+          github-token: ${{ github.token }}
       - name: Descargar kernel 7.1 (mismo run, si se construyó)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: kernel-7-1
           path: /tmp/k71
           run-id: ${{ github.event.inputs.kernel_run_id || github.run_id }}
+          github-token: ${{ github.token }}
         continue-on-error: true
       - name: Verificar kernels descargados
         run: |
