@@ -17,6 +17,11 @@ Registro manual de runs relevantes. Cada run referencia commit y resultado.
 | 30879227646 | 04-build-diagnostic-boot | f916203 | failure | make falla en `networking/tc.c` (constantes CBQ `TCA_CBQ_*` eliminadas de headers del kernel runner). make.log completo subido como artefacto |
 | 30910269044 | 04-build-diagnostic-boot | e45ff43 | failure | `make: No rule to make target 'olddefconfig'` (kconfig de busybox no lo soporta) |
 | 30916017707 | 04-build-diagnostic-boot | d7cc191 | **success** | **boot.img válido**: busybox arm64 estático verificado, SHA256 `66e7005f…`, roundtrip kernel/ramdisk/dtb OK |
+| 31125804069 | 09-reproduce-historical-boot | ae4e9a8 | failure | **INFRASTRUCTURE_FAILURE_NO_RUNNER_ASSIGNED**: incidencia global de GitHub Actions (2026-08-06, incidente `qcvjkzcs7j74`, crítica). Ambos jobs en `queued`, `runner_name` vacío, `steps=[]`, cancelados a los ~15 min. NO es fallo de código/kernel |
+| 31126185358 | 09-reproduce-historical-boot | ae4e9a8 | failure | **INFRASTRUCTURE_FAILURE_NO_RUNNER_ASSIGNED**: mismo incidente (redespacho durante el outage, sin runner asignado). NO es fallo de código/kernel |
+| 31127021027 | 00-quality | 91e2085 | success | Canario post-incidencia: confirmado runner asignado, steps ejecutados, success. (31127014052 cancelado por concurrency cancel-in-progress del mismo push) |
+| 31147870090 | 09-reproduce-historical-boot | 91e2085 | failure | Kernels 6.1 y 7.1 compilan OK. Job de ensamblado falla en "Instalar dependencias": `pip install avbtool` → `No matching distribution found for avbtool` (no existe en PyPI). Corregido en 55bad00 |
+| 31150702835 | 09-reproduce-historical-boot | 55bad00 | en curso | Ver detalle en `reports/workflow-09-final-audit.md` |
 
 ## Notas operativas
 

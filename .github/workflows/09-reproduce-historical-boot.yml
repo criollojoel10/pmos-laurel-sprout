@@ -15,6 +15,14 @@ on:
         description: Construir también kernel 7.1 actual (variante v0-header test)
         type: boolean
         default: true
+      build_kernels:
+        description: Construir los kernels 6.1 y 7.1 en este run (false = reutilizar artefactos del run kernel_run_id)
+        type: boolean
+        default: true
+      kernel_run_id:
+        description: Run ID con artefactos kernel-6-1-historical y kernel-7-1 (usado solo si build_kernels=false)
+        type: string
+        default: ''
       upload_artifacts:
         description: Subir artefactos
         type: boolean
@@ -30,6 +38,7 @@ concurrency:
 jobs:
   kernel-6-1:
     name: Kernel histórico 6.1 (77de535b)
+    if: ${{ github.event.inputs.build_kernels != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
@@ -128,7 +137,7 @@ jobs:
 
   kernel-7-1:
     name: Kernel 7.1 actual (v7.1 base)
-    if: ${{ github.event.inputs.build_v7_1_variant != 'false' }}
+    if: ${{ github.event.inputs.build_v7_1_variant != 'false' && github.event.inputs.build_kernels != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
@@ -262,11 +271,13 @@ jobs:
         with:
           name: kernel-6-1-historical
           path: /tmp/k61
+          run-id: ${{ github.event.inputs.kernel_run_id || github.run_id }}
       - name: Descargar kernel 7.1 (mismo run, si se construyó)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: kernel-7-1
           path: /tmp/k71
+          run-id: ${{ github.event.inputs.kernel_run_id || github.run_id }}
         continue-on-error: true
       - name: Verificar kernels descargados
         run: |
