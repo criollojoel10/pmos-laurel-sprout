@@ -112,22 +112,33 @@ jobs:
       - name: Inicializar pmbootstrap (no interactivo, canal congelado)
         run: |
           set -Eeuo pipefail
-          # ask() usa input() y NO captura EOFError: en GitHub Actions el stdin
-          # es EOF y init fallaría. Piping yes "" entrega una línea vacía por
-          # prompt, y cada ask devuelve el default (los valores vienen del
-          # --config). -y hace que confirm() devuelva el default sin preguntar.
-          yes "" | /tmp/pmbootstrap/pmbootstrap.py -y \
+          # ask() usa input() y NO captura EOFError (en CI el stdin es EOF y
+          # init fallaría). Generamos un archivo con muchas líneas vacías:
+          # cada prompt consume una línea y devuelve el default (los valores
+          # correctos ya vienen del --config). -y hace que confirm() devuelva
+          # el default.
+          # IMPORTANTE: no usar 'yes | pmbootstrap' en el pipeline: con
+          # pipefail el SIGPIPE de yes (exit 141) ensucia el exit code del
+          # paso aunque pmbootstrap termine OK. Alimentamos stdin desde
+          # archivo y capturamos el exit code real de pmbootstrap.
+          yes "" | head -n 2000 > /tmp/init-answers.txt || true
+          wc -l /tmp/init-answers.txt
+          /tmp/pmbootstrap/pmbootstrap.py -y \
             --config /tmp/pmbootstrap.cfg \
             --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
             --aports /tmp/pmaports \
-            init 2>&1 | tail -30
+            init < /tmp/init-answers.txt > /tmp/init.log 2>&1
+          rc=$?
+          tail -30 /tmp/init.log
+          echo "pmbootstrap init exit=$rc"
+          exit $rc
       - name: Verificar canal y repos resueltos
         run: |
           set -Eeuo pipefail
           /tmp/pmbootstrap/pmbootstrap.py \
             --config /tmp/pmbootstrap.cfg \
             --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
-            status 2>&1 | head -30 || true
+            status < /tmp/init-answers.txt 2>&1 | head -30 || true
           echo "---"
           cat /home/runner/.local/var/pmbootstrap/cache_git/pmaports/channels.cfg 2>/dev/null || true
           echo "channels.cfg congelado verificado en workflow, ver arriba"
@@ -137,7 +148,7 @@ jobs:
           /tmp/pmbootstrap/pmbootstrap.py -y \
             --config /tmp/pmbootstrap.cfg \
             --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
-            build linux-postmarketos-qcom-sm6125 2>&1 | tee /tmp/kernel-build.log
+            build linux-postmarketos-qcom-sm6125 < /tmp/init-answers.txt 2>&1 | tee /tmp/kernel-build.log
           echo "== tail =="
           tail -15 /tmp/kernel-build.log
           echo "== apk generado =="
@@ -149,7 +160,7 @@ jobs:
           /tmp/pmbootstrap/pmbootstrap.py -y \
             --config /tmp/pmbootstrap.cfg \
             --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
-            chroot -- rm -rf /home/pmos/build/linux-postmarketos-qcom-sm6125 /var/cache/distfiles/* 2>&1 | tail -3 || true
+            chroot -- rm -rf /home/pmos/build/linux-postmarketos-qcom-sm6125 /var/cache/distfiles/* < /tmp/init-answers.txt 2>&1 | tail -3 || true
           df -h /
       - name: Instalar rootfs histórico
         run: |
@@ -157,7 +168,7 @@ jobs:
           /tmp/pmbootstrap/pmbootstrap.py -y \
             --config /tmp/pmbootstrap.cfg \
             --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
-            install --no-sshd --no-fde 2>&1 | tee /tmp/install.log
+            install --no-sshd --no-fde < /tmp/init-answers.txt 2>&1 | tee /tmp/install.log
           echo "== tail =="
           tail -25 /tmp/install.log
           echo "== rootfs images =="
@@ -170,7 +181,7 @@ jobs:
           /tmp/pmbootstrap/pmbootstrap.py -y \
             --config /tmp/pmbootstrap.cfg \
             --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
-            export --no-install /tmp/export 2>&1 | tail -20
+            export --no-install /tmp/export < /tmp/init-answers.txt 2>&1 | tail -20
           echo "== /tmp/export (symlinks) =="
           ls -la /tmp/export/
           # Resolver symlinks (apuntan a archivos dentro de chroots) a archivos
@@ -199,7 +210,7 @@ jobs:
           /tmp/pmbootstrap/pmbootstrap.py -y \
             --config /tmp/pmbootstrap.cfg \
             --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
-            chroot -- simg2img /home/pmos/rootfs/xiaomi-laurel.img /home/pmos/rootfs/xiaomi-laurel.raw 2>&1 | tail -5
+            chroot -- simg2img /home/pmos/rootfs/xiaomi-laurel.img /home/pmos/rootfs/xiaomi-laurel.raw < /tmp/init-answers.txt 2>&1 | tail -5
           RAW="$WORK/chroot_native/home/pmos/rootfs/xiaomi-laurel.raw"
           test -f "$RAW" || { echo "ERROR: simg2img no produjo raw"; exit 1; }
           stat -c 'raw size=%s bytes' "$RAW"
