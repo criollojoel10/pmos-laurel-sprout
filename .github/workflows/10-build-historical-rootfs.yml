@@ -109,7 +109,11 @@ jobs:
       - name: Inicializar pmbootstrap (no interactivo, canal congelado)
         run: |
           set -Eeuo pipefail
-          /tmp/pmbootstrap/pmbootstrap.py -y \
+          # ask() usa input() y NO captura EOFError: en GitHub Actions el stdin
+          # es EOF y init fallaría. Piping yes "" entrega una línea vacía por
+          # prompt, y cada ask devuelve el default (los valores vienen del
+          # --config). -y hace que confirm() devuelva el default sin preguntar.
+          yes "" | /tmp/pmbootstrap/pmbootstrap.py -y \
             --config /tmp/pmbootstrap.cfg \
             --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
             --aports /tmp/pmaports \
@@ -153,39 +157,97 @@ jobs:
             install --no-sshd --no-fde 2>&1 | tee /tmp/install.log
           echo "== tail =="
           tail -25 /tmp/install.log
-          echo "== rootfs =="
-          ls -la /home/runner/.local/var/pmbootstrap/rootfs/ || true
+          echo "== rootfs images =="
+          ls -la /home/runner/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/
       - name: Exportar boot.img y rootfs
         run: |
           set -Eeuo pipefail
+          WORK=/home/runner/.local/var/pmbootstrap
           rm -rf /tmp/export && mkdir -p /tmp/export
           /tmp/pmbootstrap/pmbootstrap.py -y \
             --config /tmp/pmbootstrap.cfg \
             --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
-            export --no-install /tmp/export 2>&1 | tail -20 || true
-          ls -la /tmp/export/ || true
-      - name: Validar rootfs (fsck + contenido via debugfs)
+            export --no-install /tmp/export 2>&1 | tail -20
+          echo "== /tmp/export (symlinks) =="
+          ls -la /tmp/export/
+          # Resolver symlinks (apuntan a archivos dentro de chroots) a archivos
+          # reales, para subir y auditar.
+          mkdir -p /tmp/export-resolved
+          for f in /tmp/export/*; do
+            [ -e "$f" ] || continue
+            cp -aL "$f" "/tmp/export-resolved/$(basename "$f")"
+          done
+          echo "== /tmp/export-resolved =="
+          ls -la /tmp/export-resolved/
+      - name: Validar rootfs (MBR + particiones ext2/ext4 via dd)
         run: |
           set -Eeuo pipefail
-          IMG=$(ls /home/runner/.local/var/pmbootstrap/rootfs/*.img 2>/dev/null | head -n1 || true)
-          if [[ -z "$IMG" ]]; then echo "ERROR: no hay rootfs img"; exit 1; fi
+          WORK=/home/runner/.local/var/pmbootstrap
+          IMG="$WORK/chroot_native/home/pmos/rootfs/xiaomi-laurel.img"
+          if [[ ! -f "$IMG" ]]; then
+            echo "ERROR: no existe $IMG"
+            ls -la "$WORK/chroot_native/home/pmos/rootfs/" || true
+            exit 1
+          fi
           echo "IMG=$IMG"
-          stat -c 'size=%s bytes' "$IMG"
-          sudo e2fsck -f -n "$IMG" || echo "e2fsck: ver resultado"
-          echo "== /etc/os-release =="
-          debugfs -R "cat /etc/os-release" "$IMG" 2>/dev/null || true
-          echo "== /boot =="
-          debugfs -R "ls -l /boot" "$IMG" 2>/dev/null || true
-          echo "== paquetes clave (apk db) =="
-          debugfs -R "cat /lib/apk/db/installed" "$IMG" 2>/dev/null | grep -E '^P:' | grep -iE 'postmarketos|mkbootimg|boot-deploy|device-|linux-' | sort || true
+          stat -c 'size=%s bytes (sparse)' "$IMG"
+          # Deshacer sparse dentro del chroot nativo (android-tools se instaló
+          # durante install para img2simg).
+          /tmp/pmbootstrap/pmbootstrap.py -y \
+            --config /tmp/pmbootstrap.cfg \
+            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+            chroot -- simg2img /home/pmos/rootfs/xiaomi-laurel.img /home/pmos/rootfs/xiaomi-laurel.raw 2>&1 | tail -5
+          RAW="$WORK/chroot_native/home/pmos/rootfs/xiaomi-laurel.raw"
+          test -f "$RAW" || { echo "ERROR: simg2img no produjo raw"; exit 1; }
+          stat -c 'raw size=%s bytes' "$RAW"
+          file "$RAW"
+          python3 - "$RAW" <<'PY'
+          import struct, sys, subprocess, os
+          raw = sys.argv[1]
+          with open(raw, "rb") as fh:
+              d = fh.read(512)
+          if d[510:512] != b"\x55\xaa":
+              sys.exit("ERROR: no es imagen MBR (falta firma 0x55aa)")
+          parts = []
+          for i in range(4):
+              e = d[446 + i * 16 : 446 + i * 16 + 16]
+              _, _, ptype, _, start, size = struct.unpack("<B3sB3sII", e)
+              if ptype == 0 or size == 0:
+                  continue
+              parts.append((i + 1, ptype, start, size))
+          print("Particiones MBR:", parts)
+          if len(parts) < 2:
+              sys.exit("ERROR: se esperaban al menos 2 particiones")
+          for num, ptype, start, size in parts:
+              out = "/tmp/part{}.img".format(num)
+              subprocess.run(["dd", "if=" + raw, "of=" + out, "bs=512",
+                              "skip={}".format(start), "count={}".format(size),
+                              "status=none"], check=True)
+              print("p{}: type=0x{:02x} start={} sectors={} -> {}".format(
+                  num, ptype, start, size, out))
+          PY
+          file /tmp/part1.img /tmp/part2.img
+          echo "== e2fsck partición boot (p1, ext2) =="
+          sudo e2fsck -f -n /tmp/part1.img
+          echo "== e2fsck partición root (p2, ext4) =="
+          sudo e2fsck -f -n /tmp/part2.img
+          echo "== /etc/os-release (root p2) =="
+          debugfs -R "cat /etc/os-release" /tmp/part2.img 2>/dev/null || true
+          echo "== /lib/apk/db/installed (paquetes clave, root p2) =="
+          debugfs -R "cat /lib/apk/db/installed" /tmp/part2.img 2>/dev/null | grep -E '^P:' | grep -iE 'postmarketos|mkbootimg|boot-deploy|device-|linux-' | sort || true
+          echo "== / (partición boot p1) =="
+          debugfs -R "ls -l /" /tmp/part1.img 2>/dev/null || true
       - name: Generar manifest y reporte
         run: |
           set -Eeuo pipefail
-          IMG=$(ls /home/runner/.local/var/pmbootstrap/rootfs/*.img 2>/dev/null | head -n1)
+          WORK=/home/runner/.local/var/pmbootstrap
+          IMG="$WORK/chroot_native/home/pmos/rootfs/xiaomi-laurel.img"
+          test -f "$IMG" || { echo "ERROR: no existe $IMG"; exit 1; }
           mkdir -p /tmp/artifacts
           # checksums
-          (cd /tmp/export && sha256sum * 2>/dev/null | tee /tmp/artifacts/SHA256SUMS-export) || true
-          (cd "$(dirname "$IMG")" && sha256sum "$(basename "$IMG")" | tee /tmp/artifacts/SHA256SUMS-rootfs) || true
+          (cd /tmp/export-resolved && sha256sum * 2>/dev/null | tee /tmp/artifacts/SHA256SUMS-export)
+          sha256sum "$IMG" "$WORK/chroot_native/home/pmos/rootfs/xiaomi-laurel.raw" | tee /tmp/artifacts/SHA256SUMS-rootfs
+          sha256sum /tmp/part1.img /tmp/part2.img | tee /tmp/artifacts/SHA256SUMS-partitions
           # manifest
           jq -n \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -200,13 +262,14 @@ jobs:
               channel:"edge->v22.12 (Alpine v3.17)",
               mirrors:{pmos:"http://mirror.postmarketos.org/postmarketos/v22.12/", alpine:"http://dl-cdn.alpinelinux.org/alpine/v3.17/"},
               image:$img, image_bytes:($imgsize|tonumber),
-              flash_target:"system_b (partición física ext4 3 GiB, sin super)"}' \
+              layout:"MBR (msdos): p1 /boot ext2, p2 / ext4, flash_rootfs a system_b",
+              flash_target:"system_b (3 GiB, se flashea la imagen MBR completa via pmbootstrap flasher flash_rootfs)"}' \
             > /tmp/artifacts/manifest.json
           cat /tmp/artifacts/manifest.json
       - name: Reporte markdown
         run: |
           set -Eeuo pipefail
-          IMG=$(ls /home/runner/.local/var/pmbootstrap/rootfs/*.img 2>/dev/null | head -n1)
+          IMG=/home/runner/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/xiaomi-laurel.img
           {
             echo "# Reproducción del rootfs histórico (FASE 3)"
             echo
@@ -214,31 +277,33 @@ jobs:
             echo "- pmaports: \`7aaee51a\` (2022-12-14, MR 3727, port xiaomi-laurel)"
             echo "- Canal: \`edge\` redirigido a repos v22.12 (Alpine v3.17) via config/pmos-historical-channels.cfg"
             echo "- Kernel: linux-postmarketos-qcom-sm6125 6.1 @\`77de535b\` (pmb:cross-native)"
-            echo "- Rootfs image: \`$IMG\`"
-            stat -c "- Tamaño: %s bytes" "$IMG"
+            echo "- Imagen: \`$IMG\` (sparse, MBR: p1 /boot ext2, p2 / ext4)"
+            stat -c "- Tamaño sparse: %s bytes" "$IMG"
             echo
-            echo "## /etc/os-release"
+            echo "## /etc/os-release (partición root p2)"
             echo '```'
-            debugfs -R "cat /etc/os-release" "$IMG" 2>/dev/null
+            debugfs -R "cat /etc/os-release" /tmp/part2.img 2>/dev/null
             echo '```'
             echo
-            echo "## /boot"
+            echo "## / (partición boot p1)"
             echo '```'
-            debugfs -R "ls -l /boot" "$IMG" 2>/dev/null
+            debugfs -R "ls -l /" /tmp/part1.img 2>/dev/null
             echo '```'
             echo
             echo "## Paquetes postmarketOS/laurel instalados"
             echo '```'
-            debugfs -R "cat /lib/apk/db/installed" "$IMG" 2>/dev/null | grep -E '^P:' | grep -iE 'postmarketos|mkbootimg|boot-deploy|device-|linux-' | sort
+            debugfs -R "cat /lib/apk/db/installed" /tmp/part2.img 2>/dev/null | grep -E '^P:' | grep -iE 'postmarketos|mkbootimg|boot-deploy|device-|linux-' | sort
             echo '```'
           } > /tmp/artifacts/historical-rootfs-report.md
           cat /tmp/artifacts/historical-rootfs-report.md
       - name: Comprimir rootfs
         run: |
           set -Eeuo pipefail
-          IMG=$(ls /home/runner/.local/var/pmbootstrap/rootfs/*.img 2>/dev/null | head -n1)
+          IMG=/home/runner/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/xiaomi-laurel.img
+          test -f "$IMG" || { echo "ERROR: no existe $IMG"; exit 1; }
           cp "$IMG" /tmp/artifacts/
           xz -9 -T0 -k /tmp/artifacts/"$(basename "$IMG")"
+          cp /tmp/part1.img /tmp/part2.img /tmp/artifacts/
           ls -la /tmp/artifacts/
       - name: Subir artefactos
         if: ${{ github.event.inputs.upload_artifacts != 'false' }}
@@ -247,8 +312,7 @@ jobs:
           name: historical-rootfs
           path: |
             /tmp/artifacts/
-            /tmp/export/boot.img
-            /tmp/export/*.img
+            /tmp/export-resolved/
           retention-days: 3
       - name: Subir logs de diagnóstico (siempre)
         if: always()
