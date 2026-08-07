@@ -30,6 +30,10 @@ on:
 
 permissions:
   contents: read
+  # actions: read para poder descargar artefactos de OTRO run (kernel_run_id)
+  # con actions/download-artifact@v4 (el acceso a artefactos de otro run usa
+  # la API REST y sin este permiso falla con "Resource not accessible").
+  actions: read
 
 concurrency:
   group: reproduce-historical-boot
