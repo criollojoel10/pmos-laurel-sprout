@@ -209,6 +209,19 @@
       "verification_status": "verified",
       "last_audited": "2026-08-06",
       "notes": "Tarball descargado y verificado (SHA256 a05fef2bb495a2e0d8e0369e4a8a1038baf50b7514ec89582b5ec785f9bfa7cb, 16203324 B). El flujo usa --config-channels config/pmos-historical-channels.cfg (edge->v22.12/Alpine v3.17) con el checkout pmaports @7aaee51a (channel=edge) para no cambiar de rama. Categoría: TOOL."
+    },
+    {
+      "name": "avb-external-avb-avbtool",
+      "url": "https://android.googlesource.com/platform/external/avb/+/5ac0c3a071d811846a62412383dd6e259f341e6e/avbtool.py",
+      "vcs": "raw-file",
+      "branch_informational": "tag android-16.0.0_r1",
+      "commit": "5ac0c3a071d811846a62412383dd6e259f341e6e",
+      "commit_date": "2024-12",
+      "license": "Apache-2.0",
+      "purpose": "avbtool 1.3.0 (AOSP external/avb) para generar vbmeta histórico flags=2 / Algorithm NONE / 4096 B en CI (workflow 09). Reproduce byte-idéntico vbmeta-historical-pmos-flags2.img (SHA256 fe1f4b55…).",
+      "verification_status": "verified",
+      "last_audited": "2026-08-07",
+      "notes": "avbtool.py descargado en raw desde googlesource (?format=TEXT=base64), verificado por SHA-256 e5a664a38db623da00f080219bc0ee60a640a9dc4a872803616fae4938ac749b. AVB_VERSION 1.3.0 (mayor/minor/sub 1/3/0) coincide con la cadena 'avbtool 1.3.0' grabada en el vbmeta histórico. NO existe paquete 'avbtool' en PyPI ni en apt de Ubuntu 24.04 (pip install avbtool falla con 'from versions: none'). Categoría: TOOL."
     }
   ]
 }

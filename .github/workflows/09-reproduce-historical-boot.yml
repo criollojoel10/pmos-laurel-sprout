@@ -217,7 +217,10 @@ jobs:
 
   boot-v0:
     name: Ensamblar boot.img v0 histórico + vbmeta flags=2
-    needs: [kernel-6-1]
+    needs: [kernel-6-1, kernel-7-1]
+    # kernel-7-1 puede quedar skipped cuando build_v7_1_variant=false:
+    # correr igualmente (solo se ensambla el histórico 6.1).
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -238,20 +241,22 @@ jobs:
           sudo apt-get install -y -qq \
             device-tree-compiler cpio zstd xz-utils gzip file python3 \
             crossbuild-essential-arm64 e2fsprogs
-          # avbtool: preferir paquete de distro; si no existe, instalarlo en un
-          # venv dedicado (nunca pip global con sudo).
-          if ! command -v avbtool >/dev/null 2>&1; then
-            sudo apt-get install -y -qq avbtool 2>/dev/null || true
+          # avbtool 1.3.0 fijado desde AOSP external/avb (commit 5ac0c3a,
+          # fuente en sources.lock.json). No existe en PyPI ni en apt de
+          # Ubuntu 24.04. Descarga raw (base64 via ?format=TEXT) + SHA-256.
+          curl -fsSL \
+            "https://android.googlesource.com/platform/external/avb/+/5ac0c3a071d811846a62412383dd6e259f341e6e/avbtool.py?format=TEXT" \
+            -o /tmp/avbtool.py.b64
+          base64 -d /tmp/avbtool.py.b64 > /tmp/avbtool.py
+          EXPECTED="e5a664a38db623da00f080219bc0ee60a640a9dc4a872803616fae4938ac749b"
+          GOT="$(sha256sum /tmp/avbtool.py | awk '{print $1}')"
+          if [[ "$GOT" != "$EXPECTED" ]]; then
+            echo "ERROR: avbtool.py sha256 no coincide ($GOT)" >&2
+            exit 1
           fi
-          if ! command -v avbtool >/dev/null 2>&1; then
-            python3 -m venv /tmp/avb-venv
-            /tmp/avb-venv/bin/pip install --quiet avbtool
-            mkdir -p /tmp/bin
-            ln -sf /tmp/avb-venv/bin/avbtool /tmp/bin/avbtool
-            echo "/tmp/bin" >> "$GITHUB_PATH"
-          fi
-          command -v avbtool
-          avbtool --version 2>/dev/null || avbtool 2>&1 | head -2 || true
+          chmod +x /tmp/avbtool.py
+          echo "avbtool listo: $GOT"
+          /tmp/avbtool.py --help >/dev/null
       - name: Descargar kernel 6.1 histórico (mismo run)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -311,7 +316,6 @@ jobs:
             --os-version 1.0.0 \
             --os-patch-level 2022-12
       - name: Ensamblar variante v0 con kernel 7.1 (si está)
-        if: ${{ hashFiles('/tmp/k71/Image.gz') != '' }}
         run: |
           set -Eeuo pipefail
           DTB71="/tmp/k71/sm6125-xiaomi-laurel-sprout.dtb"
@@ -334,12 +338,14 @@ jobs:
             --cmdline "console=ttyMSM0,115200n8 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 msm_rtb.filter=0x237 lpm_levels.sleep_disabled=1 service_locator.enable=1 loop.max_part=7 buildvariant=user" \
             --os-version 12.0.0 \
             --os-patch-level 2026-08
-      - name: Generar vbmeta histórico (flags=2, avbtool)
+      - name: Generar vbmeta histórico (flags=2, avbtool 1.3.0)
         run: |
           set -Eeuo pipefail
-          avbtool make_vbmeta_image --flags 2 --padding_size 4096 \
+          /tmp/avbtool.py make_vbmeta_image --flags 2 --padding_size 4096 \
             --output /tmp/boot-out/vbmeta-historical-flags2.img
-          avbtool info_image --image /tmp/boot-out/vbmeta-historical-flags2.img | head -12
+          /tmp/avbtool.py info_image --image /tmp/boot-out/vbmeta-historical-flags2.img | head -12
+          # Comparación con el vbmeta histórico conocido (byte-idéntico)
+          sha256sum /tmp/boot-out/vbmeta-historical-flags2.img
       - name: Verificar estructura de los boot.img v0
         run: |
           set -Eeuo pipefail
