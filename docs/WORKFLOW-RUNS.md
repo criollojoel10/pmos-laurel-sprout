@@ -20,8 +20,11 @@ Registro manual de runs relevantes. Cada run referencia commit y resultado.
 | 31125804069 | 09-reproduce-historical-boot | ae4e9a8 | failure | **INFRASTRUCTURE_FAILURE_NO_RUNNER_ASSIGNED**: incidencia global de GitHub Actions (2026-08-06, incidente `qcvjkzcs7j74`, crítica). Ambos jobs en `queued`, `runner_name` vacío, `steps=[]`, cancelados a los ~15 min. NO es fallo de código/kernel |
 | 31126185358 | 09-reproduce-historical-boot | ae4e9a8 | failure | **INFRASTRUCTURE_FAILURE_NO_RUNNER_ASSIGNED**: mismo incidente (redespacho durante el outage, sin runner asignado). NO es fallo de código/kernel |
 | 31127021027 | 00-quality | 91e2085 | success | Canario post-incidencia: confirmado runner asignado, steps ejecutados, success. (31127014052 cancelado por concurrency cancel-in-progress del mismo push) |
-| 31147870090 | 09-reproduce-historical-boot | 91e2085 | failure | Kernels 6.1 y 7.1 compilan OK. Job de ensamblado falla en "Instalar dependencias": `pip install avbtool` → `No matching distribution found for avbtool` (no existe en PyPI). Corregido en 55bad00 |
-| 31150702835 | 09-reproduce-historical-boot | 55bad00 | en curso | Ver detalle en `reports/workflow-09-final-audit.md` |
+| 31147870090 | 09-reproduce-historical-boot | 9b1d7b9 | failure | Kernels 6.1 y 7.1 compilan OK. Job de ensamblado falla en "Instalar dependencias": `pip install avbtool` → `No matching distribution found for avbtool` (no existe en PyPI). Corregido en 55bad00 |
+| 31151422493 | 09-reproduce-historical-boot | 430bfc3 | failure | Reutilización cross-run de kernels sin permisos `actions: read` (download-artifact no accede a artefactos de otro run). Corregido en 3c0b94f |
+| 31152831344 | 09-reproduce-historical-boot | 3c0b94f | failure | Falta `github-token` en download-artifact para reuso cross-run. Corregido en bb4d7dd |
+| 31154700285 | 09-reproduce-historical-boot | bb4d7dd | **success** | Ensamblado v0 + vbmeta flags=2 OK reutilizando kernels de 31147870090. Artefactos `historical-boot-images` (2 boot.img v0 + vbmeta) verificados localmente. Detalle: `reports/workflow-09-final-audit.md` |
+| 31210717507 | 10-build-historical-rootfs | 21776b6 | failure | FASE 3. `(native) apk add failed (exit 3)` al instalar el cross-compiler: pmbootstrap 1.52.0 no reindexa el repo local tras compilar gcc-aarch64 r5, mientras g++-aarch64 se resuelve a r4 (pin gcc=r4) → constraints insatisfables. Fix en 21776b6 (build gcc-aarch64 + `pmbootstrap index` antes del build del kernel) |
 
 ## Notas operativas
 
