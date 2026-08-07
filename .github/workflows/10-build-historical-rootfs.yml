@@ -145,10 +145,28 @@ jobs:
       - name: Compilar kernel histórico (pmb:cross-native, sin qemu)
         run: |
           set -Eeuo pipefail
-          /tmp/pmbootstrap/pmbootstrap.py -y \
-            --config /tmp/pmbootstrap.cfg \
-            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
-            build linux-postmarketos-qcom-sm6125 < /tmp/init-answers.txt 2>&1 | tee /tmp/kernel-build.log
+          PMB() {
+            /tmp/pmbootstrap/pmbootstrap.py -y \
+              --config /tmp/pmbootstrap.cfg \
+              --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+              "$@"
+          }
+          # gcc-aarch64 del árbol congelado es r5 pero el repo binario v22.12
+          # tiene r4: pmbootstrap lo recompila (dep desactualizado). Tras el
+          # build el APKINDEX.tar.gz local queda obsoleto (pmbootstrap 1.52.0
+          # no reindexa automáticamente), y al instalar el cross-compiler apk
+          # fuerza el archivo gcc-aarch64-r5.apk mientras g++-aarch64 se
+          # resuelve a r4 (que pinnea gcc-aarch64=r4) -> constraints
+          # insatisfables (apk exit 3). Fix: build + index ANTES del build
+          # del kernel para que el cross-compiler se resuelva r5/r5
+          # consistentemente desde el repo local.
+          PMB build gcc-aarch64 < /tmp/init-answers.txt 2>&1 | tee /tmp/gcc-build.log
+          echo "== repo local tras build gcc-aarch64 =="
+          ls -la /home/runner/.local/var/pmbootstrap/packages/edge/x86_64/ | grep -E 'gcc|g\+\+' || true
+          PMB index < /tmp/init-answers.txt 2>&1 | tail -20 | tee /tmp/pmbootstrap-index.log
+          echo "== repo local tras index =="
+          ls -la /home/runner/.local/var/pmbootstrap/packages/edge/x86_64/ | grep -E 'gcc|g\+\+|APKINDEX' || true
+          PMB build linux-postmarketos-qcom-sm6125 < /tmp/init-answers.txt 2>&1 | tee /tmp/kernel-build.log
           echo "== tail =="
           tail -15 /tmp/kernel-build.log
           echo "== apk generado =="
@@ -165,10 +183,17 @@ jobs:
       - name: Instalar rootfs histórico
         run: |
           set -Eeuo pipefail
-          /tmp/pmbootstrap/pmbootstrap.py -y \
-            --config /tmp/pmbootstrap.cfg \
-            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
-            install --no-sshd --no-fde < /tmp/init-answers.txt 2>&1 | tee /tmp/install.log
+          PMB() {
+            /tmp/pmbootstrap/pmbootstrap.py -y \
+              --config /tmp/pmbootstrap.cfg \
+              --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+              "$@"
+          }
+          # Refrescar APKINDEX local (mismo motivo que en el build del kernel:
+          # si install recompila paquetes desactualizados, apk debe resolverlos
+          # consistentemente desde el repo local).
+          PMB index < /tmp/init-answers.txt 2>&1 | tail -20 | tee /tmp/pmbootstrap-index-install.log
+          PMB install --no-sshd --no-fde < /tmp/init-answers.txt 2>&1 | tee /tmp/install.log
           echo "== tail =="
           tail -25 /tmp/install.log
           echo "== rootfs images =="
@@ -335,8 +360,12 @@ jobs:
           name: historical-rootfs-logs
           path: |
             /tmp/kernel-build.log
+            /tmp/gcc-build.log
             /tmp/install.log
+            /tmp/pmbootstrap-index.log
+            /tmp/pmbootstrap-index-install.log
             /tmp/pmbootstrap*.log
+            /home/runner/.local/var/pmbootstrap/log.txt
             *.log
           retention-days: 3
           if-no-files-found: ignore
