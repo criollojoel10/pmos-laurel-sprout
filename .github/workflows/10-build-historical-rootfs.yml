@@ -67,10 +67,13 @@ jobs:
         run: |
           set -Eeuo pipefail
           KC=7aaee51a
+          # GitLab rechaza fetch de SHAs sueltos (allowAnySHA1InWant off).
+          # 7aaee51a es ancestro de master (MR 3727, fast-forward), asi que
+          # un clone blob:none de master ya lo incluye y checkout directo basta.
           git clone --filter=blob:none --no-checkout \
             https://gitlab.postmarketos.org/postmarketOS/pmaports.git /tmp/pmaports
-          git -C /tmp/pmaports fetch --depth 1 origin "$KC"
           git -C /tmp/pmaports checkout -q "$KC"
+          test "$(git -C /tmp/pmaports rev-parse HEAD)" = "$(git -C /tmp/pmaports rev-parse "$KC")"
           git -C /tmp/pmaports checkout -q -b master
           git -C /tmp/pmaports rev-parse HEAD
           grep '^channel=' /tmp/pmaports/pmaports.cfg
