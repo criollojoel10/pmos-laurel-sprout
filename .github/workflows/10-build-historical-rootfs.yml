@@ -114,7 +114,7 @@ jobs:
           build_pkgs_on_install = True
           is_default_channel = False
           boot_size = 64
-          extra_space = 256
+          extra_space = 1024
           ccache_size = 256M
           sudo_timer = False
           qemu_redir_stdio = False
@@ -210,6 +210,9 @@ jobs:
           # líneas vacías siempre la hace fallar -> el job colgaba hasta el
           # timeout de 360 min (run 31252993573). Con --password usa chpasswd
           # (no interactivo). Es clave de prueba (rootfs desechable, slot b).
+          # extra_space=1024 (config): el du del chroot subestima el rootfs
+          # (kernel 6.1 con módulos + cache apk) y con 256 MB la imagen de
+          # 1034M se llenaba al copiar (No space left on device, pmbootstrap#1904).
           PMB install --no-sshd --no-fde --password "147147" < /tmp/init-answers.txt 2>&1 | tee /tmp/install.log
           echo "== tail =="
           tail -25 /tmp/install.log
