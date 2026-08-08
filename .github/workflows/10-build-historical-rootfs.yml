@@ -175,7 +175,13 @@ jobs:
           echo "== tail =="
           tail -15 /tmp/kernel-build.log
           echo "== apk generado =="
-          find /home/runner/.local/var/pmbootstrap -name 'linux-postmarketos-qcom-sm6125-*.apk' -exec ls -la {} \;
+          # No recorrer el chroot con find: /proc, /root y /lib/apk/exec del
+          # chroot_native dan Permission denied y find sale con exit 1 (se
+          # dispara set -e y el paso falla aunque el kernel compiló OK).
+          # Se busca solo en el repo local de paquetes (host).
+          find /home/runner/.local/var/pmbootstrap/packages \
+            -name 'linux-postmarketos-qcom-sm6125-*.apk' \
+            -exec ls -la {} \; 2>/dev/null || true
       - name: Liberar espacio (limpiar builddir y distfiles del kernel)
         if: always()
         run: |
