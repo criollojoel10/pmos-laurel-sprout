@@ -204,7 +204,13 @@ jobs:
           # paquetes desactualizados, apk debe resolverlos consistentemente
           # desde el repo local.
           PMB index < /tmp/init-answers.txt 2>&1 | tail -20 | tee /tmp/pmbootstrap-index-install.log
-          PMB install --no-sshd --no-fde < /tmp/init-answers.txt 2>&1 | tee /tmp/install.log
+          # --password evita el prompt de passwd: sin el flag, pmbootstrap 1.52.0
+          # intenta fijar la clave del usuario pmos en bucle infinito ("Failed to
+          # set the password. Try it one more time.") porque nuestro stdin de
+          # líneas vacías siempre la hace fallar -> el job colgaba hasta el
+          # timeout de 360 min (run 31252993573). Con --password usa chpasswd
+          # (no interactivo). Es clave de prueba (rootfs desechable, slot b).
+          PMB install --no-sshd --no-fde --password "147147" < /tmp/init-answers.txt 2>&1 | tee /tmp/install.log
           echo "== tail =="
           tail -25 /tmp/install.log
           echo "== rootfs images =="
@@ -251,9 +257,17 @@ jobs:
           test -f "$RAW" || { echo "ERROR: simg2img no produjo raw"; exit 1; }
           stat -c 'raw size=%s bytes' "$RAW"
           file "$RAW"
-          python3 - "$RAW" <<'PY'
-          import struct, sys, subprocess, os
-          raw = sys.argv[1]
+          # deviceinfo_rootfs_image_sector_size=4096 -> losetup -b 4096 y parted
+          # escriben el MBR con LBA en sectores de 4096 bytes (el eMMC del
+          # laurel_sprout es 4Kn). El dd debe usar ese bs, no 512.
+          SECTOR=$(grep '^deviceinfo_rootfs_image_sector_size=' \
+            /tmp/pmaports/device/testing/device-xiaomi-laurel/deviceinfo \
+            | cut -d'"' -f2)
+          SECTOR=${SECTOR:-512}
+          echo "SECTOR=$SECTOR"
+          python3 - "$RAW" "$SECTOR" <<'PY'
+          import struct, sys, subprocess
+          raw, sector = sys.argv[1], int(sys.argv[2])
           with open(raw, "rb") as fh:
               d = fh.read(512)
           if d[510:512] != b"\x55\xaa":
@@ -265,16 +279,18 @@ jobs:
               if ptype == 0 or size == 0:
                   continue
               parts.append((i + 1, ptype, start, size))
-          print("Particiones MBR:", parts)
+          print("Particiones MBR (LBA en sectores de {} bytes): {}".format(
+              sector, parts))
           if len(parts) < 2:
               sys.exit("ERROR: se esperaban al menos 2 particiones")
           for num, ptype, start, size in parts:
               out = "/tmp/part{}.img".format(num)
-              subprocess.run(["dd", "if=" + raw, "of=" + out, "bs=512",
+              subprocess.run(["dd", "if=" + raw, "of=" + out,
+                              "bs={}".format(sector),
                               "skip={}".format(start), "count={}".format(size),
                               "status=none"], check=True)
-              print("p{}: type=0x{:02x} start={} sectors={} -> {}".format(
-                  num, ptype, start, size, out))
+              print("p{}: type=0x{:02x} start={} sectors={} ({} bytes) -> {}".format(
+                  num, ptype, start, size, start * sector, out))
           PY
           file /tmp/part1.img /tmp/part2.img
           echo "== e2fsck partición boot (p1, ext2) =="
