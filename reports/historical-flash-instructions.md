@@ -30,6 +30,19 @@ sufijo (el deviceinfo no los define). Para no tocar el slot a (que funciona),
 la reproducción experimental en slot b usa sufijos explícitos. Los archivos de
 la sección "Artefactos" deben existir y estar verificados ANTES.
 
+## Artefactos verificados (rutas y SHA-256 al 2026-08-08)
+
+| Artefacto | Ruta local | SHA-256 |
+|---|---|---|
+| vbmeta flags=2 (pmOS histórico) | `local-private/historical-port/artifacts/vbmeta-historical-pmos-flags2.img` | `fe1f4b55…f4ca2` (idéntico al de workflow 09) |
+| boot v0 kernel 6.1 (EX1/EX3) | `local-private/workflow-09-artifacts/boot-out/boot-laurel-kernel-6.1-historical-v0.img` | `ff5f0905…a8be` |
+| boot v0 kernel 7.1 + appenddtb | `local-private/workflow-09-artifacts/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img` | `391d40e2…5849` |
+| initramfs (diagnóstico) | `local-private/workflow-09-artifacts/initramfs-out/initramfs.cpio.gz` | (ver SHA256SUMS) |
+| KNOWN_GOOD boot /e/OS 4.1.1 | `local-private/phase-e-flash/recovery-kit/KNOWN_GOOD_boot_eos-4.1.1.img` | `87ceeb42…1fb` |
+| TEST_IMG boot diagnóstico | `local-private/phase-e-flash/recovery-kit/TEST_IMG_boot-laurel-diagnostic.img` | `66e7005f…0b9d` |
+| rootfs histórico (EX3) | artefacto `historical-rootfs` del workflow 10 (run en curso) | SHA-256 en el manifest del artefacto |
+
+
 ### 0. Prerrequisitos verificados (bloqueante)
 
 - [ ] `local-private/backups/<fecha>/` COMPLETO (R8): boot_a/b, dtbo_a/b,
