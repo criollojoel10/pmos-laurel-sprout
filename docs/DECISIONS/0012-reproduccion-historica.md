@@ -59,3 +59,19 @@ Reproducir el port histórico en CI con herramientas y fuentes congeladas:
   recompile.
 - No hay garantía de que el port de 2022 arranque en esta unidad: es una
   reproducción para validar hipótesis, no una afirmación de funcionamiento.
+
+## Aprendizajes operativos (runs 31252993573 y siguientes)
+
+- `pmbootstrap install` de 1.52.0 intenta fijar la clave del usuario `pmos`
+  de forma **interactiva en bucle infinito** cuando el stdin no aporta la
+  contraseña (`Failed to set the password. Try it one more time.`), colgando
+  el job hasta el timeout (run 31252993573). Fix: pasar `--password` en la
+  invocación (usa `chpasswd`, no interactivo).
+- `deviceinfo_rootfs_image_sector_size=4096` (eMMC 4Kn del laurel_sprout)
+  hace que pmbootstrap use `losetup -b 4096` y que parted escriba el MBR con
+  LBA en sectores de 4096 bytes. La validación de particiones debe leer ese
+  valor del deviceinfo congelado y usar `dd bs=$SECTOR`, no `bs=512` (el
+  desfase 8x rompería e2fsck).
+- `simg2img` y `img2simg` los provee el paquete Alpine `android-tools`, que
+  pmbootstrap instala en el chroot nativo automáticamente cuando
+  `deviceinfo_flash_sparse=true`.
