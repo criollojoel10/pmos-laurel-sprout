@@ -77,6 +77,21 @@ jobs:
           git -C /tmp/pmaports checkout -q -b master
           git -C /tmp/pmaports rev-parse HEAD
           grep '^channel=' /tmp/pmaports/pmaports.cfg
+      - name: "Workaround local: gcc-aarch64 r5 -> r4"
+        run: |
+          set -Eeuo pipefail
+          # El árbol congelado @7aaee51a (diciembre 2022) trae
+          # cross/gcc-aarch64 pkgrel=5, cuyos subpaquetes (p.ej. g++) pinnean
+          # libstdc++=12.2.1_git20220924-r5. Alpine v3.17 actual solo
+          # proporciona libstdc++ r4, por lo que el r5 es ininstalable (apk
+          # exit 3). El repo binario v22.12 (mirror) tiene gcc-aarch64 r4,
+          # consistente con libstdc++ r4. Revertir a pkgrel=4 hace que
+          # pmbootstrap use el cross-compiler binario r4 (no lo recompila) y
+          # que g++-aarch64 r4 resuelva contra libstdc++ r4 existente.
+          APK=/tmp/pmaports/cross/gcc-aarch64/APKBUILD
+          grep -n '^pkgrel=' "$APK"
+          sed -i 's/^pkgrel=5$/pkgrel=4/' "$APK"
+          grep -n '^pkgrel=' "$APK"
       - name: Escribir pmbootstrap.cfg
         run: |
           set -Eeuo pipefail
@@ -151,21 +166,11 @@ jobs:
               --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
               "$@"
           }
-          # gcc-aarch64 del árbol congelado es r5 pero el repo binario v22.12
-          # tiene r4: pmbootstrap lo recompila (dep desactualizado). Tras el
-          # build el APKINDEX.tar.gz local queda obsoleto (pmbootstrap 1.52.0
-          # no reindexa automáticamente), y al instalar el cross-compiler apk
-          # fuerza el archivo gcc-aarch64-r5.apk mientras g++-aarch64 se
-          # resuelve a r4 (que pinnea gcc-aarch64=r4) -> constraints
-          # insatisfables (apk exit 3). Fix: build + index ANTES del build
-          # del kernel para que el cross-compiler se resuelva r5/r5
-          # consistentemente desde el repo local.
-          PMB build gcc-aarch64 < /tmp/init-answers.txt 2>&1 | tee /tmp/gcc-build.log
-          echo "== repo local tras build gcc-aarch64 =="
-          ls -la /home/runner/.local/var/pmbootstrap/packages/edge/x86_64/ | grep -E 'gcc|g\+\+' || true
-          PMB index < /tmp/init-answers.txt 2>&1 | tail -20 | tee /tmp/pmbootstrap-index.log
-          echo "== repo local tras index =="
-          ls -la /home/runner/.local/var/pmbootstrap/packages/edge/x86_64/ | grep -E 'gcc|g\+\+|APKINDEX' || true
+          # gcc-aarch64 ya es r4 en el árbol (workaround del paso anterior),
+          # coincidiendo con el repo binario v22.12: pmbootstrap usa el binario
+          # y no recompila; g++-aarch64 r4 y libstdc++ r4 resuelven contra
+          # Alpine v3.17. Tras el build reindexamos el repo local para que la
+          # fase de instalación pueda resolver el kernel recién construido.
           PMB build linux-postmarketos-qcom-sm6125 < /tmp/init-answers.txt 2>&1 | tee /tmp/kernel-build.log
           echo "== tail =="
           tail -15 /tmp/kernel-build.log
@@ -189,9 +194,9 @@ jobs:
               --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
               "$@"
           }
-          # Refrescar APKINDEX local (mismo motivo que en el build del kernel:
-          # si install recompila paquetes desactualizados, apk debe resolverlos
-          # consistentemente desde el repo local).
+          # Refrescar APKINDEX local antes de instalar: si install recompila
+          # paquetes desactualizados, apk debe resolverlos consistentemente
+          # desde el repo local.
           PMB index < /tmp/init-answers.txt 2>&1 | tail -20 | tee /tmp/pmbootstrap-index-install.log
           PMB install --no-sshd --no-fde < /tmp/init-answers.txt 2>&1 | tee /tmp/install.log
           echo "== tail =="
