@@ -169,8 +169,8 @@ jobs:
           # gcc-aarch64 ya es r4 en el árbol (workaround del paso anterior),
           # coincidiendo con el repo binario v22.12: pmbootstrap usa el binario
           # y no recompila; g++-aarch64 r4 y libstdc++ r4 resuelven contra
-          # Alpine v3.17. Tras el build reindexamos el repo local para que la
-          # fase de instalación pueda resolver el kernel recién construido.
+          # Alpine v3.17. El paso de instalación reindexa el repo local antes
+          # de instalar, para resolver el kernel recién construido.
           PMB build linux-postmarketos-qcom-sm6125 < /tmp/init-answers.txt 2>&1 | tee /tmp/kernel-build.log
           echo "== tail =="
           tail -15 /tmp/kernel-build.log
@@ -365,9 +365,7 @@ jobs:
           name: historical-rootfs-logs
           path: |
             /tmp/kernel-build.log
-            /tmp/gcc-build.log
             /tmp/install.log
-            /tmp/pmbootstrap-index.log
             /tmp/pmbootstrap-index-install.log
             /tmp/pmbootstrap*.log
             /home/runner/.local/var/pmbootstrap/log.txt
