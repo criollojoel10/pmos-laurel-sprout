@@ -24,7 +24,9 @@ Registro manual de runs relevantes. Cada run referencia commit y resultado.
 | 31151422493 | 09-reproduce-historical-boot | 430bfc3 | failure | Reutilización cross-run de kernels sin permisos `actions: read` (download-artifact no accede a artefactos de otro run). Corregido en 3c0b94f |
 | 31152831344 | 09-reproduce-historical-boot | 3c0b94f | failure | Falta `github-token` en download-artifact para reuso cross-run. Corregido en bb4d7dd |
 | 31154700285 | 09-reproduce-historical-boot | bb4d7dd | **success** | Ensamblado v0 + vbmeta flags=2 OK reutilizando kernels de 31147870090. Artefactos `historical-boot-images` (2 boot.img v0 + vbmeta) verificados localmente. Detalle: `reports/workflow-09-final-audit.md` |
-| 31210717507 | 10-build-historical-rootfs | 21776b6 | failure | FASE 3. `(native) apk add failed (exit 3)` al instalar el cross-compiler: pmbootstrap 1.52.0 no reindexa el repo local tras compilar gcc-aarch64 r5, mientras g++-aarch64 se resuelve a r4 (pin gcc=r4) → constraints insatisfables. Fix en 21776b6 (build gcc-aarch64 + `pmbootstrap index` antes del build del kernel) |
+| 31210717507 | 10-build-historical-rootfs | 21776b6 | failure | FASE 3. `(native) apk add failed (exit 3)` al instalar el cross-compiler: pmbootstrap 1.52.0 no reindexa el repo local tras compilar gcc-aarch64 r5, mientras g++-aarch64 se resuelve a r4 (pin gcc=r4) → constraints insatisfables. Fix parcial en 21776b6 (index tras build) |
+| 31227789300 | 10-build-historical-rootfs | 21776b6 | failure | FASE 3. Causa raíz confirmada en el APKBUILD de cross/gcc-aarch64 @7aaee51a: el subpaquete `gpp()` pinnea `libstdc++=12.2.1_git20220924-r5`, pero Alpine v3.17 actual solo tiene r4 → el r5 es **ininstalable**, independientemente del reindex. Fix definitivo en e23656e (workaround: revertir árbol a pkgrel=4, usar el gcc-aarch64 r4 del repo v22.12) |
+| 31229015234 | 10-build-historical-rootfs | f94c6fc | in_progress | FASE 3. Workaround gcc r4 activo; compilando kernel linux-postmarketos-qcom-sm6125 6.1 @77de535b (pmb:cross-native). A completar |
 
 ## Notas operativas
 
