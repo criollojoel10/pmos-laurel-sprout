@@ -16,7 +16,7 @@ Punto de control para sesiones futuras. Documento canónico de progreso:
 | M0 | Fundación (repo, CI, estructura) | completado |
 | M1 | Investigación y fuentes congeladas | completado (2026-08-03) |
 | M2 | Kernel | en progreso — kernel debug compilado + boot image de diagnóstico en CI |
-| M3 | Rootfs | pendiente (bloquea M2) |
+| M3 | Rootfs | completado (2026-08-09, CI) — rootfs histórico reproducido y verificado |
 | M4 | Prueba física | pendiente (FASE 8 + respaldos) |
 | M5 | Release | pendiente |
 

@@ -40,7 +40,14 @@ la sección "Artefactos" deben existir y estar verificados ANTES.
 | initramfs (diagnóstico) | `local-private/workflow-09-artifacts/initramfs-out/initramfs.cpio.gz` | (ver SHA256SUMS) |
 | KNOWN_GOOD boot /e/OS 4.1.1 | `local-private/phase-e-flash/recovery-kit/KNOWN_GOOD_boot_eos-4.1.1.img` | `87ceeb42…1fb` |
 | TEST_IMG boot diagnóstico | `local-private/phase-e-flash/recovery-kit/TEST_IMG_boot-laurel-diagnostic.img` | `66e7005f…0b9d` |
-| rootfs histórico (EX3) | artefacto `historical-rootfs` del workflow 10 (run en curso) | SHA-256 en el manifest del artefacto |
+| rootfs histórico (EX3) | `local-private/run31320766387-artifacts/` (descargado del workflow 10, run 31320766387 success) | ver tabla siguiente |
+| `xiaomi-laurel.img` (sparse completo) | `local-private/run31320766387-artifacts/artifacts/xiaomi-laurel.img` | `754bd35c…88 9a` |
+| `part1.img` (p1 /boot ext2, 247 MB) | `local-private/run31320766387-artifacts/artifacts/part1.img` | `e4df9958…f8` |
+| `part2.img` (p2 / ext4, 1.8 GB) | `local-private/run31320766387-artifacts/artifacts/part2.img` | `2c763492…f8f8` |
+| manifest.json (pmbootstrap 1.52.0, pmaports 7aaee51a, kernel 6.1 @77de535b) | `local-private/run31320766387-artifacts/artifacts/manifest.json` | — |
+
+Layout verificado en el reporte del CI: MBR msdos, p1 /boot ext2, p2 / ext4.
+`flash_rootfs` destina la imagen a `system_b` (3 GiB confirmado, cabe ~2 GiB).
 
 
 ### 0. Prerrequisitos verificados (bloqueante)
@@ -55,8 +62,10 @@ la sección "Artefactos" deben existir y estar verificados ANTES.
 - [x] `partition-size:system_b = 0xC0000000` (3 GiB) confirmado por el
       usuario (autorizado 2026-08-09); el rootfs ~2 GiB cabe en EX3.
       Registro: `local-private/phase-e-flash/preflight/r8/preflight-fastboot-sanitized.txt`
-- [ ] Artefactos con SHA256 registrado y correcto (rootfs histórico: run 10
-      en CI; boot v0 kernel 6.1/7.1 + vbmeta flags2 ya verificados).
+- [x] Artefactos con SHA256 registrado y correcto. Rootfs histórico (run 10,
+      31320766387 success): `xiaomi-laurel.img` `754bd35c…88 9a` + part1/part2
+      verificados localmente contra el CI (2026-08-09). Boot v0 kernel 6.1/7.1 +
+      vbmeta flags2 ya verificados. Gate FASE 8 de prerrequisitos COMPLETO.
 
 ### 1. Vuelta a Fastboot (si está en /e/OS)
 
