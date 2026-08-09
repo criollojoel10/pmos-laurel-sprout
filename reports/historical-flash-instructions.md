@@ -45,10 +45,13 @@ la sección "Artefactos" deben existir y estar verificados ANTES.
 
 ### 0. Prerrequisitos verificados (bloqueante)
 
-- [ ] `local-private/backups/<fecha>/` COMPLETO (R8): boot_a/b, dtbo_a/b,
-      vbmeta_a/b, persist, modemst1/2, fsg, fsc.
+- [x] `local-private/backups/2026-08-09/` COMPLETO (R8): boot_a/b, dtbo_a/b,
+      vbmeta_a/b, persist, modemst1/2, fsg, fsc, modem_a, dsp_a. Manifest
+      `manifest.json` status=COMPLETO (13 particiones, ~427 MiB, SHA256).
+      [2026-08-09]
 - [ ] `fastboot devices` muestra el dispositivo (serial sanitizado en logs).
 - [ ] `current-slot: a` (slot a intacto = punto de retorno).
+- [ ] `partition-size:system_b` registrado (ver §2; falta confirmar en FASE 8).
 - [ ] Artefactos con SHA256 registrado y correcto.
 
 ### 1. Vuelta a Fastboot (si está en /e/OS)
@@ -70,6 +73,8 @@ fastboot getvar partition-size:system_b
 ```
 
 Registrar la salida SANITIZADA en `local-private/phase-e-flash/preflight/`.
+Ejecuta también (no está en la lista read-only de AGENTS.md, la corre el usuario):
+`fastboot getvar partition-size:system_b` — confirmar el límite real de EX3.
 
 ### 3. [EX0] Control del slot b (opcional pero recomendado)
 

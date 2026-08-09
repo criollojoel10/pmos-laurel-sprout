@@ -1,7 +1,13 @@
 # Reporte R13 — Guía de respaldo físico R8 (gate FASE 8)
 
-Fecha: 2026-08-08. Estado: **guía operativa; los respaldos R8 NO existen aún**
-(`local-private/backups/` ausente). Sin respaldos completos NO se flashea nada
+Fecha: 2026-08-08 (guía); **2026-08-09: respaldos R8 COMPLETOS**.
+
+Estado: respaldos extraídos del dispositivo en `/e/OS` con root Magisk el
+2026-08-09 y registrados en
+`local-private/backups/2026-08-09/` (`manifest.json` + `SHA256SUMS`, 13
+particiones, ~427 MiB). Condición del gate FASE 8 (AGENTS.md §7) CERRADA para
+los respaldos: persist, modemst1/2, fsg, fsc (identidad de radio) quedaron
+capturados de esta unidad. Sin respaldos completos NO se flashea nada
 (AGENTS.md §7, prerequisito bloqueante 0 de `reports/historical-flash-instructions.md`).
 
 ## Principio
@@ -16,14 +22,19 @@ NO modifica el dispositivo; aun así, se hace primero una vuelta a Fastboot con
 
 | Partición | Fuente | ¿Crítica? |
 |---|---|---|
-| `boot_a`, `boot_b` | `dd` desde Android root, o extraer de payload de la ROM instalada (/e/OS 4.1.1) | sí |
-| `dtbo_a`, `dtbo_b` | `dd` desde Android root, o extraer de payload de la ROM | sí |
-| `vbmeta_a`, `vbmeta_b` | `dd` desde Android root, o extraer de payload de la ROM | sí |
+| `boot_a`, `boot_b` | `dd` desde Android root (o extraer de payload de la ROM instalada /e/OS 4.1.1) | sí |
+| `dtbo_a`, `dtbo_b` | `dd` desde Android root (o extraer de payload de la ROM) | sí |
+| `vbmeta_a`, `vbmeta_b` | `dd` desde Android root (o extraer de payload de la ROM) | sí |
 | `persist` | SOLO `dd` desde Android root (es específica de esta unidad) | sí |
 | `modemst1`, `modemst2` | SOLO `dd` desde Android root (identidad de radio) | sí |
 | `fsg`, `fsc` | SOLO `dd` desde Android root (identidad de radio) | sí |
 | `modem` (NON-HLOS), `dsp` (ADSP) | `dd` desde Android root, o extraer de la ROM | recomendable |
 | `bluetooth`, `secdata`, `sts`, `spul`, `qupfw` | `dd` desde Android root | recomendable |
+
+> ESTADO 2026-08-09: **COMPLETO** — las 13 particiones de las filas sí/recomendable
+> (excepto `bluetooth`/`secdata`/`sts`/`spul`/`qupfw`, no presentes o no incluidos
+> en la lista R8) fueron respaldadas con `dd` al slot activo a; `modem` y `dsp`
+> respaldados para slot `a`.
 
 Persist, modemst1/2, fsg y fsc NO se obtienen de ninguna ROM: son calibración e
 identidad generadas en fábrica. Si se pierden sin respaldo, la radio puede
@@ -87,6 +98,10 @@ Actualizar `reports/historical-backup-guide-r8.md` (checklist marcado) y crear
 (0x…), SHA-256 de cada partición, origen (dd del dispositivo), y hash de las
 imágenes de ROM de referencia. Sin este manifest, el gate FASE 8 permanece
 cerrado.
+
+> HECHO 2026-08-09: `local-private/backups/2026-08-09/manifest.json` creado
+> (slot activo `a`, tamaños en bytes y 0x…, SHA256 de las 13 particiones, origen
+> dd + root Magisk, hashes de referencia eos/stock) y `SHA256SUMS` generado.
 
 ## Advertencias
 
