@@ -49,10 +49,14 @@ la sección "Artefactos" deben existir y estar verificados ANTES.
       vbmeta_a/b, persist, modemst1/2, fsg, fsc, modem_a, dsp_a. Manifest
       `manifest.json` status=COMPLETO (13 particiones, ~427 MiB, SHA256).
       [2026-08-09]
-- [ ] `fastboot devices` muestra el dispositivo (serial sanitizado en logs).
-- [ ] `current-slot: a` (slot a intacto = punto de retorno).
-- [ ] `partition-size:system_b` registrado (ver §2; falta confirmar en FASE 8).
-- [ ] Artefactos con SHA256 registrado y correcto.
+- [x] `fastboot devices` muestra el dispositivo (serial sanitizado en logs).
+      [2026-08-09, slot a, unlocked]
+- [x] `current-slot: a` (slot a intacto = punto de retorno). [2026-08-09]
+- [x] `partition-size:system_b = 0xC0000000` (3 GiB) confirmado por el
+      usuario (autorizado 2026-08-09); el rootfs ~2 GiB cabe en EX3.
+      Registro: `local-private/phase-e-flash/preflight/r8/preflight-fastboot-sanitized.txt`
+- [ ] Artefactos con SHA256 registrado y correcto (rootfs histórico: run 10
+      en CI; boot v0 kernel 6.1/7.1 + vbmeta flags2 ya verificados).
 
 ### 1. Vuelta a Fastboot (si está en /e/OS)
 
@@ -73,8 +77,9 @@ fastboot getvar partition-size:system_b
 ```
 
 Registrar la salida SANITIZADA en `local-private/phase-e-flash/preflight/`.
-Ejecuta también (no está en la lista read-only de AGENTS.md, la corre el usuario):
-`fastboot getvar partition-size:system_b` — confirmar el límite real de EX3.
+`partition-size:system_b` ya confirmado (0xC0000000 = 3 GiB, 2026-08-09);
+el rootfs pmOS ~2 GiB cabe. No ejecutar `getvar all` sin el script de
+`sanitización` (AGENTS.md §0).
 
 ### 3. [EX0] Control del slot b (opcional pero recomendado)
 
