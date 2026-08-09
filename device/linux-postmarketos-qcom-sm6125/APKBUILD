@@ -4,7 +4,11 @@
 # Decisión: docs/DECISIONS/0002-kernel-base.md.
 #
 # Este archivo NO es el APKBUILD de pmaports; es la definición de build de
-# este repositorio (se usa desde GitHub Actions, no localmente).
+# este repositorio (se usa desde GitHub Actions, no localmente). El flujo de
+# build REAL es scripts/build-kernel.sh (workflow 03): defconfig de mainline
+# arm64 + merge_config con configs/kernel/laurel-*.fragment + gcc-aarch64
+# cross. Este APKBUILD documenta ese flujo para una futura integración
+# pmbootstrap (FASE 5); mantenerlo alineado con build-kernel.sh.
 
 pkgname=linux-postmarketos-qcom-sm6125
 pkgver=7.1
@@ -13,8 +17,8 @@ pkgdesc="Kernel mainline v7.1 para Qualcomm SM6125 (trinket) — Xiaomi Mi A3 la
 arch="aarch64"
 url="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git"
 license="GPL-2.0-only"
-options="!strip !check !tracedeps"
-makedepends="bash bison bc flex openssl-dev perl python3 py3-setuptools dtc-dev libelf-dev elfutils-dev clang lld"
+options="!strip !check !tracedeps pmb:cross-native"
+makedepends="bash bison bc flex openssl-dev perl python3 py3-setuptools dtc libelf-dev elfutils-dev gcc-aarch64 cross-binutils-aarch64"
 depends="postmarketos-mkinitfs"
 
 # COMMIT_BASE debe coincidir con sources.lock.json (linux mainline v7.1).
@@ -27,26 +31,36 @@ builddir="$srcdir/linux-${_commit}"
 _kernelname="qcom-sm6125"
 _kerneldir="$pkgdir/usr/src/linux-headers-$_kernelname"
 _dtbs="qcom/sm6125-xiaomi-laurel-sprout.dtb"
+_carch="arm64"
+
+# Fragmentos de configs/kernel/ (rutas del árbol CI; en pmbootstrap deben
+# pasarse como source con la ruta a la defconfig). Por defecto variante debug.
+_fragment_base="configs/kernel/laurel-base.fragment"
+_fragment_variant="configs/kernel/laurel-debug.fragment"
 
 prepare() {
     cd "$builddir"
-    # En GitHub Actions los parches downstream (DTS MDSS+panel s6e8fc0
-    # corregido, DTSI GPU, DTS enable GPU) se aplican en el workflow
-    # 03-build-kernel.yml con scripts/apply-kernel-patches.sh (patches/kernel/*.patch)
-    # ANTES de llamar a build-kernel.sh. Si algún día se construye este
+    # Los parches downstream (DTS MDSS+panel s6e8fc0 corregido, DTSI GPU,
+    # DTS enable GPU) se aplican en CI con scripts/apply-kernel-patches.sh
+    # (patches/kernel/*.patch) ANTES de build-kernel.sh. Si se construye este
     # APKBUILD con pmbootstrap, copiar patches/kernel/*.patch al srcdir y
-    # aplicar con git apply aquí. Documentados en docs/PATCH-PLAN.md
-    # y docs/DTS-AUDIT.md.
-    :
+    # aplicar con git apply aquí. Documentados en docs/PATCH-PLAN.md.
+    : # los parches se aplican por el flujo CI (workflow 03)
 }
 
 build() {
     cd "$builddir"
-    make ARCH=arm64 CC=clang LD=ld.lld LLVM=1 qcom_defconfig
-    # fragments de configs/kernel/laurel-*.fragment se aplican aquí por el
-    # build script (build-kernel.sh).
-    make ARCH=arm64 CC=clang LD=ld.lld LLVM=1 olddefconfig
-    make ARCH=arm64 CC=clang LD=ld.lld LLVM=1 -j$(nproc)
+    # defconfig de mainline arm64 (v7.1 NO tiene qcom_defconfig ni
+    # sm6125_defconfig; run 30785546713 lo confirmó).
+    make ARCH="$_carch" CROSS_COMPILE=aarch64-linux-gnu- defconfig
+    # merge_config de scripts/kconfig con los fragmentos (ver build-kernel.sh).
+    ./scripts/kconfig/merge_config.sh \
+        -O . \
+        -m arch/arm64/configs/defconfig \
+        "$_fragment_base" "$_fragment_variant"
+    make ARCH="$_carch" CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+    make ARCH="$_carch" CROSS_COMPILE=aarch64-linux-gnu- -j"$(nproc)" \
+        Image Image.gz dtbs modules
 }
 
 package() {
@@ -56,12 +70,14 @@ package() {
     install -Dm644 System.map "$pkgdir/boot/System.map-$_kernelname"
     install -Dm644 .config "$pkgdir/boot/config-$_kernelname"
 
-    # Módulos
-    make ARCH=arm64 CC=clang LD=ld.lld LLVM=1 INSTALL_MOD_PATH="$pkgdir" modules_install
+    # Módulos (mismo flujo que build-kernel.sh)
+    make ARCH="$_carch" CROSS_COMPILE=aarch64-linux-gnu- \
+        INSTALL_MOD_PATH="$pkgdir" INSTALL_MOD_STRIP=1 modules_install
 
     # Headers para dkms/compilación de módulos
     mkdir -p "$_kerneldir"
-    make ARCH=arm64 CC=clang LD=ld.lld LLVM=1 INSTALL_HDR_PATH="$_kerneldir" headers_install
+    make ARCH="$_carch" CROSS_COMPILE=aarch64-linux-gnu- \
+        INSTALL_HDR_PATH="$_kerneldir" headers_install
 }
 
 sha512sums="PENDIENTE"

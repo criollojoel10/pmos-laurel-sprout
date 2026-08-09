@@ -21,9 +21,13 @@ deviceinfo_cpu="ARM Cortex-A75 (2) + A55 (6)"
 
 # Flash / boot (A/B)
 deviceinfo_flash_method="fastboot"
-deviceinfo_has_boot_b_partition="true"
-deviceinfo_has_system_b_partition="false"
 deviceinfo_bootimg_recovery_support="true"
+
+# NOTA: pmbootstrap 1.52.0 no conoce variables de slot A/B en deviceinfo
+# (no hay deviceinfo_has_boot_b_partition / deviceinfo_has_system_b_partition;
+# pmbootstrap flashea con sufijo solo si la partición se define con "_b" en
+# deviceinfo_flash_fastboot_partition_*). El slot b se maneja explícitamente
+# en scripts/flash-helper.sh y en reports/historical-flash-instructions.md.
 
 # Tamaños reales obtenidos del dispositivo (2026-08-02, slot a):
 #   boot:   0x4000000 (64 MiB)

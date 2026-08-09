@@ -342,7 +342,7 @@ jobs:
               mirrors:{pmos:"http://mirror.postmarketos.org/postmarketos/v22.12/", alpine:"http://dl-cdn.alpinelinux.org/alpine/v3.17/"},
               image:$img, image_bytes:($imgsize|tonumber),
                layout:"MBR (msdos): p1 /boot ext2, p2 / ext4, flash_rootfs a system_b",
-               flash_target:"system_b (tamaño real a confirmar en FASE 8 con 'fastboot getvar partition-size:system_b'; referencia stock ~3 GiB, no verificado aún)"}' \
+               flash_target:"system_b (tamaño real a confirmar en FASE 8 con fastboot getvar partition-size:system_b; referencia stock ~3 GiB, no verificado aun)"}' \
             > /tmp/artifacts/manifest.json
           cat /tmp/artifacts/manifest.json
       - name: Reporte markdown
