@@ -40,6 +40,7 @@ while (( $# > 0 )); do
 done
 [[ -n "$OUT" ]] || usage
 mkdir -p "$OUT"
+OUT="$(readlink -f "$OUT")"
 
 info() { printf '[busybox] %s\n' "$*" >&2; }
 
@@ -66,8 +67,23 @@ sed -i 's/^# CONFIG_STATIC is not set$/CONFIG_STATIC=y/' .config
 # existen en los headers de linux del runner (kernel >= 6.13 las eliminó).
 # El initramfs de diagnóstico no necesita tc, así que lo deshabilitamos.
 sed -i 's/^CONFIG_TC=y$/# CONFIG_TC is not set/' .config
+# sed es un requisito del initramfs de diagnóstico (/init usa 'mount | sed').
+# En defconfig ya suele estar habilitado; lo fijamos explícitamente para que
+# cualquier futuro cambio de config no lo desactive silenciosamente.
+if ! grep -q '^CONFIG_SED=y$' .config; then
+  sed -i 's/^# CONFIG_SED is not set$/CONFIG_SED=y/' .config
+fi
+# En caso de estar presente el símbolo FEATURE_SED_REGEX_LIBC lo dejamos en y
+# (cualquiera que sea su forma actual en el .config).
+if grep -q 'CONFIG_FEATURE_SED_REGEX_LIBC' .config; then
+  sed -i 's/^CONFIG_FEATURE_SED_REGEX_LIBC=n$/# CONFIG_FEATURE_SED_REGEX_LIBC is not set/' .config
+  sed -i 's/^# CONFIG_FEATURE_SED_REGEX_LIBC is not set$/CONFIG_FEATURE_SED_REGEX_LIBC=y/' .config
+fi
+# olddefconfig reconcilia dependencias tras los cambios manuales en .config.
+make ARCH="$ARCH" CROSS_COMPILE="$CROSS" olddefconfig >/dev/null
 grep -q '^CONFIG_STATIC=y$' .config || { echo "ERROR: no se pudo habilitar CONFIG_STATIC" >&2; exit 1; }
 grep -q '^# CONFIG_TC is not set$' .config || { echo "ERROR: no se pudo deshabilitar CONFIG_TC" >&2; exit 1; }
+grep -q '^CONFIG_SED=y$' .config || { echo "ERROR: no se pudo habilitar CONFIG_SED" >&2; exit 1; }
 
 info "compilando (puede tardar 1-2 min)"
 # Volcamos TODO el log de make a un archivo y, si falla, mostramos las
@@ -89,8 +105,41 @@ info "archivo generado: $FB"
 [[ "$FB" == *"ARM aarch64"* ]] || { echo "ERROR: el binario NO es aarch64: $FB" >&2; exit 1; }
 [[ "$FB" == *"static"* ]] || { echo "ERROR: el binario NO es estático: $FB" >&2; exit 1; }
 
+# Instalar el árbol completo de applets (bin/sbin/usr/bin/usr/sbin) con
+# `make CONFIG_PREFIX install`: busybox instala busybox + los enlaces de cada
+# applet compilado. Antes el initramfs creaba SOLO una lista fija de enlaces y
+# /init fallaba por falta de 'sed' (Kernel panic: Attempted to kill init).
+APPS="$OUT/applet-root"
+mkdir -p "$APPS"
+info "instalando árbol de applets (CONFIG_PREFIX=$APPS)"
+make -j"$(nproc)" ARCH="$ARCH" CROSS_COMPILE="$CROSS" CONFIG_PREFIX="$APPS" install >"$WORK/install.log" 2>&1 || {
+  cp "$WORK/install.log" "$OUT/install.log" 2>/dev/null || true
+  echo "ERROR: make install falló. Log: $OUT/install.log" >&2
+  tail -n 60 "$WORK/install.log" >&2
+  exit 1
+}
+
+# El instalador de busybox crea enlaces a "busybox" (relativo) dentro del
+# árbol. Verificar que busybox quedó instalado y que sed existe como enlace.
+[[ -x "$APPS/bin/busybox" ]] || { echo "ERROR: no se instaló $APPS/bin/busybox" >&2; exit 1; }
+[[ -L "$APPS/bin/sed" ]] || { echo "ERROR: falta el enlace bin/sed en el árbol de applets" >&2; exit 1; }
+
+# Lista los applets instalados (nombres de enlace) para auditoría.
+( cd "$APPS" && find bin sbin usr -maxdepth 1 -type l -printf '%f\n' 2>/dev/null | sort -u ) > "$OUT/applets.txt"
+info "applets instalados: $(wc -l < "$OUT/applets.txt")"
+
+# Validar los applets que /init y la shell de rescate requieren.
+REQUIRED=(sh cat sed grep awk mount umount mkdir mknod sleep dmesg uptime ls cp sync switch_root)
+for a in "${REQUIRED[@]}"; do
+  grep -qx "$a" "$OUT/applets.txt" || {
+    echo "ERROR: falta el applet requerido '$a' en el árbol instalado" >&2
+    exit 1
+  }
+done
+
 cp "$BB" "$OUT/busybox"
 sha256sum "$OUT/busybox" > "$OUT/busybox.SHA256"
-info "salida: $OUT/busybox"
+info "salida: $OUT/busybox (+ árbol de applets en $APPS)"
 cat "$OUT/busybox.SHA256"
+cat "$OUT/applets.txt"
 exit 0

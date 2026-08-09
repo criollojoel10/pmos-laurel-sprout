@@ -12,16 +12,18 @@
 #   scripts/build-diagnostic-initramfs.sh \
 #     --init <initramfs/init> \
 #     --out <directorio-salida> \
-#     [--busybox /ruta/a/busybox.static]
+#     [--busybox /ruta/a/busybox.static] \
+#     [--busybox-root /ruta/al-árbol-instalado]
 
 set -Eeuo pipefail
 
 INIT=""
 OUT=""
 BUSYBOX=""
+BUSYBOX_ROOT=""
 
 usage() {
-  echo "uso: $0 --init <init> --out <dir> [--busybox /ruta]" >&2
+  echo "uso: $0 --init <init> --out <dir> [--busybox /ruta] [--busybox-root /ruta/al-árbol]" >&2
   exit 2
 }
 
@@ -30,12 +32,17 @@ while (( $# > 0 )); do
     --init) INIT="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     --busybox) BUSYBOX="$2"; shift 2 ;;
+    --busybox-root) BUSYBOX_ROOT="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
 
 [[ -n "$INIT" && -n "$OUT" ]] || usage
 [[ -f "$INIT" ]] || { echo "ERROR: init no existe: $INIT" >&2; exit 1; }
+# Rutas absolutas: el empaquetado corre en un subshell con `cd "$STAGE"` y una
+# ruta relativa de OUT no se resolvería ahí.
+INIT="$(readlink -f "$INIT")"
+OUT="$(readlink -f "$OUT")"
 
 info() { printf '[initramfs] %s\n' "$*" >&2; }
 STAGE="$(mktemp -d /tmp/initramfs-stage.XXXXXX)"
@@ -48,9 +55,32 @@ if [[ -z "$BUSYBOX" ]]; then
     BUSYBOX="$(command -v busybox)"
   fi
 fi
-if [[ -n "$BUSYBOX" && -f "$BUSYBOX" ]]; then
-  # El dispositivo es aarch64 (SM6125). Un busybox x86-64 haría fallar el
-  # initramfs con 'exec format error' (incidente registrado en FASE E0).
+
+mkdir -p "$STAGE/bin" "$STAGE/sbin" "$STAGE/usr/bin" "$STAGE/usr/sbin"
+if [[ -n "$BUSYBOX_ROOT" && -x "$BUSYBOX_ROOT/bin/busybox" ]]; then
+  # Árbol completo instalado por build-busybox-arm64.sh (make CONFIG_PREFIX
+  # install): busybox + enlaces de TODOS los applets. Copiar el árbol
+  # garantiza que /init y la shell de rescate encuentren sed, grep, awk,
+  # uptime, setsid, sync, switch_root, etc. (evita la causa del panic EX3).
+  info "usando árbol de applets: $BUSYBOX_ROOT"
+  FB="$(file -b "$BUSYBOX_ROOT/bin/busybox")"
+  info "busybox: $FB"
+  [[ "$FB" == *"ARM aarch64"* ]] || {
+    echo "ERROR: busybox del árbol NO es aarch64 (dispositivo arm64): $FB" >&2
+    exit 1
+  }
+  [[ "$FB" == *"static"* ]] || {
+    echo "ERROR: busybox del árbol NO es estático: $FB" >&2
+    exit 1
+  }
+  [[ -L "$BUSYBOX_ROOT/bin/sed" ]] || {
+    echo "ERROR: el árbol de applets no contiene bin/sed" >&2
+    exit 1
+  }
+  cp -a "$BUSYBOX_ROOT"/. "$STAGE"/
+elif [[ -n "$BUSYBOX" && -f "$BUSYBOX" ]]; then
+  # Fallback: busybox binario + lista fija de applets (histórico). No es el
+  # camino recomendado: si se usa, ampliamos la lista para cubrir /init.
   FB="$(file -b "$BUSYBOX")"
   info "busybox: $FB"
   [[ "$FB" == *"ARM aarch64"* ]] || {
@@ -61,11 +91,10 @@ if [[ -n "$BUSYBOX" && -f "$BUSYBOX" ]]; then
     echo "ERROR: busybox NO es estático: $FB" >&2
     exit 1
   }
-  mkdir -p "$STAGE/bin" "$STAGE/sbin" "$STAGE/usr/bin" "$STAGE/usr/sbin"
   cp "$BUSYBOX" "$STAGE/bin/busybox"
-  # applets
   for a in sh mount umount cat echo ls sleep uname dmesg chmod ln mkdir mknod \
-           ps cp mv rm touch tail head free df; do
+           ps cp mv rm touch tail head free df sed grep awk uptime setsid \
+           sync switch_root tr wc test; do
     ln -sf /bin/busybox "$STAGE/bin/$a"
   done
   ln -sf /bin/busybox "$STAGE/sbin/mount"
@@ -96,7 +125,8 @@ info "initramfs creado: $OUT/initramfs.cpio.gz"
 ls -la "$OUT/initramfs.cpio.gz"
 cat > "$OUT/initramfs-manifest.txt" <<EOF
 initramfs de diagnóstico laurel_sprout (mainline v7.1)
-- BusyBox estático aarch64 (arm64) con applets shell básicos
+- BusyBox estático aarch64 (arm64), árbol de applets completo
+  (make CONFIG_PREFIX install: bin/sbin/usr), incluye sed/grep/awk/uptime
 - init: initramfs/init (PID 1)
 - consola serial ttyMSM0 + /dev/console
 - NADA se monta del rootfs del dispositivo

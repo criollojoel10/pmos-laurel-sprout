@@ -309,15 +309,30 @@ jobs:
           set -Eeuo pipefail
           bash scripts/build-busybox-arm64.sh --out /tmp/busybox-out
           file /tmp/busybox-out/busybox
-      - name: Construir initramfs de diagnóstico
+          echo "--- applets instalados ---"
+          cat /tmp/busybox-out/applets.txt
+      - name: Construir initramfs de diagnóstico (sedfix)
         run: |
           set -Eeuo pipefail
           bash scripts/build-diagnostic-initramfs.sh \
             --init initramfs/init \
-            --busybox /tmp/busybox-out/busybox \
+            --busybox-root /tmp/busybox-out/applet-root \
             --out /tmp/initramfs-out
           ls -la /tmp/initramfs-out/
-      - name: Ensamblar boot.img histórico (kernel 6.1, header v0, append_dtb)
+      - name: Verificar initramfs de diagnóstico (sedfix)
+        run: |
+          set -Eeuo pipefail
+          bash scripts/verify-diagnostic-initramfs.sh \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --init initramfs/init \
+            --busybox-root /tmp/busybox-out/applet-root \
+            --out /tmp/initramfs-out
+          cp /tmp/busybox-out/applets.txt /tmp/initramfs-out/busybox-applets.txt
+          echo "--- lista de enlaces del initramfs ---"
+          ( cd /tmp/initramfs-out && gzip -dc initramfs.cpio.gz | cpio -t 2>/dev/null | sort ) \
+            > /tmp/initramfs-out/initramfs-links.txt
+          cat /tmp/initramfs-out/initramfs-links.txt
+      - name: Ensamblar boot.img histórico (kernel 6.1, header v0, append_dtb, initramfs sedfix)
         run: |
           set -Eeuo pipefail
           mkdir -p /tmp/boot-out
@@ -325,7 +340,7 @@ jobs:
             --kernel /tmp/k61/Image.gz \
             --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
             --dtb /tmp/k61/sm6125-xiaomi-laurel_sprout.dtb \
-            --out /tmp/boot-out/boot-laurel-kernel-6.1-historical-v0.img \
+            --out /tmp/boot-out/boot-laurel-kernel-6.1-historical-v0-sedfix.img \
             --header-version 0 \
             --append-dtb \
             --base 0x00000000 \
@@ -348,7 +363,7 @@ jobs:
             --kernel /tmp/k71/Image.gz \
             --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
             --dtb "$DTB71" \
-            --out /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img \
+            --out /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb-sedfix.img \
             --header-version 0 \
             --append-dtb \
             --base 0x00000000 \
@@ -372,15 +387,15 @@ jobs:
           set -Eeuo pipefail
           mkdir -p /tmp/boot-out
           bash scripts/verify-boot-v0-appenddtb.sh \
-            --boot /tmp/boot-out/boot-laurel-kernel-6.1-historical-v0.img \
+            --boot /tmp/boot-out/boot-laurel-kernel-6.1-historical-v0-sedfix.img \
             --kernel /tmp/k61/Image.gz \
             --dtb /tmp/k61/sm6125-xiaomi-laurel_sprout.dtb \
             --cmdline "clk_ignore_unused" \
             --boot-limit 67108864 \
             --out /tmp/boot-out
-          if [[ -f /tmp/k71/Image.gz && -f /tmp/k71/sm6125-xiaomi-laurel_sprout.dtb && -f /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img ]]; then
+          if [[ -f /tmp/k71/Image.gz && -f /tmp/k71/sm6125-xiaomi-laurel_sprout.dtb && -f /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb-sedfix.img ]]; then
             bash scripts/verify-boot-v0-appenddtb.sh \
-              --boot /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img \
+              --boot /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb-sedfix.img \
               --kernel /tmp/k71/Image.gz \
               --dtb /tmp/k71/sm6125-xiaomi-laurel_sprout.dtb \
               --cmdline "console=ttyMSM0,115200n8 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 msm_rtb.filter=0x237 lpm_levels.sleep_disabled=1 service_locator.enable=1 loop.max_part=7 buildvariant=user" \
@@ -419,25 +434,29 @@ jobs:
           jq -n \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg run "${{ github.run_id }}" \
-            '{artifact:"historical-boot-images", generated_at:$date, run_id:$run,
+            '{artifact:"historical-boot-images-sedfix", generated_at:$date, run_id:$run,
               header_version:0, append_dtb:true, cmdline_historica:"clk_ignore_unused",
-              vbmeta_flags:2}' > manifest.json
+              vbmeta_flags:2, initramfs_fix:"sedfix (EX3: sed ausente -> panic)",
+              notas:"solo cambia el initramfs; kernel 6.1 y DTB byte-idénticos al v0"}' > manifest.json
           cat SHA256SUMS
           cat manifest.json
       - name: Empaquetar salida
         if: ${{ github.event.inputs.upload_artifacts != 'false' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: historical-boot-images
+          name: historical-boot-images-sedfix
           path: |
-            /tmp/boot-out/boot-laurel-kernel-6.1-historical-v0.img
-            /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img
+            /tmp/boot-out/boot-laurel-kernel-6.1-historical-v0-sedfix.img
+            /tmp/boot-out/boot-laurel-kernel-7.1-v0-appenddtb-sedfix.img
             /tmp/boot-out/vbmeta-historical-flags2.img
             /tmp/boot-out/v0-verification.md
             /tmp/boot-out/unpack-report.md
             /tmp/boot-out/SHA256SUMS
             /tmp/boot-out/manifest.json
             /tmp/initramfs-out/initramfs.cpio.gz
+            /tmp/initramfs-out/busybox-applets.txt
+            /tmp/initramfs-out/initramfs-links.txt
+            /tmp/initramfs-out/initramfs-verification.md
           retention-days: 7
       - name: Subir logs de diagnóstico (siempre)
         if: always()

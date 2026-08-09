@@ -86,12 +86,22 @@ jobs:
         run: |
           set -Eeuo pipefail
           # BusyBox estático arm64 construido en el paso anterior (no el
-          # busybox-static de Ubuntu, que es x86-64).
+          # busybox-static de Ubuntu, que es x86-64). Se usa el árbol de
+          # applets completo (make CONFIG_PREFIX install) para que /init
+          # encuentre sed/grep/awk (fix EX3: "sed: not found" -> panic).
           bash scripts/build-diagnostic-initramfs.sh \
             --init initramfs/init \
-            --busybox /tmp/busybox-out/busybox \
+            --busybox-root /tmp/busybox-out/applet-root \
             --out /tmp/initramfs-out
           ls -la /tmp/initramfs-out/
+      - name: Verificar initramfs de diagnóstico
+        run: |
+          set -Eeuo pipefail
+          bash scripts/verify-diagnostic-initramfs.sh \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --init initramfs/init \
+            --busybox-root /tmp/busybox-out/applet-root \
+            --out /tmp/initramfs-out
       - name: Ensamblar boot.img de diagnóstico
         run: |
           set -Eeuo pipefail
