@@ -1,5 +1,13 @@
 {
-  "generated_at": "2026-08-04",
+  "generated_at": "2026-08-09",
+  "boot_attempts": [
+    {
+      "date": "2026-08-09",
+      "test": "EX3 kernel 6.1 histórico, slot b (boot_b v0 + vbmeta flags2 + system_b rootfs pmOS MBR completo)",
+      "result": "boot-untested (arrancó parcialmente)",
+      "notes": "current-slot b; dtbo_b borrado; vbmeta_b flags=2; system_b=rootfs MBR completo; boot_b=boot v0 kernel 6.1 @77de535b + initramfs diagnóstico. Resultado: imagen en pantalla + KERNEL PANIC. USB host: desconexión en 12:44:23 sin re-enumeración del gadget (panic antes de initramfs/USB config). Recuperación: set_active a pendiente de autorización."
+    }
+  ],
   "device": {
     "manufacturer": "Xiaomi",
     "model": "Mi A3",
@@ -7,8 +15,8 @@
   },
   "components": {
     "display": {
-      "status": "compiled",
-      "notes": "DTS MDSS+DSI+PHY habilitado y panel samsung,s6e8fc0-m1906f9 en DTB compilado (v7.1 + parche 0001). Nodos MDSS/DSI/panel verificados presentes en el DTB descompilado (verify-dtb). Boot image de diagnóstico construido (CI + local). Sin boot aún."
+      "status": "boot-untested",
+      "notes": "DTS MDSS+DSI+PHY habilitado y panel samsung,s6e8fc0-m1906f9 en DTB compilado. PRIMERA PRUEBA FÍSICA (2026-08-09, EX3 kernel 6.1 slot b): imagen visible en pantalla al arrancar, luego kernel panic. El kernel 6.1 arrancó y mostró vídeo antes del panic — señal positiva de MDSS/panel, pero el panic impide confirmar funcionalidad estable. Detalle del panic por capturar (foto de pantalla)."
     },
     "gpu": {
       "status": "compiled",

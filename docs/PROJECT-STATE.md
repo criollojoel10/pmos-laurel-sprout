@@ -17,7 +17,7 @@ Punto de control para sesiones futuras. Documento canónico de progreso:
 | M1 | Investigación y fuentes congeladas | completado (2026-08-03) |
 | M2 | Kernel | en progreso — kernel debug compilado + boot image de diagnóstico en CI |
 | M3 | Rootfs | completado (2026-08-09, CI) — rootfs histórico reproducido y verificado |
-| M4 | Prueba física | pendiente (FASE 8 + respaldos) |
+| M4 | Prueba física | en progreso — EX3 kernel 6.1 slot b: imagen en pantalla + kernel panic (2026-08-09) |
 | M5 | Release | pendiente |
 
 ## Kernel (M2)
@@ -114,3 +114,17 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
    recovery-commands.txt, preflight sanitizado). ORIGINAL_SLOT=a, TARGET_SLOT=b.
 6. FASE 5: rootfs consola/Plasma (workflows 04/05), deviceinfo real.
 7. Prueba física bajo FASE 8 (solo `fastboot boot`, previa autorización).
+
+## Prueba física EX3 (2026-08-09) — kernel 6.1 slot b
+
+- Preparación slot b ejecutada con autorización: `dtbo_b` borrado,
+  `vbmeta_b` flags=2, `system_b` = rootfs pmOS MBR completo
+  (`xiaomi-laurel.img`), `boot_b` = boot v0 kernel 6.1 @77de535b + initramfs
+  diagnóstico. `current-slot: b` confirmado. Registro:
+  `local-private/phase-e-flash/preflight/historical-6.1/ejecucion-slot-b-2026-08-09.md`.
+- Resultado: **imagen en pantalla + KERNEL PANIC**. El kernel 6.1 arrancó y
+  mostró vídeo (señal positiva de MDSS/panel), pero paniqueó. USB host:
+  desconexión 12:44:23 sin re-enumeración (panic antes de initramfs/USB).
+- Pendiente: capturar texto del panic (foto de pantalla), diagnóstico del
+  panic, y autorización para `set_active a` (recuperación) o seguir
+  depurando en slot b.
