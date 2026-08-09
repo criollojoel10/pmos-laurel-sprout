@@ -79,14 +79,42 @@ if grep -q 'CONFIG_FEATURE_SED_REGEX_LIBC' .config; then
   sed -i 's/^CONFIG_FEATURE_SED_REGEX_LIBC=n$/# CONFIG_FEATURE_SED_REGEX_LIBC is not set/' .config
   sed -i 's/^# CONFIG_FEATURE_SED_REGEX_LIBC is not set$/CONFIG_FEATURE_SED_REGEX_LIBC=y/' .config
 fi
-# oldconfig reconciliar dependencias tras los cambios manuales en .config.
-# OJO: busybox 1.38 (kconfig heredado del kernel ~2.6.30) NO tiene el target
-# 'olddefconfig' (añadido al kernel en 3.5); 'silentoldconfig' con stdin vacío
-# es el equivalente no interactivo y SÍ existe aquí.
+# Applets que /init y la shell de rescate necesitan en tiempo de ejecución.
+# Forzamos su símbolo Kconfig a 'y' en el .config ANTES de silentoldconfig:
+# defconfig suele habilitarlos, pero no queremos depender de que lo haga
+# (el run 31328942346 construyó un busybox SIN el applet awk). La clave del
+# array es el nombre de applet; el valor es el sufijo de su símbolo CONFIG_*.
+declare -A APP_SYM=(
+  [sh]=ASH [cat]=CAT [sed]=SED [grep]=GREP [awk]=AWK [mount]=MOUNT
+  [umount]=UMOUNT [mkdir]=MKDIR [mknod]=MKNOD [sleep]=SLEEP
+  [dmesg]=DMESG [uptime]=UPTIME [ls]=LS [cp]=CP [sync]=SYNC
+  [switch_root]=SWITCH_ROOT [tr]=TR [wc]=WC [setsid]=SETSID
+  [echo]=ECHO [test]=TEST [uname]=UNAME [chmod]=CHMOD [ln]=LN
+  [mv]=MV [rm]=RM [touch]=TOUCH [head]=HEAD [tail]=TAIL
+)
+for a in "${!APP_SYM[@]}"; do
+  sym="CONFIG_${APP_SYM[$a]}"
+  if grep -q "^# ${sym} is not set$" .config; then
+    sed -i "s/^# ${sym} is not set$/${sym}=y/" .config
+  elif ! grep -q "^${sym}=y$" .config; then
+    printf '%s=y\n' "$sym" >> .config
+  fi
+done
+# silentoldconfig reconcilia dependencias tras los cambios manuales en
+# .config. OJO: busybox 1.38 (kconfig heredado del kernel ~2.6.30) NO tiene el
+# target 'olddefconfig' (añadido al kernel en 3.5); 'silentoldconfig' con
+# stdin vacío es el equivalente no interactivo y SÍ existe aquí.
 make ARCH="$ARCH" CROSS_COMPILE="$CROSS" silentoldconfig </dev/null >/dev/null
 grep -q '^CONFIG_STATIC=y$' .config || { echo "ERROR: no se pudo habilitar CONFIG_STATIC" >&2; exit 1; }
 grep -q '^# CONFIG_TC is not set$' .config || { echo "ERROR: no se pudo deshabilitar CONFIG_TC" >&2; exit 1; }
 grep -q '^CONFIG_SED=y$' .config || { echo "ERROR: no se pudo habilitar CONFIG_SED" >&2; exit 1; }
+for a in "${!APP_SYM[@]}"; do
+  sym="CONFIG_${APP_SYM[$a]}"
+  grep -q "^${sym}=y$" .config || {
+    echo "ERROR: no se pudo habilitar ${sym} (applet '$a')" >&2
+    exit 1
+  }
+done
 
 info "compilando (puede tardar 1-2 min)"
 # Volcamos TODO el log de make a un archivo y, si falla, mostramos las
@@ -108,22 +136,48 @@ info "archivo generado: $FB"
 [[ "$FB" == *"ARM aarch64"* ]] || { echo "ERROR: el binario NO es aarch64: $FB" >&2; exit 1; }
 [[ "$FB" == *"static"* ]] || { echo "ERROR: el binario NO es estático: $FB" >&2; exit 1; }
 
-# Instalar el árbol completo de applets (bin/sbin/usr/bin/usr/sbin) con
-# `make CONFIG_PREFIX install`: busybox instala busybox + los enlaces de cada
-# applet compilado. Antes el initramfs creaba SOLO una lista fija de enlaces y
-# /init fallaba por falta de 'sed' (Kernel panic: Attempted to kill init).
+# Instalar el árbol completo de applets (bin/sbin/usr/bin/usr/sbin) generando
+# los enlaces desde busybox.links en lugar de `make install`. busybox.links es
+# generado por el propio build (applets/busybox.mkll) y lista UNA ruta por
+# applet EFECTIVAMENTE compilado; si un applet no está en busybox.links es que
+# NO se compiló (el run 31328942346 instaló 164 applets SIN awk: awk no estaba
+# en el .config, así que tampoco estaba en busybox.links). 'make install'
+# depende del mismo archivo y además crea enlaces relativos; aquí creamos
+# enlaces absolutos a /bin/busybox y validamos los REQUIRED directamente
+# contra busybox.links. Antes el initramfs creaba SOLO una lista fija de
+# enlaces y /init fallaba por falta de 'sed' (Kernel panic: Attempted to kill
+# init).
 APPS="$OUT/applet-root"
-mkdir -p "$APPS"
-info "instalando árbol de applets (CONFIG_PREFIX=$APPS)"
-make -j"$(nproc)" ARCH="$ARCH" CROSS_COMPILE="$CROSS" CONFIG_PREFIX="$APPS" install >"$WORK/install.log" 2>&1 || {
-  cp "$WORK/install.log" "$OUT/install.log" 2>/dev/null || true
-  echo "ERROR: make install falló. Log: $OUT/install.log" >&2
-  tail -n 60 "$WORK/install.log" >&2
+mkdir -p "$APPS/bin"
+info "generando lista de enlaces (busybox.links)"
+make ARCH="$ARCH" CROSS_COMPILE="$CROSS" busybox.links >"$WORK/links.log" 2>&1 || {
+  cp "$WORK/links.log" "$OUT/links.log" 2>/dev/null || true
+  echo "ERROR: make busybox.links falló. Log: $OUT/links.log" >&2
+  tail -n 30 "$WORK/links.log" >&2
   exit 1
 }
+[[ -s busybox.links ]] || { echo "ERROR: busybox.links está vacío (¿falló el preprocesado?)" >&2; exit 1; }
+cp busybox.links "$OUT/busybox.links"
 
-# El instalador de busybox crea enlaces a "busybox" (relativo) dentro del
-# árbol. Verificar que busybox quedó instalado y que sed existe como enlace.
+# Validar ANTES de crear enlaces que cada applet requerido aparece en
+# busybox.links; su presencia garantiza que quedó compilado en el binario.
+REQUIRED=(sh cat sed grep awk mount umount mkdir mknod sleep dmesg uptime ls cp sync switch_root)
+for a in "${REQUIRED[@]}"; do
+  grep -Eq "/${a}$" busybox.links || {
+    echo "ERROR: busybox.links no incluye el applet requerido '$a' (no se compiló)" >&2
+    exit 1
+  }
+done
+
+info "copiando busybox a $APPS/bin/busybox"
+install -m 755 "$BB" "$APPS/bin/busybox"
+while IFS= read -r l; do
+  [[ "$l" == /* ]] || { echo "ERROR: ruta inesperada en busybox.links: '$l'" >&2; exit 1; }
+  mkdir -p "$APPS${l%/*}"
+  ln -sfn /bin/busybox "$APPS$l"
+done < <(sort -u busybox.links)
+
+# Verificar que busybox quedó instalado y que sed existe como enlace.
 [[ -x "$APPS/bin/busybox" ]] || { echo "ERROR: no se instaló $APPS/bin/busybox" >&2; exit 1; }
 [[ -L "$APPS/bin/sed" ]] || { echo "ERROR: falta el enlace bin/sed en el árbol de applets" >&2; exit 1; }
 
@@ -132,7 +186,6 @@ make -j"$(nproc)" ARCH="$ARCH" CROSS_COMPILE="$CROSS" CONFIG_PREFIX="$APPS" inst
 info "applets instalados: $(wc -l < "$OUT/applets.txt")"
 
 # Validar los applets que /init y la shell de rescate requieren.
-REQUIRED=(sh cat sed grep awk mount umount mkdir mknod sleep dmesg uptime ls cp sync switch_root)
 for a in "${REQUIRED[@]}"; do
   grep -qx "$a" "$OUT/applets.txt" || {
     echo "ERROR: falta el applet requerido '$a' en el árbol instalado" >&2
