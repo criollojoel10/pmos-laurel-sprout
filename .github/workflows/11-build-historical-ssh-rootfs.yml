@@ -1,0 +1,531 @@
+name: 11-build-historical-ssh-rootfs
+
+# Reproduce el ROOTFS HISTÓRICO del port postmarketOS xiaomi-laurel
+# (dic 2022): pmbootstrap 1.52.0 + pmaports @7aaee51a + canal "edge"
+# redirigido por --config-channels a los repos binarios v22.12 (Alpine
+# v3.17). DIFERENCIA respecto a 10-build-historical-rootfs.yml: SSH
+# HABILITADO.
+#
+# Cambios exclusivos (base 6.1 histórica idéntica):
+#   - config: ssh_keys = True        (antes False)
+#   - install: sin --no-sshd         (antes --no-sshd)
+#   - se instala la clave pública Ed25519 (secreto SSH_PUBLIC_KEY) en
+#     home/pmos/.ssh/authorized_keys (vía pmbootstrap) y en
+#     root/.ssh/authorized_keys (vía scripts/ssh-harden-rootfs.sh)
+#   - /etc/ssh/sshd_config endurecido: PermitRootLogin prohibit-password,
+#     PasswordAuthentication no, KbdInteractiveAuthentication no,
+#     PubkeyAuthentication yes (auth por clave; sin contraseñas para root)
+#
+# El kernel linux-postmarketos-qcom-sm6125 (6.1 @77de535b) NO está en el repo
+# binario v22.12: pmbootstrap lo compila desde el APKBUILD congelado en modo
+# pmb:cross-native (nativo x86_64 con gcc-aarch64, sin qemu).
+#
+# La clave privada NUNCA entra en el repo ni en el CI: solo la pública
+# (secret SSH_PUBLIC_KEY). El rootfs se flashea como imagen MBR COMPLETA
+# (xiaomi-laurel-ssh.img) a system_b; el initramfs histórico espera el layout
+# MBR y descubre pmOS_boot/pmOS_root mediante kpartx.
+#
+# NO flashea nada. Fuentes fijadas en sources.lock.json.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_artifacts:
+        description: Subir artefactos (rootfs, reportes)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-historical-ssh-rootfs
+  cancel-in-progress: true
+
+jobs:
+  rootfs:
+    name: Reproducir rootfs histórico 6.1 con SSH (pmbootstrap 1.52.0, canal v22.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+          nproc
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Instalar dependencias host
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            python3 python3-pip git openssl coreutils procps \
+            tar curl xz-utils jq file \
+            qemu-user-static binfmt-support \
+            e2fsprogs util-linux openssh-client
+      - name: Descargar y verificar pmbootstrap 1.52.0
+        run: |
+          set -Eeuo pipefail
+          URL="https://gitlab.postmarketos.org/postmarketOS/pmbootstrap/-/archive/1.52.0/pmbootstrap-1.52.0.tar.gz"
+          curl -fsSL "$URL" -o /tmp/pmbootstrap-1.52.0.tar.gz
+          echo "a05fef2bb495a2e0d8e0369e4a8a1038baf50b7514ec89582b5ec785f9bfa7cb  /tmp/pmbootstrap-1.52.0.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/pmbootstrap-1.52.0.tar.gz -C /tmp
+          mv /tmp/pmbootstrap-1.52.0 /tmp/pmbootstrap
+          test -x /tmp/pmbootstrap/pmbootstrap.py
+          echo "pmbootstrap listo"
+      - name: Clonar pmaports congelado @7aaee51a (rama master)
+        run: |
+          set -Eeuo pipefail
+          KC=7aaee51a
+          # GitLab rechaza fetch de SHAs sueltos (allowAnySHA1InWant off).
+          # 7aaee51a es ancestro de master (MR 3727, fast-forward), asi que
+          # un clone blob:none de master ya lo incluye y checkout directo basta.
+          git clone --filter=blob:none --no-checkout \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git /tmp/pmaports
+          git -C /tmp/pmaports checkout -q "$KC"
+          test "$(git -C /tmp/pmaports rev-parse HEAD)" = "$(git -C /tmp/pmaports rev-parse "$KC")"
+          git -C /tmp/pmaports checkout -q -b master
+          git -C /tmp/pmaports rev-parse HEAD
+          grep '^channel=' /tmp/pmaports/pmaports.cfg
+      - name: "Workaround local: gcc-aarch64 r5 -> r4"
+        run: |
+          set -Eeuo pipefail
+          # El árbol congelado @7aaee51a (diciembre 2022) trae
+          # cross/gcc-aarch64 pkgrel=5, cuyos subpaquetes (p.ej. g++) pinnean
+          # libstdc++=12.2.1_git20220924-r5. Alpine v3.17 actual solo
+          # proporciona libstdc++ r4, por lo que el r5 es ininstalable (apk
+          # exit 3). El repo binario v22.12 (mirror) tiene gcc-aarch64 r4,
+          # consistente con libstdc++ r4. Revertir a pkgrel=4 hace que
+          # pmbootstrap use el cross-compiler binario r4 (no lo recompila) y
+          # que g++-aarch64 r4 resuelva contra libstdc++ r4 existente.
+          APK=/tmp/pmaports/cross/gcc-aarch64/APKBUILD
+          grep -n '^pkgrel=' "$APK"
+          sed -i 's/^pkgrel=5$/pkgrel=4/' "$APK"
+          grep -n '^pkgrel=' "$APK"
+      - name: Escribir pmbootstrap.cfg (SSH habilitado)
+        run: |
+          set -Eeuo pipefail
+          cat > /tmp/pmbootstrap.cfg <<'EOF'
+          [pmbootstrap]
+          aports = /tmp/pmaports
+          work = /home/runner/.local/var/pmbootstrap
+          device = xiaomi-laurel
+          kernel = postmarketos-qcom-sm6125
+          ui = console
+          user = pmos
+          hostname = laziel
+          timezone = UTC
+          locale = en_US.UTF-8
+          mirror_alpine = http://dl-cdn.alpinelinux.org/alpine/
+          mirrors_postmarketos = http://mirror.postmarketos.org/postmarketos/
+          nonfree_firmware = True
+          nonfree_userland = False
+          extra_packages = none
+          build_pkgs_on_install = True
+          is_default_channel = False
+          boot_size = 256
+          extra_space = 1024
+          ccache_size = 256M
+          sudo_timer = False
+          qemu_redir_stdio = False
+          ssh_keys = True
+          ssh_key_glob = ~/.ssh/id_*.pub
+          [providers]
+          EOF
+          sed -i "s/^jobs = .*/jobs = $(nproc)/" /tmp/pmbootstrap.cfg || \
+            sed -i '/^\[pmbootstrap\]$/a jobs = '"$(nproc)" /tmp/pmbootstrap.cfg
+          grep -E '^(device|kernel|ui|mirrors_postmarketos|mirror_alpine|jobs|boot_size|extra_space|ssh_keys|ssh_key_glob) =' /tmp/pmbootstrap.cfg
+      - name: Preparar clave pública SSH (secreto SSH_PUBLIC_KEY)
+        run: |
+          set -Eeuo pipefail
+          # Solo la clave PÚBLICA Ed25519. La privada vive en el equipo del
+          # usuario (local-private/ssh-laurel/id_ed25519), nunca en el repo/CI.
+          if [[ -z "${{ secrets.SSH_PUBLIC_KEY }}" ]]; then
+            echo "ERROR: secreto SSH_PUBLIC_KEY no definido (gh secret set ...)" >&2
+            exit 1
+          fi
+          mkdir -p /home/runner/.ssh
+          # tr -d '\r' + grep -m1: tolera CRLF o newline final del secreto y
+          # garantiza una sola línea "ssh-ed25519 ..."
+          printf '%s' "${{ secrets.SSH_PUBLIC_KEY }}" \
+            | tr -d '\r' \
+            | grep -m1 '^ssh-ed25519 ' > /home/runner/.ssh/id_ed25519.pub \
+            || { echo "ERROR: el secreto no contiene una clave ed25519 válida" >&2; exit 1; }
+          # validar: ssh-keygen -l acepta y falla con claves inválidas
+          ssh-keygen -l -f /home/runner/.ssh/id_ed25519.pub
+          # formato: "ssh-ed25519 <base64> [comentario]" = 3 campos
+          [[ $(awk '{print NF}' /home/runner/.ssh/id_ed25519.pub) == 3 ]] \
+            || { echo "ERROR: clave pública no es ed25519 válida" >&2; exit 1; }
+          # copia para la inyección en /root/.ssh/authorized_keys
+          cp /home/runner/.ssh/id_ed25519.pub /tmp/authorized_keys
+          echo "clave pública lista (fingerprint: $(ssh-keygen -l -f /tmp/authorized_keys | awk '{print $2}'))"
+      - name: Inicializar pmbootstrap (no interactivo, canal congelado)
+        run: |
+          set -Eeuo pipefail
+          # ask() usa input() y NO captura EOFError (en CI el stdin es EOF y
+          # init fallaría). Generamos un archivo con muchas líneas vacías:
+          # cada prompt consume una línea y devuelve el default (los valores
+          # correctos ya vienen del --config). -y hace que confirm() devuelva
+          # el default.
+          # IMPORTANTE: no usar 'yes | pmbootstrap' en el pipeline: con
+          # pipefail el SIGPIPE de yes (exit 141) ensucia el exit code del
+          # paso aunque pmbootstrap termine OK. Alimentamos stdin desde
+          # archivo y capturamos el exit code real de pmbootstrap.
+          yes "" | head -n 2000 > /tmp/init-answers.txt || true
+          wc -l /tmp/init-answers.txt
+          /tmp/pmbootstrap/pmbootstrap.py -y \
+            --config /tmp/pmbootstrap.cfg \
+            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+            --aports /tmp/pmaports \
+            init < /tmp/init-answers.txt > /tmp/init.log 2>&1
+          rc=$?
+          tail -30 /tmp/init.log
+          echo "pmbootstrap init exit=$rc"
+          exit $rc
+      - name: Verificar canal y repos resueltos
+        run: |
+          set -Eeuo pipefail
+          /tmp/pmbootstrap/pmbootstrap.py \
+            --config /tmp/pmbootstrap.cfg \
+            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+            status < /tmp/init-answers.txt 2>&1 | head -30 || true
+          echo "---"
+          cat /home/runner/.local/var/pmbootstrap/cache_git/pmaports/channels.cfg 2>/dev/null || true
+          echo "channels.cfg congelado verificado en workflow, ver arriba"
+      - name: Compilar kernel histórico (pmb:cross-native, sin qemu)
+        run: |
+          set -Eeuo pipefail
+          PMB() {
+            /tmp/pmbootstrap/pmbootstrap.py -y \
+              --config /tmp/pmbootstrap.cfg \
+              --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+              "$@"
+          }
+          PMB build linux-postmarketos-qcom-sm6125 < /tmp/init-answers.txt 2>&1 | tee /tmp/kernel-build.log
+          echo "== tail =="
+          tail -15 /tmp/kernel-build.log
+          echo "== apk generado =="
+          find /home/runner/.local/var/pmbootstrap/packages \
+            -name 'linux-postmarketos-qcom-sm6125-*.apk' \
+            -exec ls -la {} \; 2>/dev/null || true
+      - name: Liberar espacio (limpiar builddir y distfiles del kernel)
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          /tmp/pmbootstrap/pmbootstrap.py -y \
+            --config /tmp/pmbootstrap.cfg \
+            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+            chroot -- rm -rf /home/pmos/build/linux-postmarketos-qcom-sm6125 /var/cache/distfiles/* < /tmp/init-answers.txt 2>&1 | tail -3 || true
+          df -h /
+      - name: Instalar rootfs histórico (SSH habilitado, sin --no-sshd)
+        run: |
+          set -Eeuo pipefail
+          PMB() {
+            /tmp/pmbootstrap/pmbootstrap.py -y \
+              --config /tmp/pmbootstrap.cfg \
+              --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+              "$@"
+          }
+          # ssh_keys=True en config: pmbootstrap copia ~/.ssh/id_ed25519.pub
+          # del runner a home/pmos/.ssh/authorized_keys. Sin --no-sshd: el
+          # paquete openssh (dependencia de postmarketos-base) queda con
+          # sshd habilitado en el runlevel default de OpenRC.
+          # Refrescar APKINDEX local antes de instalar.
+          PMB index < /tmp/init-answers.txt 2>&1 | tail -20 | tee /tmp/pmbootstrap-index-install.log
+          # --password evita el prompt de passwd (pmos). Clave de prueba
+          # (rootfs desechable, slot b); el acceso remoto real es por clave
+          # pública (password auth deshabilitada en sshd_config).
+          PMB install --no-fde --password "147147" < /tmp/init-answers.txt 2>&1 | tee /tmp/install.log
+          echo "== tail =="
+          tail -25 /tmp/install.log
+          echo "== rootfs images =="
+          ls -la /home/runner/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/
+      - name: Exportar boot.img y rootfs
+        run: |
+          set -Eeuo pipefail
+          WORK=/home/runner/.local/var/pmbootstrap
+          rm -rf /tmp/export && mkdir -p /tmp/export
+          /tmp/pmbootstrap/pmbootstrap.py -y \
+            --config /tmp/pmbootstrap.cfg \
+            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+            export --no-install /tmp/export < /tmp/init-answers.txt 2>&1 | tail -20
+          echo "== /tmp/export (symlinks) =="
+          ls -la /tmp/export/
+          mkdir -p /tmp/export-resolved
+          for f in /tmp/export/*; do
+            [ -e "$f" ] || continue
+            cp -aL "$f" "/tmp/export-resolved/$(basename "$f")"
+          done
+          echo "== /tmp/export-resolved =="
+          ls -la /tmp/export-resolved/
+      - name: Validar rootfs base (MBR + particiones ext2/ext4 via dd)
+        run: |
+          set -Eeuo pipefail
+          WORK=/home/runner/.local/var/pmbootstrap
+          IMG="$WORK/chroot_native/home/pmos/rootfs/xiaomi-laurel.img"
+          [[ -f "$IMG" ]] || { echo "ERROR: no existe $IMG"; exit 1; }
+          stat -c 'base sparse size=%s bytes' "$IMG"
+          /tmp/pmbootstrap/pmbootstrap.py -y \
+            --config /tmp/pmbootstrap.cfg \
+            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+            chroot -- simg2img /home/pmos/rootfs/xiaomi-laurel.img /home/pmos/rootfs/xiaomi-laurel.raw < /tmp/init-answers.txt 2>&1 | tail -5
+          RAW="$WORK/chroot_native/home/pmos/rootfs/xiaomi-laurel.raw"
+          test -f "$RAW" || { echo "ERROR: simg2img no produjo raw"; exit 1; }
+          stat -c 'base raw size=%s bytes' "$RAW"
+          file "$RAW"
+          SECTOR=$(grep '^deviceinfo_rootfs_image_sector_size=' \
+            /tmp/pmaports/device/testing/device-xiaomi-laurel/deviceinfo \
+            | cut -d'"' -f2)
+          SECTOR=${SECTOR:-512}
+          echo "SECTOR=$SECTOR"
+          python3 - "$RAW" "$SECTOR" <<'PY'
+          import struct, sys, subprocess
+          raw, sector = sys.argv[1], int(sys.argv[2])
+          with open(raw, "rb") as fh:
+              d = fh.read(512)
+          if d[510:512] != b"\x55\xaa":
+              sys.exit("ERROR: no es imagen MBR (falta firma 0x55aa)")
+          for i in range(4):
+              e = d[446 + i * 16 : 446 + i * 16 + 16]
+              _, _, ptype, _, start, size = struct.unpack("<B3sB3sII", e)
+              if ptype == 0 or size == 0:
+                  continue
+              out = "/tmp/base-part{}.img".format(i + 1)
+              subprocess.run(["dd", "if=" + raw, "of=" + out,
+                              "bs={}".format(sector),
+                              "skip={}".format(start), "count={}".format(size),
+                              "status=none"], check=True)
+              print("base p{}: type=0x{:02x} start={} size={} sectores".format(
+                  i + 1, ptype, start, size))
+          PY
+          file /tmp/base-part1.img /tmp/base-part2.img
+          echo "== e2fsck base p1 (ext2) =="
+          sudo e2fsck -f -n /tmp/base-part1.img
+          echo "== e2fsck base p2 (ext4) =="
+          sudo e2fsck -f -n /tmp/base-part2.img
+          echo "== base /etc/os-release =="
+          debugfs -R "cat /etc/os-release" /tmp/base-part2.img 2>/dev/null || true
+          echo "== base sshd (debe estar habilitado en runlevel default) =="
+          debugfs -R "stat /usr/sbin/sshd" /tmp/base-part2.img 2>/dev/null | grep -qE 'Type: regular' \
+            || { echo "ERROR: falta /usr/sbin/sshd en la base"; exit 1; }
+          echo "OK /usr/sbin/sshd"
+          debugfs -R "stat /etc/runlevels/default/sshd" /tmp/base-part2.img 2>/dev/null | grep -q 'Type: symlink' \
+            || { echo "ERROR: sshd NO habilitado en la base (¿--no-sshd?)"; exit 1; }
+          echo "OK sshd en runlevel default de la base"
+      - name: Endurecer SSH sobre la imagen MBR completa (p2)
+        run: |
+          set -Eeuo pipefail
+          WORK=/home/runner/.local/var/pmbootstrap
+          ROOTFS="$WORK/chroot_native/home/pmos/rootfs"
+          SECTOR=$(grep '^deviceinfo_rootfs_image_sector_size=' \
+            /tmp/pmaports/device/testing/device-xiaomi-laurel/deviceinfo \
+            | cut -d'"' -f2)
+          SECTOR=${SECTOR:-512}
+          test -f "$ROOTFS/xiaomi-laurel.raw" || {
+            echo "ERROR: no existe la raw base"; exit 1; }
+          bash scripts/ssh-harden-rootfs.sh \
+            "$ROOTFS/xiaomi-laurel.raw" \
+            "$ROOTFS/xiaomi-laurel-ssh.raw" \
+            /tmp/authorized_keys \
+            "$SECTOR"
+          # liberar espacio: la raw base (2.1 GiB) ya no se necesita
+          rm -f "$ROOTFS/xiaomi-laurel.raw"
+          df -h "$WORK"
+      - name: Generar xiaomi-laurel-ssh.img (sparse) y validar el artefacto final
+        run: |
+          set -Eeuo pipefail
+          WORK=/home/runner/.local/var/pmbootstrap
+          ROOTFS="$WORK/chroot_native/home/pmos/rootfs"
+          SECTOR=$(grep '^deviceinfo_rootfs_image_sector_size=' \
+            /tmp/pmaports/device/testing/device-xiaomi-laurel/deviceinfo \
+            | cut -d'"' -f2)
+          SECTOR=${SECTOR:-512}
+          # img2simg dentro del chroot (android-tools instalado por pmbootstrap)
+          /tmp/pmbootstrap/pmbootstrap.py -y \
+            --config /tmp/pmbootstrap.cfg \
+            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+            chroot -- img2simg /home/pmos/rootfs/xiaomi-laurel-ssh.raw /home/pmos/rootfs/xiaomi-laurel-ssh.img < /tmp/init-answers.txt 2>&1 | tail -5
+          SPARSE="$ROOTFS/xiaomi-laurel-ssh.img"
+          test -f "$SPARSE" || { echo "ERROR: no se generó $SPARSE"; exit 1; }
+          SIZE=$(stat -c %s "$SPARSE")
+          LIMIT=$((0xC0000000))  # system_b = 3 GiB (confirmado 2026-08-09)
+          echo "ssh sparse size=$SIZE bytes (límite $LIMIT = 3 GiB)"
+          [[ $SIZE -le $LIMIT ]] || { echo "ERROR: la imagen excede system_b"; exit 1; }
+          # Validación estática FINAL sobre el artefacto que se flasheará:
+          # simg2img de vuelta y verificar rutas, fsck y restricciones sshd.
+          /tmp/pmbootstrap/pmbootstrap.py -y \
+            --config /tmp/pmbootstrap.cfg \
+            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+            chroot -- simg2img /home/pmos/rootfs/xiaomi-laurel-ssh.img /home/pmos/rootfs/xiaomi-laurel-ssh.valid.raw < /tmp/init-answers.txt 2>&1 | tail -5
+          VRAW="$ROOTFS/xiaomi-laurel-ssh.valid.raw"
+          test -f "$VRAW" || { echo "ERROR: simg2img final falló"; exit 1; }
+          python3 - "$VRAW" "$SECTOR" <<'PY'
+          import struct, sys, subprocess
+          raw, sector = sys.argv[1], int(sys.argv[2])
+          with open(raw, "rb") as fh:
+              d = fh.read(512)
+          if d[510:512] != b"\x55\xaa":
+              sys.exit("ERROR: la imagen final no tiene firma MBR")
+          for i in range(4):
+              e = d[446 + i * 16 : 446 + i * 16 + 16]
+              _, _, ptype, _, start, size = struct.unpack("<B3sB3sII", e)
+              if ptype == 0 or size == 0:
+                  continue
+              out = "/tmp/final-part{}.img".format(i + 1)
+              subprocess.run(["dd", "if=" + raw, "of=" + out,
+                              "bs={}".format(sector),
+                              "skip={}".format(start), "count={}".format(size),
+                              "status=none"], check=True)
+              print("final p{}: type=0x{:02x} start={} size={}".format(
+                  i + 1, ptype, start, size))
+          PY
+          file /tmp/final-part1.img /tmp/final-part2.img
+          echo "== e2fsck final p2 (debe pasar) =="
+          sudo e2fsck -f -n /tmp/final-part2.img
+          echo "== p1 idéntica a la base (boot intacto) =="
+          H1=$(sha256sum /tmp/base-part1.img | awk '{print $1}')
+          H2=$(sha256sum /tmp/final-part1.img | awk '{print $1}')
+          [[ "$H1" == "$H2" ]] || { echo "ERROR: p1 cambió"; exit 1; }
+          echo "p1 sha256=$H1 (idéntica)"
+          echo "== rutas SSH requeridas (p2 final) =="
+          P2=/tmp/final-part2.img
+          debugfs -R "stat /usr/sbin/sshd" "$P2" 2>/dev/null | grep -qE 'Type: regular' \
+            || { echo "ERROR: falta /usr/sbin/sshd"; exit 1; }
+          echo "OK /usr/sbin/sshd"
+          debugfs -R "stat /etc/init.d/sshd" "$P2" 2>/dev/null | grep -qE 'Type: regular' \
+            || { echo "ERROR: falta /etc/init.d/sshd"; exit 1; }
+          echo "OK /etc/init.d/sshd"
+          debugfs -R "stat /etc/runlevels/default/sshd" "$P2" 2>/dev/null | grep -q 'Type: symlink' \
+            || { echo "ERROR: sshd no habilitado en runlevel default"; exit 1; }
+          echo "OK /etc/runlevels/default/sshd (symlink a /etc/init.d/sshd)"
+          debugfs -R "cat /root/.ssh/authorized_keys" "$P2" 2>/dev/null | cmp -s - /tmp/authorized_keys \
+            || { echo "ERROR: authorized_keys de root no coincide"; exit 1; }
+          echo "OK /root/.ssh/authorized_keys (coincide con la clave del secreto)"
+          debugfs -R "stat /root/.ssh/authorized_keys" "$P2" 2>/dev/null | grep -qE 'Mode:[[:space:]]*0600' \
+            || { echo "ERROR: authorized_keys no es 0600"; exit 1; }
+          echo "OK authorized_keys 0600"
+          debugfs -R "cat /etc/ssh/sshd_config" "$P2" 2>/dev/null | grep -qx 'PermitRootLogin prohibit-password' \
+            || { echo "ERROR: PermitRootLogin no endurecido"; exit 1; }
+          debugfs -R "cat /etc/ssh/sshd_config" "$P2" 2>/dev/null | grep -qx 'PasswordAuthentication no' \
+            || { echo "ERROR: PasswordAuthentication no"; exit 1; }
+          debugfs -R "cat /etc/ssh/sshd_config" "$P2" 2>/dev/null | grep -qx 'PubkeyAuthentication yes' \
+            || { echo "ERROR: PubkeyAuthentication yes"; exit 1; }
+          echo "OK sshd_config: PermitRootLogin prohibit-password / PasswordAuthentication no / PubkeyAuthentication yes"
+          echo "== resumen =="
+          sha256sum "$SPARSE"
+          ls -la "$ROOTFS/"
+          # liberar espacio: la raw de validación (2.1 GiB) ya no se necesita
+          rm -f "$VRAW"
+          df -h "$WORK"
+      - name: Generar manifest y reporte
+        run: |
+          set -Eeuo pipefail
+          WORK=/home/runner/.local/var/pmbootstrap
+          ROOTFS="$WORK/chroot_native/home/pmos/rootfs"
+          SPARSE="$ROOTFS/xiaomi-laurel-ssh.img"
+          test -f "$SPARSE" || { echo "ERROR: no existe $SPARSE"; exit 1; }
+          mkdir -p /tmp/artifacts
+          PUBFP=$(ssh-keygen -l -f /tmp/authorized_keys | awk '{print $2}')
+          (cd /tmp/export-resolved && sha256sum * 2>/dev/null | tee /tmp/artifacts/SHA256SUMS-export)
+          sha256sum "$SPARSE" "$ROOTFS/xiaomi-laurel-ssh.raw" /tmp/final-part1.img /tmp/final-part2.img \
+            | tee /tmp/artifacts/SHA256SUMS-final
+          jq -n \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg run "${{ github.run_id }}" \
+            --arg img "$(basename "$SPARSE")" \
+            --arg imgsize "$(stat -c %s "$SPARSE")" \
+            --arg pubfp "$PUBFP" \
+            '{artifact:"historical-rootfs-ssh",
+              generated_at:$date, run_id:$run,
+              pmbootstrap:"1.52.0 (sha256 a05fef2bb495a2e0d8e0369e4a8a1038baf50b7514ec89582b5ec785f9bfa7cb)",
+              pmaports:"7aaee51a (2022-12-14, MR 3727)",
+              kernel:"linux-postmarketos-qcom-sm6125 6.1 @77de535b8dbd8f483b5802c8937cb714bab5b485",
+              channel:"edge->v22.12 (Alpine v3.17)",
+              ssh:{enabled:true,
+                   public_key_ed25519_fingerprint:$pubfp,
+                   authorized_keys:["/home/pmos/.ssh/authorized_keys","/root/.ssh/authorized_keys"],
+                   sshd_config:["PermitRootLogin prohibit-password","PasswordAuthentication no","KbdInteractiveAuthentication no","PubkeyAuthentication yes"]},
+              mirrors:{pmos:"http://mirror.postmarketos.org/postmarketos/v22.12/", alpine:"http://dl-cdn.alpinelinux.org/alpine/v3.17/"},
+              image:$img, image_bytes:($imgsize|tonumber),
+               layout:"MBR (msdos): p1 /boot ext2, p2 / ext4, flash_rootfs a system_b",
+               flash_target:"system_b (partition-size 0xC0000000 = 3 GiB; imagen cabe, ver image_bytes)",
+               changes_vs_10:"ssh_keys False->True, install --no-sshd -> con sshd, clave pública Ed25519 en root y pmos, sshd_config endurecido (sin auth por contraseña)"}' \
+            > /tmp/artifacts/manifest.json
+          cat /tmp/artifacts/manifest.json
+      - name: Reporte markdown
+        run: |
+          set -Eeuo pipefail
+          SPARSE=/home/runner/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/xiaomi-laurel-ssh.img
+          {
+            echo "# Reproducción del rootfs histórico con SSH (FASE 3 / SSH)"
+            echo
+            echo "- pmbootstrap: 1.52.0 (sha256 \`a05fef2b…\`)"
+            echo "- pmaports: \`7aaee51a\` (2022-12-14, MR 3727, port xiaomi-laurel)"
+            echo "- Canal: \`edge\` redirigido a repos v22.12 (Alpine v3.17) via config/pmos-historical-channels.cfg"
+            echo "- Kernel: linux-postmarketos-qcom-sm6125 6.1 @\`77de535b\` (pmb:cross-native)"
+            echo "- SSH: habilitado (sin --no-sshd, ssh_keys=True)"
+            echo "- Clave pública Ed25519 (secreto \`SSH_PUBLIC_KEY\`): $(ssh-keygen -l -f /tmp/authorized_keys | awk '{print $2}')"
+            echo "- authorized_keys: \`/home/pmos/.ssh/authorized_keys\` (pmbootstrap) y \`/root/.ssh/authorized_keys\` (ssh-harden-rootfs.sh)"
+            echo "- sshd_config: PermitRootLogin prohibit-password, PasswordAuthentication no, PubkeyAuthentication yes"
+            echo "- Imagen MBR COMPLETA (sparse): \`$SPARSE\`"
+            stat -c "- Tamaño sparse: %s bytes" "$SPARSE"
+            echo
+            echo "## sshd_config endurecido (p2 final)"
+            echo '```'
+            debugfs -R "cat /etc/ssh/sshd_config" /tmp/final-part2.img 2>/dev/null | grep -E '^(PermitRootLogin|PasswordAuthentication|KbdInteractiveAuthentication|PubkeyAuthentication) '
+            echo '```'
+            echo
+            echo "## /root/.ssh (p2 final)"
+            echo '```'
+            debugfs -R "ls -l /root/.ssh" /tmp/final-part2.img 2>/dev/null
+            echo '```'
+            echo
+            echo "## runlevel default (p2 final)"
+            echo '```'
+            debugfs -R "ls -l /etc/runlevels/default" /tmp/final-part2.img 2>/dev/null | grep sshd
+            echo '```'
+            echo
+            echo "## /etc/os-release (p2 final)"
+            echo '```'
+            debugfs -R "cat /etc/os-release" /tmp/final-part2.img 2>/dev/null
+            echo '```'
+          } > /tmp/artifacts/historical-ssh-rootfs-report.md
+          cat /tmp/artifacts/historical-ssh-rootfs-report.md
+      - name: Comprimir rootfs
+        run: |
+          set -Eeuo pipefail
+          SPARSE=/home/runner/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/xiaomi-laurel-ssh.img
+          test -f "$SPARSE" || { echo "ERROR: no existe $SPARSE"; exit 1; }
+          cp "$SPARSE" /tmp/artifacts/
+          xz -9 -T0 -k /tmp/artifacts/"$(basename "$SPARSE")"
+          cp /tmp/final-part1.img /tmp/final-part2.img /tmp/artifacts/
+          cp /tmp/authorized_keys /tmp/artifacts/authorized_keys.pub
+          ls -la /tmp/artifacts/
+      - name: Subir artefactos
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: historical-rootfs-ssh
+          path: |
+            /tmp/artifacts/
+            /tmp/export-resolved/
+          retention-days: 3
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: historical-rootfs-ssh-logs
+          path: |
+            /tmp/kernel-build.log
+            /tmp/install.log
+            /tmp/pmbootstrap-index-install.log
+            /tmp/pmbootstrap*.log
+            /home/runner/.local/var/pmbootstrap/log.txt
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore
