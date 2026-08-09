@@ -132,6 +132,12 @@ fastboot reboot
 
 ### 5. [EX3] Reproducción histórica completa (SOLO tras EX1/EX2)
 
+**EJECUTADO (2026-08-09)**: preparación del slot b completada con éxito —
+`dtbo_b` borrado, `vbmeta_b` flags2, `system_b` (rootfs MBR completo), `boot_b`
+(kernel 6.1 v0), `set_active b` → `current-slot: b`. Registro:
+`local-private/phase-e-flash/preflight/historical-6.1/ejecucion-slot-b-2026-08-09.md`.
+Pendiente: segunda autorización para `fastboot reboot`.
+
 ```
 fastboot flash boot_b    <boot.img-histórico>
 fastboot flash vbmeta_b  <vbmeta-flags2>
