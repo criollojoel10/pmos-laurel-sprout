@@ -9,11 +9,11 @@ Estado honesto de cada componente. Los estados permitidos son únicamente:
 La referencia canónica es `reports/hardware-matrix.json`. Este documento la
 resume y explica los criterios.
 
-## Estado actual (2026-08-03)
+## Estado actual (2026-08-09)
 
 | Componente | Estado | Notas |
 |---|---|---|
-| Pantalla / DRM-KMS | `compiled` | DTS MDSS+DSI+PHY habilitado y panel `samsung,s6e8fc0-m1906f9` incluidos en DTB compilado (mainline v7.1 + parche 0001). Sin boot aún. |
+| Pantalla / DRM-KMS | `detected` | DTS MDSS+DSI+PHY habilitado y panel `samsung,s6e8fc0-m1906f9` en DTB compilado (mainline v7.1 + parche 0001). PRUEBA FÍSICA EX3 (kernel 6.1, slot b): imagen en pantalla; tras el fix sedfix, `INITRAMFS_REACHED` + rescue shell con consola visible y estable. Falta GPU 3D y entorno completo para `working`. |
 | GPU Adreno 610 | `source-available` | Firmware confirmado: `firmware-qcom-adreno-a610` (subpackage) + `a630_sqe.fw` (2026-08-03). Nodos GPU (gpu@5900000, gmu_wrapper, gpucc, adreno_smmu) añadidos al DTSI/DTS (parches 0002/0003); DTB compilado. Sin boot. |
 | Táctil FT3518 | `compiled` | Driver `edt-ft5x06` (FT3518) en fragmento base; DTS touch habilitado (parche 0001). Sin boot. |
 | Wi-Fi | `source-available` | `ATH10K_SNOC` (WCN3990) y `WCN36XX` en fragmento base; modelo real por confirmar en boot. |
@@ -32,6 +32,15 @@ sobre mainline v7.1 + parches downstream; `sm6125-xiaomi-laurel-sprout.dtb`
 generado (37KB) y verificado con `scripts/verify-dtb.sh`. El estado `compiled`
 se refiere a que el driver/nodo está integrado y compilado, NO a que funcione
 en hardware.
+
+## Hito de prueba física (2026-08-09)
+
+- EX3 kernel 6.1 v0: imagen en pantalla + `Kernel panic` por `/init: line 35:
+  sed: not found` (initramfs, no kernel/DTB/AVB/display/UFS).
+- EX3 sedfix (mismo kernel 6.1, ramdisk nuevo): `INITRAMFS_REACHED` +
+  `[diag-init] entering rescue shell` + prompt interactivo →
+  `INITRAMFS_6_1_SHELL_ACTIVE`. Sin kernel panic.
+- Evidencia: `reports/physical-tests/H61-INITRAMFS-SHELL-ACTIVE/result.md`.
 
 ## Criterios de `working`
 
