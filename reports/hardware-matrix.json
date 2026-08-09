@@ -12,6 +12,12 @@
       "test": "EX3 sedfix kernel 6.1 histórico, slot b (boot_b sedfix + vbmeta flags2 + system_b rootfs pmOS MBR completo)",
       "result": "partially-working",
       "notes": "Solo cambió boot_b (kernel 6.1 byte-idéntico al v0, ramdisk nuevo). Resultado: INITRAMFS_REACHED + rescue shell interactiva con prompt (INITRAMFS_6_1_SHELL_ACTIVE). Sin kernel panic. sh: can't access tty / job control off = sin TTY controlador (no USB gadget en este initramfs), no es un fallo. Evidence: reports/physical-tests/H61-INITRAMFS-SHELL-ACTIVE/result.md."
+    },
+    {
+      "date": "2026-08-09",
+      "test": "EX3 comparación 7.1, slot b (boot_b 7.1 append_dtb sedfix + vbmeta flags2 + system_b rootfs pmOS MBR completo)",
+      "result": "boot-untested",
+      "notes": "Solo cambió boot_b (kernel 7.1 + mismo ramdisk sedfix). Resultado: pantalla NEGRA persistente, dispositivo encendido, USB gadget no enumerado. SIN adaptador serial -> sin evidencia de kernel/initramfs; no clasificable como INITRAMFS_7_1_*. Comparación válida: con 6.1 la consola se ve y llega a INITRAMFS_REACHED; con 7.1 no se ve nada (pipeline display 7.1 no funcional en hardware). Restaurado boot_b a 6.1 sedfix (d2c8145d...) y verificado. Evidence: reports/physical-tests/H61-KERNEL-7_1-BLACKSCREEN/result.md."
     }
   ],
   "device": {
@@ -22,7 +28,7 @@
   "components": {
     "display": {
       "status": "detected",
-      "notes": "DTS MDSS+DSI+PHY habilitado y panel samsung,s6e8fc0-m1906f9 en DTB compilado. EX3 (2026-08-09, kernel 6.1 slot b): imagen en pantalla + panic por sed ausente (initramfs, no display). EX3 sedfix: INITRAMFS_REACHED + rescue shell, consola visible y estable. Display/DPU/framebuffer de consola funcional; falta GPU 3D y entorno completo para declarar working."
+      "notes": "DTS MDSS+DSI+PHY habilitado y panel samsung,s6e8fc0-m1906f9 en DTB compilado. EX3 (2026-08-09, kernel 6.1 slot b): imagen en pantalla + panic por sed ausente (initramfs, no display). EX3 sedfix: INITRAMFS_REACHED + rescue shell, consola visible y estable. EX3 comparación 7.1: pantalla NEGRA persistente (solo cambió el kernel) -> el pipeline display del kernel 7.1 NO es funcional en hardware; la consola solo se confirmó con el kernel 6.1. Falta GPU 3D y entorno completo para declarar working."
     },
     "gpu": {
       "status": "compiled",

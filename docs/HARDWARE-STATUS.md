@@ -40,7 +40,12 @@ en hardware.
 - EX3 sedfix (mismo kernel 6.1, ramdisk nuevo): `INITRAMFS_REACHED` +
   `[diag-init] entering rescue shell` + prompt interactivo →
   `INITRAMFS_6_1_SHELL_ACTIVE`. Sin kernel panic.
-- Evidencia: `reports/physical-tests/H61-INITRAMFS-SHELL-ACTIVE/result.md`.
+- EX3 comparación 7.1 (solo cambió `boot_b`): pantalla NEGRA persistente,
+  dispositivo encendido, sin serial conectado → no clasificable como
+  `INITRAMFS_7_1_*`. El pipeline display del kernel 7.1 no muestra consola en
+  hardware (el 6.1 sí). Restaurado `boot_b` a la 6.1 sedfix funcional.
+- Evidencia: `reports/physical-tests/H61-INITRAMFS-SHELL-ACTIVE/result.md` y
+  `reports/physical-tests/H61-KERNEL-7_1-BLACKSCREEN/result.md`.
 
 ## Criterios de `working`
 
