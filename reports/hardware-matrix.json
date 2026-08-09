@@ -3,6 +3,12 @@
   "boot_attempts": [
     {
       "date": "2026-08-09",
+      "test": "PMOS_CONSOLE_6_1_BOOTED: boot original pmOS histórico, slot b (boot_b = boot.img pmOS run 31320766387, vbmeta flags2, system_b rootfs pmOS MBR)",
+      "result": "working",
+      "notes": "boot_b con el boot.img ORIGINAL pmOS (kernel 6.1.0-sm6125 fork a27a7ce musl, DTB cb37540d, initramfs mkinitfs 1.5.1). Resultado: prompt de login de postmarketOS VISIBLE en pantalla + gadget USB rndis enumerado (host en 172.16.42.2/24, ping 172.16.42.1 OK). Rootfs montado desde system_b y switch_root completado. NOTA OTG: dr_mode=peripheral en DTB (usb@4e00000) -> el puerto NO cambia a host, teclado USB sin VBUS. Sin sshd en rootfs (instalado con --no-sshd). Sin entrada de teclado -> logs no leíbles aún (hito PMOS_CONSOLE alcanzado, acceso remoto pendiente)."
+    },
+    {
+      "date": "2026-08-09",
       "test": "EX3 kernel 6.1 histórico, slot b (boot_b v0 + vbmeta flags2 + system_b rootfs pmOS MBR completo)",
       "result": "boot-untested (arrancó parcialmente)",
       "notes": "current-slot b; dtbo_b borrado; vbmeta_b flags=2; system_b=rootfs MBR completo; boot_b=boot v0 kernel 6.1 @77de535b + initramfs diagnóstico. Resultado: imagen en pantalla + KERNEL PANIC. USB host: desconexión en 12:44:23 sin re-enumeración del gadget (panic antes de initramfs/USB config). Recuperación: set_active a pendiente de autorización."
@@ -51,8 +57,8 @@
       "notes": "SCSI_UFSHCD_PLATFORM + SCSI_UFS_QCOM en fragmento base (símbolos v7.1); nodo UFS verificado en DTB descompilado"
     },
     "usb": {
-      "status": "configured",
-      "notes": "DWC3 + configfs en fragmento base (símbolos v7.1); nodo USB/DWC3 verificado en DTB descompilado"
+      "status": "partially-working",
+      "notes": "DWC3 + configfs en fragmento base; nodo USB/DWC3 verificado en DTB descompilado. PMOS boot 2026-08-09: modo device OK (gadget rndis, host 172.16.42.2, ping 172.16.42.1 OK). OTG host BLOQUEADO: usb@4e00000 (snps,dwc3) dr_mode=peripheral en DTB cb37540d -> nunca pasa a host, sin VBUS para periféricos (teclado no alimentado). Kernel fork a27a7ce sí tiene USB_DWC3_DUAL_ROLE=y + extcon-usb-gpio (id-gpio tlmm 102) pero dr_mode lo bloquea. Falta probar dr_mode=otg + VBUS. Acceso remoto pendiente: rootfs instalado con --no-sshd, sin telnetd activo."
     },
     "battery": {
       "status": "not-targeted",

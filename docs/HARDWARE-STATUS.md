@@ -19,7 +19,7 @@ resume y explica los criterios.
 | Wi-Fi | `source-available` | `ATH10K_SNOC` (WCN3990) y `WCN36XX` en fragmento base; modelo real por confirmar en boot. |
 | Bluetooth | `source-available` | `BT_QCOMSMD` en fragmento base; por confirmar en boot. |
 | UFS | `configured` | `SCSI_UFSHCD_PLATFORM` + `SCSI_UFS_QCOM` (símbolos v7.1). |
-| USB gadget | `configured` | DWC3 + configfs (símbolos v7.1). |
+| USB gadget | `partially-working` | Modo device OK (gadget rndis, host `172.16.42.2`, ping `172.16.42.1` OK en boot pmOS 2026-08-09). OTG host BLOQUEADO: `usb@4e00000` (`snps,dwc3`) con `dr_mode="peripheral"` en el DTB `cb37540d` → nunca pasa a host y no hay VBUS para periféricos (teclado USB no alimentado). El kernel fork a27a7ce sí compila `USB_DWC3_DUAL_ROLE=y` + `extcon-usb-gpio` (id-gpio tlmm 102), pero `dr_mode` lo bloquea. Pendiente probar `dr_mode="otg"` + VBUS. |
 | Batería | `not-targeted` | PMI632 sin driver dedicado en mainline v7.1 (`QCOM_BATT_METER`/`QCOM_SPMI_SCHG` son de fork sm61x5). |
 | Térmicas | `configured` | `QCOM_TSENS` + `QCOM_SPMI_TEMP_ALARM`. |
 | CPUfreq | `configured` | `ARM_QCOM_CPUFREQ_HW` + `CPUFREQ_DT`. |
@@ -40,12 +40,20 @@ en hardware.
 - EX3 sedfix (mismo kernel 6.1, ramdisk nuevo): `INITRAMFS_REACHED` +
   `[diag-init] entering rescue shell` + prompt interactivo →
   `INITRAMFS_6_1_SHELL_ACTIVE`. Sin kernel panic.
+- **PMOS_CONSOLE_6_1_BOOTED**: boot.img original pmOS histórico (run
+  31320766387) en `boot_b` → prompt de login de postmarketOS visible en
+  pantalla + gadget rndis enumerado (`172.16.42.1` responde ping) + rootfs
+  montado desde `system_b` (switch_root completado). Hito consola alcanzado.
+  Bloqueos: sin entrada (OTG host inactivo, `dr_mode="peripheral"`) y sin
+  sshd (rootfs instalado con `--no-sshd`) → los logs del dispositivo aún no
+  son accesibles de forma remota.
 - EX3 comparación 7.1 (solo cambió `boot_b`): pantalla NEGRA persistente,
   dispositivo encendido, sin serial conectado → no clasificable como
   `INITRAMFS_7_1_*`. El pipeline display del kernel 7.1 no muestra consola en
   hardware (el 6.1 sí). Restaurado `boot_b` a la 6.1 sedfix funcional.
-- Evidencia: `reports/physical-tests/H61-INITRAMFS-SHELL-ACTIVE/result.md` y
-  `reports/physical-tests/H61-KERNEL-7_1-BLACKSCREEN/result.md`.
+- Evidencia: `reports/physical-tests/H61-INITRAMFS-SHELL-ACTIVE/result.md`,
+  `reports/physical-tests/H61-KERNEL-7_1-BLACKSCREEN/result.md` y
+  `reports/physical-tests/PMOS-CONSOLE-6_1-BOOTED/result.md`.
 
 ## Criterios de `working`
 
