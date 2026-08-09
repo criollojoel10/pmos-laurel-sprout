@@ -177,12 +177,20 @@ while IFS= read -r l; do
   ln -sfn /bin/busybox "$APPS$l"
 done < <(sort -u busybox.links)
 
-# Verificar que busybox quedó instalado y que sed existe como enlace.
+# Verificar que busybox quedó instalado y que cada ruta de busybox.links tiene
+# su enlace en el árbol. OJO: la auditoría anterior usaba 'find bin sbin usr
+# -maxdepth 1', que NO veía los enlaces en usr/bin y usr/sbin (profundidad 2) y
+# reportaba falsamente que faltaba 'awk' (p. ej. /usr/bin/awk) aunque el enlace
+# SÍ existiera.
 [[ -x "$APPS/bin/busybox" ]] || { echo "ERROR: no se instaló $APPS/bin/busybox" >&2; exit 1; }
-[[ -L "$APPS/bin/sed" ]] || { echo "ERROR: falta el enlace bin/sed en el árbol de applets" >&2; exit 1; }
+while IFS= read -r l; do
+  [[ -L "$APPS$l" ]] || { echo "ERROR: falta el enlace $APPS$l (de busybox.links)" >&2; exit 1; }
+done < <(sort -u busybox.links)
 
-# Lista los applets instalados (nombres de enlace) para auditoría.
-( cd "$APPS" && find bin sbin usr -maxdepth 1 -type l -printf '%f\n' 2>/dev/null | sort -u ) > "$OUT/applets.txt"
+# Lista los applets instalados (nombres de enlace) para auditoría. Se deriva de
+# busybox.links: cada ruta genera un enlace (verificado arriba), así que es
+# equivalente al árbol real y no depende de la profundidad del find.
+sed 's@.*/@@' busybox.links | sort -u > "$OUT/applets.txt"
 info "applets instalados: $(wc -l < "$OUT/applets.txt")"
 
 # Validar los applets que /init y la shell de rescate requieren.
