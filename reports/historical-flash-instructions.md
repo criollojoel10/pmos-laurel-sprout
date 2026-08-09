@@ -34,16 +34,16 @@ la sección "Artefactos" deben existir y estar verificados ANTES.
 
 | Artefacto | Ruta local | SHA-256 |
 |---|---|---|
-| vbmeta flags=2 (pmOS histórico) | `local-private/historical-port/artifacts/vbmeta-historical-pmos-flags2.img` | `fe1f4b55…f4ca2` (idéntico al de workflow 09) |
-| boot v0 kernel 6.1 (EX1/EX3) | `local-private/workflow-09-artifacts/boot-out/boot-laurel-kernel-6.1-historical-v0.img` | `ff5f0905…a8be` |
-| boot v0 kernel 7.1 + appenddtb | `local-private/workflow-09-artifacts/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img` | `391d40e2…5849` |
+| vbmeta flags=2 (pmOS histórico) | `local-private/historical-port/artifacts/vbmeta-historical-pmos-flags2.img` | `fe1f4b55088fbc97040bc898d8b076f93c93e203c8ba7a15c8348080351f4ca2` (idéntico a `workflow-09-artifacts/boot-out/vbmeta-historical-flags2.img`, verificado 2026-08-09) |
+| boot v0 kernel 6.1 (EX1/EX3) | `local-private/workflow-09-artifacts/boot-out/boot-laurel-kernel-6.1-historical-v0.img` | `ff5f0905282b105c3b17f49c2c07c98971547c29b25ddc75ba19453426b0a8be` |
+| boot v0 kernel 7.1 + appenddtb | `local-private/workflow-09-artifacts/boot-out/boot-laurel-kernel-7.1-v0-appenddtb.img` | `391d40e226ee6a1edbe4a57ea8e94606759665181a0974be69667fc2e6d85849` |
 | initramfs (diagnóstico) | `local-private/workflow-09-artifacts/initramfs-out/initramfs.cpio.gz` | (ver SHA256SUMS) |
-| KNOWN_GOOD boot /e/OS 4.1.1 | `local-private/phase-e-flash/recovery-kit/KNOWN_GOOD_boot_eos-4.1.1.img` | `87ceeb42…1fb` |
-| TEST_IMG boot diagnóstico | `local-private/phase-e-flash/recovery-kit/TEST_IMG_boot-laurel-diagnostic.img` | `66e7005f…0b9d` |
-| rootfs histórico (EX3) | `local-private/run31320766387-artifacts/` (descargado del workflow 10, run 31320766387 success) | ver tabla siguiente |
-| `xiaomi-laurel.img` (sparse completo) | `local-private/run31320766387-artifacts/artifacts/xiaomi-laurel.img` | `754bd35c…88 9a` |
-| `part1.img` (p1 /boot ext2, 247 MB) | `local-private/run31320766387-artifacts/artifacts/part1.img` | `e4df9958…f8` |
-| `part2.img` (p2 / ext4, 1.8 GB) | `local-private/run31320766387-artifacts/artifacts/part2.img` | `2c763492…f8f8` |
+| KNOWN_GOOD boot /e/OS 4.1.1 | `local-private/phase-e-flash/recovery-kit/KNOWN_GOOD_boot_eos-4.1.1.img` | `87ceeb4211d46e445ab1e5532d4c0178d4aa20ed288b85773a300dc2477241fb` |
+| TEST_IMG boot diagnóstico | `local-private/phase-e-flash/recovery-kit/TEST_IMG_boot-laurel-diagnostic.img` | `66e7005fa031dd4f3117c56b9fa01f2c123377c95604a0975edd343cf6090b9d` |
+| rootfs histórico (EX3) | `local-private/run31320766387-artifacts/` (workflow 10, run 31320766387 success) | ver tabla siguiente |
+| `xiaomi-laurel.img` (sparse completo) | `local-private/run31320766387-artifacts/artifacts/xiaomi-laurel.img` | `754bd35c6be087b767e03d33486365bc96019954697e6dd65c970cc849d0889a` |
+| `part1.img` (p1 /boot ext2, 247 MB) | `local-private/run31320766387-artifacts/artifacts/part1.img` | `e4df995835fe58e3dac3c41ebb7d1c15f9093c038eb0b294abb26bbdb2bbc167` |
+| `part2.img` (p2 / ext4, 1.8 GB) | `local-private/run31320766387-artifacts/artifacts/part2.img` | `2c763492df826c12ce5373c657bc33523c52576333c6d0e2d669756dad5f88f8` |
 | manifest.json (pmbootstrap 1.52.0, pmaports 7aaee51a, kernel 6.1 @77de535b) | `local-private/run31320766387-artifacts/artifacts/manifest.json` | — |
 
 Layout verificado en el reporte del CI: MBR msdos, p1 /boot ext2, p2 / ext4.
@@ -63,9 +63,11 @@ Layout verificado en el reporte del CI: MBR msdos, p1 /boot ext2, p2 / ext4.
       usuario (autorizado 2026-08-09); el rootfs ~2 GiB cabe en EX3.
       Registro: `local-private/phase-e-flash/preflight/r8/preflight-fastboot-sanitized.txt`
 - [x] Artefactos con SHA256 registrado y correcto. Rootfs histórico (run 10,
-      31320766387 success): `xiaomi-laurel.img` `754bd35c…88 9a` + part1/part2
-      verificados localmente contra el CI (2026-08-09). Boot v0 kernel 6.1/7.1 +
-      vbmeta flags2 ya verificados. Gate FASE 8 de prerrequisitos COMPLETO.
+      31320766387 success): `xiaomi-laurel.img`
+      `754bd35c6be087b767e03d33486365bc96019954697e6dd65c970cc849d0889a` +
+      part1/part2 verificados localmente contra el CI (2026-08-09). Boot v0
+      kernel 6.1/7.1 + vbmeta flags2 ya verificados. Gate FASE 8 de
+      prerrequisitos COMPLETO.
 
 ### 1. Vuelta a Fastboot (si está en /e/OS)
 
@@ -89,6 +91,9 @@ Registrar la salida SANITIZADA en `local-private/phase-e-flash/preflight/`.
 `partition-size:system_b` ya confirmado (0xC0000000 = 3 GiB, 2026-08-09);
 el rootfs pmOS ~2 GiB cabe. No ejecutar `getvar all` sin el script de
 `sanitización` (AGENTS.md §0).
+Preflight EX3 kernel 6.1 (completo, 2026-08-09):
+`local-private/phase-e-flash/preflight/historical-6.1/` — manifest.json,
+SHA256SUMS (revalidado), tamaños-report.md, preflight-fastboot-sanitized.txt.
 
 ### 3. [EX0] Control del slot b (opcional pero recomendado)
 
