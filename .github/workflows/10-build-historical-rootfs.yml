@@ -113,7 +113,7 @@ jobs:
           extra_packages = none
           build_pkgs_on_install = True
           is_default_channel = False
-          boot_size = 64
+          boot_size = 256
           extra_space = 1024
           ccache_size = 256M
           sudo_timer = False
@@ -213,6 +213,16 @@ jobs:
           # extra_space=1024 (config): el du del chroot subestima el rootfs
           # (kernel 6.1 con módulos + cache apk) y con 256 MB la imagen de
           # 1034M se llenaba al copiar (No space left on device, pmbootstrap#1904).
+          # boot_size=256 (antes 64): con sector size 4096 (deviceinfo
+          # rootfs_image_sector_size) y `mkpart ... 2048s 64M`, parted arranca
+          # la partición p1 en el byte 8 MiB (2048*4096), dejando boot en solo
+          # 56 MiB; el /boot (boot.img + initramfs + initramfs-extra +
+          # vmlinuz-dtb del kernel 6.1) la desbordaba al copiarse en 5º lugar
+          # (orden del cp -a: dev run opt sbin boot ...) ->
+          # "write error: No space left on device" en runs 31273894436 y
+          # 31275805110, con root de 970M y 1738M respectivamente (el root no
+          # era el problema). 256 MB es el default de pmbootstrap 1.52.0
+          # (pmb-config-init.py), el valor que usaría el port histórico.
           PMB install --no-sshd --no-fde --password "147147" < /tmp/init-answers.txt 2>&1 | tee /tmp/install.log
           echo "== tail =="
           tail -25 /tmp/install.log
