@@ -79,8 +79,11 @@ if grep -q 'CONFIG_FEATURE_SED_REGEX_LIBC' .config; then
   sed -i 's/^CONFIG_FEATURE_SED_REGEX_LIBC=n$/# CONFIG_FEATURE_SED_REGEX_LIBC is not set/' .config
   sed -i 's/^# CONFIG_FEATURE_SED_REGEX_LIBC is not set$/CONFIG_FEATURE_SED_REGEX_LIBC=y/' .config
 fi
-# olddefconfig reconcilia dependencias tras los cambios manuales en .config.
-make ARCH="$ARCH" CROSS_COMPILE="$CROSS" olddefconfig >/dev/null
+# oldconfig reconciliar dependencias tras los cambios manuales en .config.
+# OJO: busybox 1.38 (kconfig heredado del kernel ~2.6.30) NO tiene el target
+# 'olddefconfig' (añadido al kernel en 3.5); 'silentoldconfig' con stdin vacío
+# es el equivalente no interactivo y SÍ existe aquí.
+make ARCH="$ARCH" CROSS_COMPILE="$CROSS" silentoldconfig </dev/null >/dev/null
 grep -q '^CONFIG_STATIC=y$' .config || { echo "ERROR: no se pudo habilitar CONFIG_STATIC" >&2; exit 1; }
 grep -q '^# CONFIG_TC is not set$' .config || { echo "ERROR: no se pudo deshabilitar CONFIG_TC" >&2; exit 1; }
 grep -q '^CONFIG_SED=y$' .config || { echo "ERROR: no se pudo habilitar CONFIG_SED" >&2; exit 1; }
