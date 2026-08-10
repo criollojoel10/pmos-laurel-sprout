@@ -9,21 +9,21 @@ Estado honesto de cada componente. Los estados permitidos son únicamente:
 La referencia canónica es `reports/hardware-matrix.json`. Este documento la
 resume y explica los criterios.
 
-## Estado actual (2026-08-09)
+## Estado actual (2026-08-10)
 
 | Componente | Estado | Notas |
 |---|---|---|
-| Pantalla / DRM-KMS | `detected` | DTS MDSS+DSI+PHY habilitado y panel `samsung,s6e8fc0-m1906f9` en DTB compilado (mainline v7.1 + parche 0001). PRUEBA FÍSICA EX3 (kernel 6.1, slot b): imagen en pantalla; tras el fix sedfix, `INITRAMFS_REACHED` + rescue shell con consola visible y estable. Falta GPU 3D y entorno completo para `working`. |
-| GPU Adreno 610 | `source-available` | Firmware confirmado: `firmware-qcom-adreno-a610` (subpackage) + `a630_sqe.fw` (2026-08-03). Nodos GPU (gpu@5900000, gmu_wrapper, gpucc, adreno_smmu) añadidos al DTSI/DTS (parches 0002/0003); DTB compilado. Sin boot. |
-| Táctil FT3518 | `compiled` | Driver `edt-ft5x06` (FT3518) en fragmento base; DTS touch habilitado (parche 0001). Sin boot. |
-| Wi-Fi | `source-available` | `ATH10K_SNOC` (WCN3990) y `WCN36XX` en fragmento base; modelo real por confirmar en boot. |
-| Bluetooth | `source-available` | `BT_QCOMSMD` en fragmento base; por confirmar en boot. |
-| UFS | `configured` | `SCSI_UFSHCD_PLATFORM` + `SCSI_UFS_QCOM` (símbolos v7.1). |
-| USB gadget | `partially-working` | Modo device OK (gadget rndis, host `172.16.42.2`, ping `172.16.42.1` OK en boot pmOS 2026-08-09). OTG host BLOQUEADO: `usb@4e00000` (`snps,dwc3`) con `dr_mode="peripheral"` en el DTB `cb37540d` → nunca pasa a host y no hay VBUS para periféricos (teclado USB no alimentado). El kernel fork a27a7ce sí compila `USB_DWC3_DUAL_ROLE=y` + `extcon-usb-gpio` (id-gpio tlmm 102), pero `dr_mode` lo bloquea. Pendiente probar `dr_mode="otg"` + VBUS. |
-| Batería | `not-targeted` | PMI632 sin driver dedicado en mainline v7.1 (`QCOM_BATT_METER`/`QCOM_SPMI_SCHG` son de fork sm61x5). |
-| Térmicas | `configured` | `QCOM_TSENS` + `QCOM_SPMI_TEMP_ALARM`. |
-| CPUfreq | `configured` | `ARM_QCOM_CPUFREQ_HW` + `CPUFREQ_DT`. |
-| Audio | `not-targeted` | Prioridad secundaria. |
+| Pantalla / DRM-KMS | `partially-working` | Consola pmOS visible vía simplefb/fbcon (`/dev/fb0` 720x1560x32) en el boot 6.1 SSH. **Apagado tras ~10 min: CAUSA identificada** — sin `consoleblank` en cmdline, el timeout VT (600s) hace que `fbcon_generic_blank` (v6.1, simplefb sin `fb_blank`) rellene TODO el fb de negro; sin input devices nada desbloquea el VT. FIX: `consoleblank=0` en cmdline (boot.img parcheado, payload idéntico; pendiente FASE 8). DRM-KMS NO operativo: `CONFIG_DRM_MSM=m` sin cargar, sin `/dev/dri`. Kernel 7.1: pantalla NEGRA (EX3). |
+| GPU Adreno 610 | `compiled` | Firmware confirmado (`firmware-qcom-adreno-a610` + `a630_sqe.fw`); nodos GPU en DTSI/DTS. Runtime (2026-08-10): `CONFIG_DRM_MSM=m` como módulo NO cargado, sin `/dev/dri` → sin aceleración (solo fbcon + software). |
+| Táctil FT3518 | `compiled` | Driver `edt-ft5x06` (FT3518) en fragmento base; DTS touch habilitado (parche 0001). Runtime: `/sys/class/input` vacío (sin driver de input cargado). |
+| Wi-Fi | `configured` | Runtime (2026-08-10, captura limpia): SIN `wlan0`, sin bus mmc/sdio, módulos `ath10k_core/pci/snoc` + `wcn36xx` presentes pero NO cargados (`CONFIG_ATH10K=m`, sin `ATH10K_SDIO`). El WCN3990 de laurel va por SDIO → no funciona sin el driver del fork. |
+| Bluetooth | `configured` | Runtime (2026-08-10): SIN `hci0`, sin rfkill BT; módulos `btqcomsmd`/`btqca` presentes pero NO cargados; mismo bloqueo de bus que WiFi. |
+| UFS | `working` | Runtime (2026-08-10): `ufshcd-qcom 4804000.ufshc` OK, SAMSUNG KM5V7001DM-B621 detectado; el sistema ARRANCA desde UFS (system_b) y opera sobre él con e2fsck limpio. |
+| USB gadget / OTG | `partially-working` | Runtime (2026-08-10, captura limpia): gadget RNDIS FUNCIONAL (`usb0` UP, SSH vía `172.16.42.1`; `qcom-qusb2-phy` OK). HOST NO presente: sin xhci, `/sys/bus/usb/devices` vacío. La evidencia previa de xhci/4 puertos NO se reproduce → no declarar OTG host. |
+| Batería | `not-targeted` | Runtime (2026-08-10): spmi arbiter v5 OK pero sin drivers PMIC (batería/charger). PMI632 sin driver dedicado en v7.1. |
+| Térmicas | `configured` | `QCOM_TSENS` + `QCOM_SPMI_TEMP_ALARM` (v7.1). Runtime (6.1): 0 zonas térmicas activas. |
+| CPUfreq | `configured` | `ARM_QCOM_CPUFREQ_HW` + `CPUFREQ_DT` (v7.1). Runtime (6.1): driver no activo (sin sysfs cpufreq). |
+| Audio | `not-targeted` | Runtime (2026-08-10): ALSA inicializado pero "No soundcards found". |
 | Módem | `not-targeted` | Prioridad secundaria. |
 | Cámara | `not-targeted` | Prioridad secundaria. |
 
