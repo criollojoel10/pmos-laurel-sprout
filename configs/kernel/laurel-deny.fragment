@@ -1,0 +1,19 @@
+# deny-list de símbolos Kconfig para laurel_sprout.
+#
+# Formato: una entrada por línea, igual que un fragmento Kconfig:
+#   CONFIG_X=m            -> X NO puede terminar =y (se permite =m o no-set)
+#   # CONFIG_X is not set -> X debe quedar apagado (solo no-set)
+#
+# Semántica: el valor listado es el MÁXIMO permitido en el .config final.
+# verify-kconfig.sh con --deny-list falla si algún símbolo supera su límite.
+#
+# No usar CONFIG_X=y aquí: un límite =y no impone ninguna restricción.
+
+# Seguridad: nunca habilitar submits con acceso a nivel kernel desde userspace.
+CONFIG_DRM_MSM_GPU_SUDO=m
+
+# Símbolos que deben permanecer como módulos (=m) para mantener el initramfs
+# reducido. Si una futura defconfig o fragmento los elevara a =y, la build
+# debe fallar (deny-list) en lugar de crecer el initramfs silenciosamente.
+CONFIG_BT_HCIUART_QCA=m
+CONFIG_BT_HCIUART_BCM=m

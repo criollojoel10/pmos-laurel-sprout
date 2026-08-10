@@ -86,8 +86,20 @@ CONFIG_REGULATOR_QCOM_SPMI=y
 # el driver no se puede habilitar hasta que el Kconfig suba upstream (v7.2+).
 # CONFIG_PINCTRL_SM6125=y
 
+# Dependencias tristate de DRM_MSM (v7.1: "depends on QCOM_OCMEM || QCOM_OCMEM=n"
+# y "depends on QCOM_LLCC || QCOM_LLCC=n"). La defconfig base las deja en =m;
+# un =m en esa expresión capa DRM_MSM a =m aunque el fragmento pida =y.
+# Fijarlas a =y (built-in) es lo que permite que DRM_MSM=y sobreviva a
+# `make olddefconfig`.
+CONFIG_QCOM_OCMEM=y
+CONFIG_QCOM_LLCC=y
+
 # Remoteproc / RPMSG / QRTR
 CONFIG_REMOTEPROC=y
+# v7.1: QCOM_Q6V5_ADSP/MSS tienen "depends on QCOM_SYSMON || QCOM_SYSMON=n".
+# La defconfig base deja QCOM_SYSMON=m, lo que capa los PILs a =m; forzarlo a
+# =y mantiene Q6V5_ADSP/MSS built-in tras `make olddefconfig`.
+CONFIG_QCOM_SYSMON=y
 CONFIG_QCOM_Q6V5_ADSP=y
 CONFIG_QCOM_Q6V5_MSS=y
 CONFIG_QCOM_RPROC_COMMON=y
@@ -119,6 +131,13 @@ CONFIG_QCOM_SPMI_TEMP_ALARM=y
 CONFIG_POWER_SUPPLY=y
 
 # WLAN / BT Qualcomm
+# v7.1: BT depende de RFKILL ("depends on RFKILL || !RFKILL"); CFG80211 también
+# depende de RFKILL, y ATH10K/WCN36XX dependen de MAC80211 (que depende de
+# CFG80211). Con la base en =m, pedir =y en los drivers capa todo a =m; forzar
+# la cadena RFKILL->CFG80211->MAC80211 a =y mantiene ATH10K/BT/WCN36XX built-in.
+CONFIG_RFKILL=y
+CONFIG_CFG80211=y
+CONFIG_MAC80211=y
 CONFIG_ATH10K=y
 CONFIG_ATH10K_SNOC=y
 CONFIG_WCN36XX=y
