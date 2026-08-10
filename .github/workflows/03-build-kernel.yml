@@ -99,6 +99,7 @@ jobs:
             --tree kernel \
             --variant "$VARIANT" \
             --fragments $FRAGS \
+            --deny-list configs/kernel/laurel-deny.fragment \
             --out /tmp/kernel-out
       - name: Verificar Kconfig (símbolos obligatorios)
         run: |
@@ -114,7 +115,9 @@ jobs:
             --config /tmp/kernel-out/kernel.config \
             --tree kernel \
             --fragments $FRAGS \
-            --fail-missing || echo "AVISO: verify-kconfig encontró símbolos deshabilitados"
+            --deny-list configs/kernel/laurel-deny.fragment \
+            --fail-missing \
+            --fail-deny
       - name: Verificar DTB
         run: |
           set -Eeuo pipefail

@@ -14,6 +14,7 @@
 #     --tree <árbol-kernel> \
 #     --variant debug|release \
 #     --fragments <fragmento1> [<fragmento2>...] \
+#     [--deny-list <deny.fragment>] \
 #     --out <directorio-salida>
 
 set -Eeuo pipefail
@@ -23,10 +24,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TREE=""
 VARIANT="debug"
 FRAGMENTS=()
+DENY_LIST=""
 OUT=""
 
 usage() {
-  echo "uso: $0 --tree <árbol> --variant debug|release --fragments f... --out <dir>" >&2
+  echo "uso: $0 --tree <árbol> --variant debug|release --fragments f... [--deny-list f] --out <dir>" >&2
   exit 2
 }
 
@@ -35,6 +37,7 @@ while (( $# > 0 )); do
     --tree) TREE="$2"; shift 2 ;;
     --variant) VARIANT="$2"; shift 2 ;;
     --fragments) shift; while (( $# > 0 )) && [[ "$1" != -* ]]; do FRAGMENTS+=("$1"); shift; done ;;
+    --deny-list) DENY_LIST="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     *) usage ;;
   esac
@@ -96,6 +99,31 @@ if (( ${#FRAG_OPTS[@]} > 0 )); then
 fi
 
 cp .config "$OUT/kernel.config"
+
+# Checkpoint tras olddefconfig: olddefconfig puede degradar silenciosamente
+# símbolos =y a =m cuando una dependencia tristate queda en =m (p. ej.
+# DRM_MSM=y con QCOM_LLCC=m). Si algún símbolo obligatorio perdió su valor,
+# la build se aborta ANTES de compilar.
+if (( ${#FRAGMENTS[@]} > 0 )); then
+  info "checkpoint post-olddefconfig: verificando valores de símbolos obligatorios"
+  DENY_ARGS=()
+  if [[ -n "$DENY_LIST" ]]; then
+    if [[ "$DENY_LIST" != /* && -f "$REPO_ROOT/$DENY_LIST" ]]; then
+      DENY_LIST="$REPO_ROOT/$DENY_LIST"
+    fi
+    [[ -f "$DENY_LIST" ]] || { echo "ERROR: deny-list no existe: $DENY_LIST" >&2; exit 1; }
+    DENY_ARGS+=(--deny-list "$DENY_LIST" --fail-deny)
+  fi
+  if ! bash "$REPO_ROOT/scripts/verify-kconfig.sh" \
+    --config "$OUT/kernel.config" \
+    --tree "$TREE" \
+    --fragments "${FRAGMENTS[@]}" \
+    --fail-missing "${DENY_ARGS[@]}" 2>&1 | tee "$OUT/kconfig-verify.log"; then
+    info "ERROR: el fragmento pedía símbolos que olddefconfig degradó. Ver $OUT/kconfig-verify.log"
+    info "NOTA: revisa dependencias tristate (CONFIG_X || CONFIG_X=n) o fuerza el símbolo =y en el fragmento."
+    exit 1
+  fi
+fi
 
 # Compilar kernel + dtbs + módulos
 info "compilando kernel..."

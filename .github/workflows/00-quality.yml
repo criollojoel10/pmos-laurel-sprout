@@ -127,6 +127,18 @@ jobs:
                   sys.exit(f"FALLO: source[{i}] {s.get('name')} sin campos: {sorted(missing)}")
           print(f"[OK] sources.lock.json: {len(srcs)} entradas con campos requeridos")
           PY
+      - name: Validar fuentes y fragmentos Kconfig
+        run: |
+          set -Eeuo pipefail
+          # Fragmentos base, debug y deny-list (SIEMPRE los tres si existen)
+          FRAGS="configs/kernel/laurel-base.fragment configs/kernel/laurel-debug.fragment"
+          DENY="configs/kernel/laurel-deny.fragment"
+          for f in $FRAGS $DENY; do
+            [ -f "$f" ] || { echo "FALLO: falta $f" >&2; exit 1; }
+          done
+          bash scripts/check-kconfig-fragments.sh \
+            --fragments $FRAGS \
+            --deny-list $DENY
       - name: Comprobar que las acciones externas están fijadas por SHA
         run: |
           set -Eeuo pipefail
