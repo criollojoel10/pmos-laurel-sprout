@@ -135,6 +135,25 @@ class VerifyKconfigTest(unittest.TestCase):
         self.write_cfg("CONFIG_DRM=y\n")
         self.run_verify(["--fail-missing"], expect_fail=True)
 
+    def test_comment_config_y_is_ignored(self):
+        # Un comentario "# CONFIG_X=y" (documentación, "no habilitado") NO
+        # es un requisito. Antes del fix se parseaba como símbolo
+        # "CONFIG_X=y" y disparaba MISSING en falso aunque el símbolo
+        # (X) existiera en el Kconfig.
+        self.write_frag("# CONFIG_GPIO_SYSFS=y\n")
+        self.write_cfg("CONFIG_DRM=y\n")
+        out = self.run_verify(["--fail-missing"])
+        self.assertNotIn("MISSING en Kconfig: CONFIG_GPIO_SYSFS", out)
+
+    def test_comment_config_y_ignored_while_not_set_enforced(self):
+        # Mezcla: el comentario se ignora, pero "# CONFIG_X is not set"
+        # sigue siendo un requisito no-set.
+        self.write_frag("# CONFIG_GPIO_SYSFS=y\n# CONFIG_TURN_OFF is not set\n")
+        self.write_cfg("CONFIG_DRM=y\nCONFIG_TURN_OFF=m\n")
+        out = self.run_verify([])
+        self.assertNotIn("MISSING en Kconfig: CONFIG_GPIO_SYSFS", out)
+        self.assertIn("MISMATCH: CONFIG_TURN_OFF esperado no-set", out)
+
     def test_string_option_match_ok(self):
         self.write_frag('CONFIG_STR_OPT="abc"\n')
         self.write_cfg('CONFIG_STR_OPT="abc"\n')

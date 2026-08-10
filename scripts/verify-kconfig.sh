@@ -142,8 +142,13 @@ parse_fragment() {
         EXPECTED["$sym"]="$val"
         ;;
       \#\ CONFIG_*)
-        sym="${line#\# }"; sym="${sym%% is not set*}"
-        EXPECTED["$sym"]="n"
+        # Solo una línea "# CONFIG_X is not set" es un requisito (no-set).
+        # Un comentario "# CONFIG_X=y" (documentación, p. ej. "no habilitado")
+        # NO debe tratarse como símbolo requerido: es un comentario.
+        if [[ "$line" == *" is not set" ]]; then
+          sym="${line#\# }"; sym="${sym%% is not set*}"
+          EXPECTED["$sym"]="n"
+        fi
         ;;
     esac
   done < "$frag"
@@ -155,7 +160,9 @@ for frag in "${FRAGMENTS[@]:-}"; do
   parse_fragment "$frag"
 done
 
-if (( ${#EXPECTED[@]} == 0 )); then
+# Con set -u, ${#EXPECTED[@]} sobre un array asociativo vacío es "unbound
+# variable"; usar -v (testea si hay alguna clave) y el for vacío es seguro.
+if [[ ! -v EXPECTED[@] ]]; then
   info "sin símbolos explícitos en fragmentos; validando deny-list y símbolos presentes"
 fi
 
