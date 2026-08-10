@@ -194,6 +194,7 @@ jobs:
             --tree kernel \
             --variant debug \
             --fragments configs/kernel/laurel-base.fragment configs/kernel/laurel-debug.fragment \
+            --deny-list configs/kernel/laurel-deny.fragment \
             --out /tmp/k71-out
           ls -la /tmp/k71-out/
       - name: Generar checksums y manifest 7.1
