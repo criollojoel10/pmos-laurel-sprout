@@ -22,7 +22,7 @@ Punto de control para sesiones futuras. Documento canónico de progreso:
 | M3 | Rootfs | completado (2026-08-09, CI) — rootfs histórico 6.1 reproducido y verificado |
 | M4 | Prueba física (bring-up 6.1) | en progreso — PMOS_CONSOLE_6_1_BOOTED (2026-08-09) |
 | M5 | Release | pendiente |
-| M6 | Acceso remoto SSH (rootfs 6.1) | en progreso — workflow 11 corriendo (run 31355730519) |
+| M6 | Acceso remoto SSH (rootfs 6.1) | artefacto listo — run 31355730519 success; pendiente FASE 8 (flashear `system_b`) |
 | M7 | Estabilizar 6.1 (OTG host + input) | pendiente |
 | M8 | Display mainline v7.1 (pantalla negra) | pendiente — gate de GPU/Plasma |
 | M9 | GPU/3D Adreno 610 (v7.1) | pendiente |
@@ -137,12 +137,14 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
 6. ✅ **M6 en curso (SSH)**: workflow `11-build-historical-ssh-rootfs.yml`
    reproduce el rootfs 6.1 con sshd habilitado + clave pública Ed25519
    (secret `SSH_PUBLIC_KEY`) + sshd_config endurecido.
-    `scripts/ssh-harden-rootfs.sh` probado localmente end-to-end. Run
-    31355730519 en CI (2026-08-10, monitor cron `*/5` → log en
-    `local-private/workflow-11-monitor/`; pre-flight en
-    `docs/PREFLIGHT-M6-SSH-FLASH.md`; guía de acceso en `docs/SSH-BRINGUP.md`).
-    Pendiente: flashear `system_b` con
-    `xiaomi-laurel-ssh.img` bajo FASE 8 y verificar `ssh root@172.16.42.1`.
+    `scripts/ssh-harden-rootfs.sh` probado localmente end-to-end. **Run
+    31355730519 SUCCESS (2026-08-10)**: `xiaomi-laurel-ssh.img` sparse
+    550,935,480 B (sha `ebc8287f…`), sshd habilitado + clave Ed25519 en root y
+    pmos + sshd_config endurecido; validación (e2fsck, p1 idéntica, rutas SSH,
+    tamaño < 3 GiB) OK. Monitor cron `*/5` → `local-private/workflow-11-monitor/`;
+    pre-flight en `docs/PREFLIGHT-M6-SSH-FLASH.md`; acceso en `docs/SSH-BRINGUP.md`.
+    Pendiente: flashear `system_b` con `xiaomi-laurel-ssh.img` bajo FASE 8
+    (autorización explícita) y verificar `ssh root@172.16.42.1`.
 7. FASE 5: rootfs consola/Plasma (workflows 04/05), deviceinfo real.
 8. Prueba física bajo FASE 8 (solo `fastboot boot`, previa autorización).
 

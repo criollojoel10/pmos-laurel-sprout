@@ -35,17 +35,20 @@ El arranque base ya está probado: `PMOS_CONSOLE_6_1_BOOTED` (2026-08-09,
 | system_b | imagen MBR ~1.8–2.1 GiB raw; límite `0xC0000000` (3 GiB) confirmado en CI |
 | serial / IMEI / MAC | **no se publican** |
 
-## 3. Artefactos del run 11 (rellenar al finalizar `31355730519`)
+## 3. Artefactos del run 11 (run 31355730519 SUCCESS, 2026-08-10)
 
-| Artefacto | Valor esperado / pendiente |
+| Artefacto | Valor |
 |---|---|
-| `xiaomi-laurel-ssh.img` (sparse) | PENDIENTE — subido por el workflow |
-| SHA-256 | PENDIENTE (en `SHA256SUMS` del artefacto) |
-| Tamaño sparse | ≤ 3 GiB (`[[ $SIZE -le $LIMIT ]]`, paso 18 del workflow) |
-| `manifest.json` + reporte | PENDIENTE |
+| `xiaomi-laurel-ssh.img` (sparse) | 550,935,480 B — sha256 `ebc8287f277d8ffd28c5eb128e1248e668e44a316cb4484916d0748d5bc40a2a` |
+| `xiaomi-laurel-ssh.raw` | sha256 `4040b8628282a5847b4419be084285279cc70037c281cf7f6d9a7d5e2d180b0d` |
+| `final-part1.img` (p1 /boot ext2) | 247,463,936 B — sha256 `4e7704926c569ae1c133fdf4bc42de8204a19b8a2be0381ce437ec198e8b0208` |
+| `final-part2.img` (p2 / ext4) | 1,835,008,000 B — sha256 `e8ab704aa997e84ce678664dee59bc737621068f804306ad7ed53ee0c8b53425` |
+| `manifest.json` | fingerprint `SHA256:yXbMctxhVMzfEq40J1Wmb48IXTRvbGLn/ZMohLP7EEM` (== clave local), `flash_target: system_b`, `layout: MBR (msdos): p1 /boot ext2, p2 / ext4` |
+| xz comprimido | `xiaomi-laurel-ssh.img.xz` 123,148,056 B |
 
-Descarga del artefacto: `gh run download 31355730519` → verificar cada sha256
-antes de flashear.
+Todos los checks del paso 18 (ver Apéndice A) pasaron en CI. Descarga local en
+`local-private/run31355730519-artifacts/` — **re-verificar sha256 localmente
+antes de flashear** (pendiente, script `scripts/fetch-ssh-artifacts.sh`).
 
 ## 4. Particiones que se modificarían
 
