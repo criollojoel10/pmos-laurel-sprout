@@ -317,6 +317,10 @@ jobs:
           debugfs -R "stat /etc/runlevels/default/sshd" /tmp/base-part2.img 2>/dev/null | grep -q 'Type: symlink' \
             || { echo "ERROR: sshd NO habilitado en la base (¿--no-sshd?)"; exit 1; }
           echo "OK sshd en runlevel default de la base"
+          # base-part2 ya no se necesita (solo se usaba en este paso);
+          # liberar 1.8 GiB antes del endurecido (evitar disco lleno)
+          rm -f /tmp/base-part2.img
+          df -h /tmp
       - name: Endurecer SSH sobre la imagen MBR completa (p2)
         run: |
           set -Eeuo pipefail
@@ -328,13 +332,19 @@ jobs:
           SECTOR=${SECTOR:-512}
           test -f "$ROOTFS/xiaomi-laurel.raw" || {
             echo "ERROR: no existe la raw base"; exit 1; }
-          bash scripts/ssh-harden-rootfs.sh \
+          # El directorio chroot_native/home/pmos/rootfs es propiedad de
+          # pmos/root (los archivos los crea 'pmbootstrap chroot --', que corre
+          # como root). El runner (uid 1001) NO puede escribir ahí (fallo
+          # real 2026-08-10, run 31344594747: cp Permission denied). El
+          # endurecido escribe las raws de salida dentro de ese directorio,
+          # por eso se ejecuta con sudo (mismo patrón que 'sudo e2fsck').
+          sudo bash scripts/ssh-harden-rootfs.sh \
             "$ROOTFS/xiaomi-laurel.raw" \
             "$ROOTFS/xiaomi-laurel-ssh.raw" \
             /tmp/authorized_keys \
             "$SECTOR"
           # liberar espacio: la raw base (2.1 GiB) ya no se necesita
-          rm -f "$ROOTFS/xiaomi-laurel.raw"
+          sudo rm -f "$ROOTFS/xiaomi-laurel.raw"
           df -h "$WORK"
       - name: Generar xiaomi-laurel-ssh.img (sparse) y validar el artefacto final
         run: |
@@ -345,6 +355,12 @@ jobs:
             /tmp/pmaports/device/testing/device-xiaomi-laurel/deviceinfo \
             | cut -d'"' -f2)
           SECTOR=${SECTOR:-512}
+          # verificar que android-tools (img2simg/simg2img) está en el chroot
+          # nativo ANTES de la fase de sparse (evitar fallo tardío)
+          /tmp/pmbootstrap/pmbootstrap.py -y \
+            --config /tmp/pmbootstrap.cfg \
+            --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
+            chroot -- sh -c 'command -v img2simg; command -v simg2img' < /tmp/init-answers.txt 2>&1 | tail -5
           # img2simg dentro del chroot (android-tools instalado por pmbootstrap)
           /tmp/pmbootstrap/pmbootstrap.py -y \
             --config /tmp/pmbootstrap.cfg \
@@ -420,7 +436,7 @@ jobs:
           sha256sum "$SPARSE"
           ls -la "$ROOTFS/"
           # liberar espacio: la raw de validación (2.1 GiB) ya no se necesita
-          rm -f "$VRAW"
+          sudo rm -f "$VRAW"
           df -h "$WORK"
       - name: Generar manifest y reporte
         run: |
