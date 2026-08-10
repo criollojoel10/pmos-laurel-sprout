@@ -67,6 +67,18 @@ CONFIG_DRM_MSM_DSI=y
 CONFIG_DRM_MSM_MDSS=y
 CONFIG_DRM_PANEL_SAMSUNG_S6E8FC0=y
 
+# Backlight: el panel S6E8FC0 es tristate y 'depends on BACKLIGHT_CLASS_DEVICE'.
+# Sin esto, olddefconfig capa el panel de =y a =m (o n) y el checkpoint aborta.
+CONFIG_BACKLIGHT_CLASS_DEVICE=y
+
+# fbcon (paridad con 6.1, que muestra consola en pantalla):
+# DRM_FBDEV_EMULATION crea /dev/fb0 a partir del DRM; FRAMEBUFFER_CONSOLE
+# dibuja la consola de texto sobre él. Con cmdline sin console=, o con
+# console=tty0 al final, la consola/rescue shell sale en la pantalla.
+CONFIG_DRM_FBDEV_EMULATION=y
+CONFIG_FRAMEBUFFER_CONSOLE=y
+CONFIG_VT=y
+
 # IOMMU / SMMU
 CONFIG_IOMMU_SUPPORT=y
 CONFIG_IOMMU_DMA=y

@@ -119,7 +119,7 @@ jobs:
             --dtb-offset 0x0000000001f00000 \
             --os-version 12.0.0 \
             --os-patch-level 2026-08 \
-            --cmdline "console=ttyMSM0,115200n8 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 msm_rtb.filter=0x237 lpm_levels.sleep_disabled=1 service_locator.enable=1 loop.max_part=7 buildvariant=user"
+            --cmdline "console=ttyMSM0,115200n8 console=tty0 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 msm_rtb.filter=0x237 lpm_levels.sleep_disabled=1 service_locator.enable=1 loop.max_part=7 buildvariant=user"
       - name: Inspeccionar y verificar boot.img
         run: |
           set -Eeuo pipefail

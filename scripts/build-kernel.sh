@@ -47,6 +47,12 @@ done
 [[ "$VARIANT" == "debug" || "$VARIANT" == "release" ]] || usage
 [[ -d "$TREE" ]] || { echo "ERROR: árbol no existe: $TREE" >&2; exit 1; }
 
+# Resolver TREE a ruta ABSOLUTA ANTES de cd: el checkpoint post-olddefconfig
+# pasa --tree "$TREE" a verify-kconfig.sh, y si TREE fuera relativa ("kernel"),
+# desde dentro del árbol se interpretaría como el subdirectorio interno
+# <tree>/kernel (código del núcleo) -> todos los símbolos parecerían
+# "MISSING en Kconfig" y la build abortaría en falso.
+TREE="$(cd "$TREE" && pwd)"
 info() { printf '[kernel] %s\n' "$*" >&2; }
 mkdir -p "$OUT"
 

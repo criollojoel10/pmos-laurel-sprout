@@ -12,8 +12,9 @@
 # Seguridad: nunca habilitar submits con acceso a nivel kernel desde userspace.
 CONFIG_DRM_MSM_GPU_SUDO=m
 
-# Símbolos que deben permanecer como módulos (=m) para mantener el initramfs
-# reducido. Si una futura defconfig o fragmento los elevara a =y, la build
-# debe fallar (deny-list) en lugar de crecer el initramfs silenciosamente.
-CONFIG_BT_HCIUART_QCA=m
-CONFIG_BT_HCIUART_BCM=m
+# NOTA: BT_HCIUART_QCA/BCM no están en la deny-list: son BOOL (nunca =m) y la
+# defconfig base de torvalds las activa (=y). Un límite "max=m" para un bool
+# equivale a "debe quedar apagado", lo que pelearía contra la defconfig
+# upstream sin aportar nada (los drivers van en la imagen del kernel, no en
+# el initramfs). Si alguna vez deben apagarse, usar "# CONFIG_X is not set"
+# tanto aquí como en laurel-base.fragment.
