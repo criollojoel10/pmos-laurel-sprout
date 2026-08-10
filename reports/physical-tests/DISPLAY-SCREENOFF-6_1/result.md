@@ -55,6 +55,15 @@ Mecanismo (código v6.1, `drivers/video/fbdev/core/fbcon.c`):
 Conclusión: **el apagado es blanking de consola (software) que limpió el framebuffer;
 el panel NO se apagó físicamente.**
 
+## P0 — Prueba visual del panel (autorizada y ejecutada 2026-08-10)
+
+- Estado previo: fb0 completo `00 00 00 ff` (negro, medición local `tr -d` → 0 restantes).
+- Escribí un patrón rojo (`00 00 ff ff`) en todo `/dev/fb0` vía SSH (4,492,800 B, `dd bs=65536`).
+- Verificación de lectura: inicio y medio = `00 00 ff ff`, conteo de bytes no-rojos = **0**.
+- **Resultado visual: el usuario confirma PANTALLA ROJA SÓLIDA.**
+- Implicación: el panel y la señal de vídeo están vivos; el apagado era solo
+  blanking de consola (fbcon limpió el fb). La ruta de recuperación queda validada.
+
 ## Fix reproducible
 
 - Añadir **`consoleblank=0`** al kernel cmdline (boot.img header).
