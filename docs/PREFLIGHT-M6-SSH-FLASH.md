@@ -46,9 +46,12 @@ El arranque base ya está probado: `PMOS_CONSOLE_6_1_BOOTED` (2026-08-09,
 | `manifest.json` | fingerprint `SHA256:yXbMctxhVMzfEq40J1Wmb48IXTRvbGLn/ZMohLP7EEM` (== clave local), `flash_target: system_b`, `layout: MBR (msdos): p1 /boot ext2, p2 / ext4` |
 | xz comprimido | `xiaomi-laurel-ssh.img.xz` 123,148,056 B |
 
-Todos los checks del paso 18 (ver Apéndice A) pasaron en CI. Descarga local en
-`local-private/run31355730519-artifacts/` — **re-verificar sha256 localmente
-antes de flashear** (pendiente, script `scripts/fetch-ssh-artifacts.sh`).
+Todos los checks del paso 18 (ver Apéndice A) pasaron en CI. Descarga local
+`local-private/run31355730519-artifacts/` con **re-verificación sha256 local
+COMPLETADA el 2026-08-10**: sparse, xz (descomprime al mismo hash), p1 y p2
+coinciden con SHA256SUMS-final; `authorized_keys.pub` idéntico a la clave
+local; fingerprint del manifest == clave local; tamaño ≤ 3 GiB. Script:
+`scripts/fetch-ssh-artifacts.sh <run> --verify-only`.
 
 ## 4. Particiones que se modificarían
 

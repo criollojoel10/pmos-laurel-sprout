@@ -7,8 +7,9 @@
 # Descarga y verifica los artefactos del workflow 11 (rootfs histórico SSH)
 # para una revisión local antes del checklist FASE 8.
 #
-# Uso: scripts/fetch-ssh-artifacts.sh [RUN_ID]
+# Uso: scripts/fetch-ssh-artifacts.sh [RUN_ID] [--verify-only]
 #   RUN_ID por defecto: último run exitoso del workflow 11 en main.
+#   --verify-only: usar la descarga ya existente (no volver a descargar).
 #   Destino: local-private/run<RUN_ID>-artifacts/
 #
 # Verifica:
@@ -35,6 +36,8 @@ else
   RUN_ID="$(gh run list --workflow 11-build-historical-ssh-rootfs \
     --branch main --limit 1 --json databaseId --jq '.[0].databaseId')"
 fi
+VERIFY_ONLY=0
+[[ "${2:-}" == "--verify-only" ]] && VERIFY_ONLY=1
 
 status="$(gh run view "$RUN_ID" --json status,conclusion --jq '.status + "/" + .conclusion')"
 echo "run $RUN_ID: $status"
@@ -42,13 +45,20 @@ echo "run $RUN_ID: $status"
   echo "ERROR: el run no está completado con éxito"; exit 1; }
 
 DEST="$REPO_ROOT/local-private/run${RUN_ID}-artifacts"
-rm -rf "$DEST"
-mkdir -p "$DEST"
+if [[ "$VERIFY_ONLY" == "1" ]]; then
+  test -d "$DEST" || { echo "ERROR: no existe $DEST (descarga previa)"; exit 1; }
+else
+  rm -rf "$DEST"
+  mkdir -p "$DEST"
 
-gh run download "$RUN_ID" -n historical-rootfs-ssh -D "$DEST/artifacts" 2>/dev/null
-gh run download "$RUN_ID" -n historical-rootfs-ssh-logs -D "$DEST/logs" 2>/dev/null || true
+  gh run download "$RUN_ID" -n historical-rootfs-ssh -D "$DEST/artifacts" 2>/dev/null
+  gh run download "$RUN_ID" -n historical-rootfs-ssh-logs -D "$DEST/logs" 2>/dev/null || true
+fi
 
-SPARSE="$DEST/artifacts/xiaomi-laurel-ssh.img"
+# upload-artifact guarda el zip con las carpetas 'artifacts/' y
+# 'export-resolved/' en su raíz; ubicar los ficheros de forma tolerante.
+ART=$(find "$DEST/artifacts" -name xiaomi-laurel-ssh.img -print -quit)
+SPARSE="${ART:-$DEST/artifacts/xiaomi-laurel-ssh.img}"
 test -f "$SPARSE" || { echo "ERROR: no se descargó $SPARSE"; exit 1; }
 SIZE="$(stat -c %s "$SPARSE")"
 echo "sparse size=$SIZE bytes (límite $LIMIT = 3 GiB)"
@@ -58,16 +68,18 @@ echo "== sha256 (imagen) =="
 H="$(sha256sum "$SPARSE" | awk '{print $1}')"
 echo "$H  xiaomi-laurel-ssh.img"
 echo "== referencia en SHA256SUMS-final =="
-grep xiaomi-laurel-ssh.img "$DEST/artifacts/SHA256SUMS-final" 2>/dev/null || true
-grep -q "$H" "$DEST/artifacts/SHA256SUMS-final" 2>/dev/null \
+SUMS="$(dirname "$SPARSE")/SHA256SUMS-final"
+grep xiaomi-laurel-ssh.img "$SUMS" 2>/dev/null || true
+grep -q "$H" "$SUMS" 2>/dev/null \
   && echo "OK: hash coincide con SHA256SUMS-final" \
   || echo "AVISO: hash no encontrado en SHA256SUMS-final"
 
 echo "== manifest.json =="
-if [[ -f "$DEST/artifacts/manifest.json" ]]; then
+MANIFEST="$(dirname "$SPARSE")/manifest.json"
+if [[ -f "$MANIFEST" ]]; then
   jq '{image, image_bytes, flash_target, pub_fp: .ssh.public_key_ed25519_fingerprint, layout}' \
-    "$DEST/artifacts/manifest.json"
-  MANIFEST_FP="$(jq -r '.ssh.public_key_ed25519_fingerprint' "$DEST/artifacts/manifest.json")"
+    "$MANIFEST"
+  MANIFEST_FP="$(jq -r '.ssh.public_key_ed25519_fingerprint' "$MANIFEST")"
   echo "fingerprint local: $LOCAL_FP"
   [[ "$MANIFEST_FP" == "$LOCAL_FP" ]] \
     && echo "OK: fingerprint del manifest == clave local" \
@@ -75,4 +87,4 @@ if [[ -f "$DEST/artifacts/manifest.json" ]]; then
 fi
 
 echo "== artefactos finales =="
-ls -la "$DEST/artifacts/"
+ls -la "$(dirname "$SPARSE")/"
