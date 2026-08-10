@@ -142,8 +142,8 @@
       "license": "MIT (deviceinfo) / GPL-3.0-or-later (pmaports)",
       "purpose": "Receta histórica del port: device-xiaomi-laurel (deviceinfo + APKBUILD pkgver=0.1 pkgrel=3) y linux-postmarketos-qcom-sm6125 (pkgver=6.1, commit 77de535b). Es el commit contemporáneo a la receta publicada en la wiki (2023-11).",
       "verification_status": "verified",
-      "last_audited": "2026-08-05",
-      "notes": "Commit completo a27a7ce7373a6e2125a2c3125370e40d04bf65df actualizó deviceinfo (MR 3727) y 7aaee51a actualizó el kernel a 6.1. El port se movió a device/archived/ el 2026-07-31 (ddf655bb, MR 9179)."
+      "last_audited": "2026-08-10",
+      "notes": "Commit completo a27a7ce7373a6e2125a2c3125370e40d04bf65df actualizó deviceinfo (MR 3727) y 7aaee51a actualizó el kernel a 6.1. El port se movió a device/archived/ el 2026-07-31 (ddf655bb, MR 9179). WORKAROUND local (workflow 11, estado: local-workaround): cross/gcc-aarch64 pkgrel=5 -> 4 via sed, porque Alpine v3.17 (canal v22.12) solo provee libstdc++ r4 y el subpaquete g++-aarch64 r5 es ininstalable (apk exit 3); con pkgrel=4 pmbootstrap usa el cross-compiler binario r4 del repo (no recompila)."
     },
     {
       "name": "pmbootstrap-historical-1.50.0",
