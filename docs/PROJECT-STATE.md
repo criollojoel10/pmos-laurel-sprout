@@ -1,4 +1,4 @@
-# Estado del proyecto — resumen (2026-08-03)
+# Estado del proyecto — resumen (2026-08-10)
 
 Punto de control para sesiones futuras. Documento canónico de progreso:
 `reports/milestones.json`, `reports/hardware-matrix.json`, `docs/HARDWARE-STATUS.md`.
@@ -8,6 +8,9 @@ Punto de control para sesiones futuras. Documento canónico de progreso:
 - **Decisión: Linux mainline v7.1** (tag `v7.1` = commit `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`).
   Ref: `docs/DECISIONS/0001-kernel-base.md` (superado), `docs/DECISIONS/0002-kernel-base.md`.
 - Fijado en `sources.lock.json` como `linux-mainline-v7.1`.
+- **El fork 6.1 (@77de535b, fork sm61x5 pmOS) es la PLATAFORMA DE BRING-UP**
+  (es el que hoy enciende pantalla y consola); **v7.1 es la meta** (hoy da
+  pantalla negra, ver M8).
 
 ## Hitos
 
@@ -15,10 +18,29 @@ Punto de control para sesiones futuras. Documento canónico de progreso:
 |---|---|---|
 | M0 | Fundación (repo, CI, estructura) | completado |
 | M1 | Investigación y fuentes congeladas | completado (2026-08-03) |
-| M2 | Kernel | en progreso — kernel debug compilado + boot image de diagnóstico en CI |
-| M3 | Rootfs | completado (2026-08-09, CI) — rootfs histórico reproducido y verificado |
-| M4 | Prueba física | en progreso — EX3 kernel 6.1 slot b: imagen en pantalla + kernel panic (2026-08-09) |
+| M2 | Kernel mainline v7.1 | en progreso — compilado + DTB + boot diag; display 7.1 da negro (M8) |
+| M3 | Rootfs | completado (2026-08-09, CI) — rootfs histórico 6.1 reproducido y verificado |
+| M4 | Prueba física (bring-up 6.1) | en progreso — PMOS_CONSOLE_6_1_BOOTED (2026-08-09) |
 | M5 | Release | pendiente |
+| M6 | Acceso remoto SSH (rootfs 6.1) | en progreso — workflow 11 corriendo (run 31344594747) |
+| M7 | Estabilizar 6.1 (OTG host + input) | pendiente |
+| M8 | Display mainline v7.1 (pantalla negra) | pendiente — gate de GPU/Plasma |
+| M9 | GPU/3D Adreno 610 (v7.1) | pendiente |
+| M10 | KDE Plasma Mobile (v7.1) | pendiente |
+| M11 | Kupfer (Arch Linux ARM, paralelo) | pendiente |
+
+## Roadmap (corregido 2026-08-10)
+
+1. **SSH (M6, en curso)**: rootfs histórico 6.1 con sshd + clave pública →
+   acceso remoto `ssh root@172.16.42.1` por el gadget USB (única red hoy).
+   Desbloquea dmesg/logs.
+2. **Estabilizar 6.1 (M7)**: OTG host (`dr_mode="otg"` + VBUS) → teclado USB
+   → control interactivo. Plataforma de bring-up.
+3. **Display v7.1 (M8)**: por qué 7.1 no muestra consola (el 6.1 sí).
+4. **GPU/3D v7.1 (M9)**: msm + a610_zap + a630_sqe + mesa freedreno.
+5. **Plasma Mobile v7.1 (M10)**: KWin acelerado + táctil FT3518 + WiFi/BT.
+6. **Release (M5)**.
+7. **Kupfer (M11)**: track paralelo (Arch), reutiliza kernel 7.1 + deviceinfo.
 
 ## Kernel (M2)
 
@@ -112,8 +134,14 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
    FASE 8, con recovery-kit preparado en `local-private/phase-e-flash/recovery-kit/`
    (TEST_IMG, KNOWN_GOOD_BOOT /e/OS 4.1.1, SHA256SUMS, recovery-manifest.json,
    recovery-commands.txt, preflight sanitizado). ORIGINAL_SLOT=a, TARGET_SLOT=b.
-6. FASE 5: rootfs consola/Plasma (workflows 04/05), deviceinfo real.
-7. Prueba física bajo FASE 8 (solo `fastboot boot`, previa autorización).
+6. ✅ **M6 en curso (SSH)**: workflow `11-build-historical-ssh-rootfs.yml`
+   reproduce el rootfs 6.1 con sshd habilitado + clave pública Ed25519
+   (secret `SSH_PUBLIC_KEY`) + sshd_config endurecido.
+   `scripts/ssh-harden-rootfs.sh` probado localmente end-to-end. Run
+   31344594747 en CI (2026-08-10). Pendiente: flashear `system_b` con
+   `xiaomi-laurel-ssh.img` bajo FASE 8 y verificar `ssh root@172.16.42.1`.
+7. FASE 5: rootfs consola/Plasma (workflows 04/05), deviceinfo real.
+8. Prueba física bajo FASE 8 (solo `fastboot boot`, previa autorización).
 
 ## Prueba física EX3 (2026-08-09) — kernel 6.1 slot b
 
@@ -128,3 +156,13 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
 - Pendiente: capturar texto del panic (foto de pantalla), diagnóstico del
   panic, y autorización para `set_active a` (recuperación) o seguir
   depurando en slot b.
+
+## Prueba física PMOS_CONSOLE_6_1_BOOTED (2026-08-09) — boot original
+
+- Con `boot_b` = boot.img ORIGINAL pmOS histórico (run 31320766387) + rootfs
+  MBR en `system_b`: **login de postmarketOS visible en pantalla** + gadget
+  rndis enumerado (`172.16.42.1` responde ping) + switch_root completado.
+  Evidencia: `reports/physical-tests/PMOS-CONSOLE-6_1-BOOTED/result.md`.
+- Bloqueos: sin entrada (OTG host, `dr_mode="peripheral"`) y sin sshd
+  (rootfs `--no-sshd`) → los logs no son accesibles de forma remota. Eso es
+  exactamente lo que resuelve M6 (workflow 11 + flasheo de `system_b`).

@@ -1,6 +1,6 @@
 {
   "generated_at": "2026-08-02",
-  "last_updated": "2026-08-03",
+  "last_updated": "2026-08-10",
   "milestones": [
     {
       "id": "M0",
@@ -18,31 +18,73 @@
     },
     {
       "id": "M2",
-      "name": "Kernel",
+      "name": "Kernel mainline v7.1",
       "status": "in-progress",
       "blockers": [],
-      "notes": "Kernel mainline v7.1 compilado con parches downstream DTS (MDSS+panel s6e8fc0, DTSI GPU, DTS enable) en CI (run 30786551830 success). DTB sm6125-xiaomi-laurel-sprout.dtb generado y verificado (37KB). Fragmentos Kconfig validados contra v7.1. Artefactos finales del run 30792773593 verificados (Image 68MB, Image.gz 20MB, DTB, SHA256SUMS OK). Boot image de diagnóstico construida y validada localmente (header v2, page 4096, offsets verificados contra stock; 20.3MB < 64MiB; round-trip byte-por-byte). Workflow 04-build-diagnostic-boot listo. [2026-08-04] INCIDENTE: artefacto 30835329663 tenía busybox x86-64 (exec format error en aarch64); resuelto compilando busybox 1.38.0 estático arm64 en CI (build-busybox-arm64.sh; se deshabilita applet tc; run 30916017707 success). Nuevo boot.img verificado: busybox 'ARM aarch64 statically linked', SHA256 66e7005f…, roundtrip kernel/ramdisk/dtb OK."
+      "notes": "Kernel mainline v7.1 compilado con parches downstream DTS (MDSS+panel s6e8fc0, DTSI GPU, DTS enable) en CI (run 30786551830 success). DTB sm6125-xiaomi-laurel-sprout.dtb generado y verificado (37KB). Fragmentos Kconfig validados contra v7.1. Boot image de diagnóstico construido y validado (header v2, page 4096; busybox 1.38.0 arm64; run 30916017707). BLOQUEANTE FÍSICO: display 7.1 da pantalla negra en hardware (EX3 comparación 7.1, 2026-08-09) — el pipeline display v7.1 no muestra consola, el fork 6.1 sí. La GPU/3D y Plasma dependen de arreglar esto."
     },
     {
       "id": "M3",
       "name": "Rootfs",
-      "status": "pending",
-      "blockers": ["M2"],
-      "notes": "Imágenes consola y Plasma, validación de rootfs."
+      "status": "completed",
+      "blockers": [],
+      "notes": "Rootfs HISTÓRICO pmOS 6.1 reproducido y verificado en CI (run 31320766387, 2026-08-09): pmbootstrap 1.52.0 + pmaports @7aaee51a + canal v22.12 (Alpine v3.17), kernel fork 6.1 @77de535b, imagen MBR completa. Imágenes consola y Plasma: pendiente como objetivo sobre v7.1 (ver M10)."
     },
     {
       "id": "M4",
-      "name": "Prueba física",
-      "status": "pending",
-      "blockers": ["M3", "autorización explícita", "respaldos"],
-      "notes": "FASE 8 obligatoria. Solo fastboot boot no destructivo."
+      "name": "Prueba física (bring-up 6.1)",
+      "status": "in-progress",
+      "blockers": ["autorización explícita", "respaldos"],
+      "notes": "FASE 8 obligatoria. Hitos físicos (slot b, 2026-08-09): EX3 kernel 6.1 -> imagen en pantalla + panic (initramfs sed); EX3 sedfix -> INITRAMFS_6_1_SHELL_ACTIVE; PMOS_CONSOLE_6_1_BOOTED -> login pmOS visible + gadget rndis OK + rootfs montado desde system_b. Bloqueos: sin entrada (OTG host inactivo, dr_mode=peripheral) y sin sshd (rootfs --no-sshd). El fork 6.1 es la PLATAFORMA DE BRING-UP; la meta es v7.1 (M2)."
     },
     {
       "id": "M5",
       "name": "Release",
       "status": "pending",
-      "blockers": ["M4"],
+      "blockers": ["M2", "M7", "M8", "M9", "M10"],
       "notes": "Prerelease con hashes y sin contenido sensible."
+    },
+    {
+      "id": "M6",
+      "name": "Acceso remoto SSH (rootfs histórico 6.1)",
+      "status": "in-progress",
+      "blockers": ["M4", "autorización explícita", "respaldos"],
+      "notes": "Workflow 11-build-historical-ssh-rootfs.yml reproduce el rootfs 6.1 con sshd HABILITADO (ssh_keys=True, sin --no-sshd), endurece sshd_config (PermitRootLogin prohibit-password, sin auth por contraseña) e inyecta la clave pública Ed25519 (secret SSH_PUBLIC_KEY) en /root/.ssh/authorized_keys. scripts/ssh-harden-rootfs.sh validado localmente end-to-end (p1 byte-idéntica, e2fsck rc=0, round-trip sparse idéntico). Run 31344594747 en curso (2026-08-10). Tras el run: flashear xiaomi-laurel-ssh.img en system_b (FASE 8) y verificar ssh root@172.16.42.1 por el gadget USB (única red disponible; WiFi pendiente). Desbloquea volcado de dmesg/logs."
+    },
+    {
+      "id": "M7",
+      "name": "Estabilizar 6.1 (OTG host + input)",
+      "status": "pending",
+      "blockers": ["M6"],
+      "notes": "OTG host bloqueado por dr_mode=\"peripheral\" en usb@4e00000 (DTB cb37540d). Fix: override DTS dr_mode=\"otg\" + VBUS + extcon-usb-gpio (id-gpio tlmm 102) en el fork 6.1 (USB_DWC3_DUAL_ROLE=y ya compilado). Objetivo: teclado USB + control interactivo (login pmos/147147) + acceso SSH estable sobre usb0 para depurar. Plataforma de bring-up; no es la meta final."
+    },
+    {
+      "id": "M8",
+      "name": "Display mainline v7.1 (pantalla negra)",
+      "status": "pending",
+      "blockers": ["M2"],
+      "notes": "El kernel v7.1 (b3f94b2b + parches K1-K3) compila y genera el DTB con panel s6e8fc0, pero en hardware la consola NO se muestra (pantalla negra persistente, EX3 7.1 2026-08-09). Comparar timings DSI/pipeline display entre fork 6.1 (funciona) y v7.1; depurar por qué el panel no se enciende en v7.1. GATE para GPU/Plasma."
+    },
+    {
+      "id": "M9",
+      "name": "GPU/3D Adreno 610 (v7.1)",
+      "status": "pending",
+      "blockers": ["M8"],
+      "notes": "DRM/MSM mainline + firmware A610: a610_zap.mbn (zap-shader, dispositivo-específico, NO en pmaports) + qcom/a630_sqe.fw (linux-firmware, sha256 1c21b527...). Criterios: /dev/dri/card0 + renderD128, firmware carga OK, eglinfo=Freedreno, glmark2-es2-wayland pasa, renderer NO llvmpipe, KWin con aceleración."
+    },
+    {
+      "id": "M10",
+      "name": "KDE Plasma Mobile (v7.1)",
+      "status": "pending",
+      "blockers": ["M9"],
+      "notes": "UI Plasma Mobile sobre v7.1 con KWin acelerado. Requiere además: táctil FT3518 (edt-ft5x06, compilado, sin boot), Wi-Fi (ATH10K_SNOC/WCN36XX, por confirmar), BT (BT_QCOMSMD, por confirmar), UFS (configurado). El rootfs Plasma se construirá como parte de este hito."
+    },
+    {
+      "id": "M11",
+      "name": "Kupfer (Arch Linux ARM)",
+      "status": "pending",
+      "blockers": ["M8", "M9"],
+      "notes": "Track PARALELO. Kupfer = equivalente Arch de pmOS (kupferbootstrap, PKGBUILDs, rama dev; ports de referencia msm8953/sdm845). No existe SM6125/laurel: el port pmaports fue eliminado -> reconstruir deviceinfo. Crear device-sm6125-xiaomi-laurel + device-sm6125-common + firmware-sm6125-xiaomi-laurel + linux-sm6125 (base v7.1 + parches del repo). Enviar PKGBUILDs vía MR a kupfer/packages/pkgbuilds. Referencia: docs/KUPFER.md."
     }
   ]
 }
