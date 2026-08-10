@@ -160,6 +160,12 @@ CONFIG_BT_HCIUART_H4=y
 CONFIG_BT_HCIUART_LL=y
 CONFIG_BT_QCOMSMD=y
 
+# WCN36XX y BT_QCOMSMD 'depends on QCOM_WCNSS_CTRL || QCOM_WCNSS_CTRL=n'.
+# En aritmética tristate, si QCOM_WCNSS_CTRL queda =m la expresión se evalúa
+# "m || n = m" y olddefconfig capa ambos a =m. Forzarlo a =y mantiene la
+# cadena WCN36XX/BT_QCOMSMD built-in (igual que OCMEM/LLCC/SYSMON).
+CONFIG_QCOM_WCNSS_CTRL=y
+
 # GPU Adreno 610 (driver msm; el nodo DTS gpu@5900000 es parche downstream).
 # DRM_MSM_GPU_SUDO (debug) requiere EXPERT; no se fuerza desde el fragmento.
 
