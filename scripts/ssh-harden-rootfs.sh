@@ -13,6 +13,15 @@
 #
 # Este script SOLO modifica la partición p2 (ext4, pmOS_root):
 #   - /root/.ssh/authorized_keys   (0600 root:root, dir 0700)
+#   - /etc/shadow                  (desbloquea la cuenta root: pmbootstrap
+#                                   deja root con password '!' -> OpenSSH
+#                                   rechaza a root con "account is locked"
+#                                   incluso con publickey válida. Se fija un
+#                                   hash SHA-512 determinista del password
+#                                   '147147'; con PasswordAuthentication no +
+#                                   PermitRootLogin prohibit-password el
+#                                   password solo desbloquea la cuenta, el
+#                                   acceso sigue siendo exclusivo por clave)
 #   - /etc/ssh/sshd_config         (PermitRootLogin prohibit-password,
 #                                   PasswordAuthentication no,
 #                                   KbdInteractiveAuthentication no,
@@ -110,6 +119,26 @@ DBG "set_inode_field /root/.ssh/authorized_keys gid 0"
 DBG "set_inode_field /root/.ssh/authorized_keys mode 0x8180"
 DBG "set_inode_field /root/.ssh mode 0x41c0"
 
+echo "==> desbloqueando cuenta root (/etc/shadow)"
+RO "cat /etc/shadow" > "$TMP/shadow" \
+  || { echo "ERROR: no existe /etc/shadow en p2"; exit 1; }
+# Hash determinista SHA-512 de '147147' (salt fijo pmosroot). Root con '!'
+# es "account locked" para OpenSSH: rechaza publickey aun con clave válida.
+ROOT_HASH="\$6\$pmosroot\$5agmDwTqS6OfJAJRUQ9V4j6kE1hCs7couJeso8NAk99FXSWzAS6TFbeXHbF79ZcadYOMyzk5gMkytuKrPWM4T0"
+if grep -q '^root:!' "$TMP/shadow"; then
+  sed -i "s|^root:!:|root:${ROOT_HASH}:|" "$TMP/shadow"
+  echo "   root desbloqueado (password '147147', hash determinista)"
+else
+  echo "   root ya no estaba bloqueado ('!' no encontrado); sin cambios"
+fi
+grep -q "^root:\$6\$" "$TMP/shadow" \
+  || { echo "ERROR: no se pudo desbloquear root en /etc/shadow"; exit 1; }
+DBG "rm /etc/shadow"
+DBG "write $TMP/shadow /etc/shadow"
+DBG "set_inode_field /etc/shadow uid 0"
+DBG "set_inode_field /etc/shadow gid 42"
+DBG "set_inode_field /etc/shadow mode 0x81a0"
+
 echo "==> endureciendo /etc/ssh/sshd_config"
 RO "cat /etc/ssh/sshd_config" > "$TMP/sshd_config" \
   || { echo "ERROR: no existe /etc/ssh/sshd_config en p2"; exit 1; }
@@ -183,6 +212,8 @@ RO "cat /etc/ssh/sshd_config" | grep -qx 'PasswordAuthentication no' \
   || { echo "ERROR: PasswordAuthentication no aplicado"; exit 1; }
 RO "cat /etc/ssh/sshd_config" | grep -qx 'PubkeyAuthentication yes' \
   || { echo "ERROR: PubkeyAuthentication yes no aplicado"; exit 1; }
+RO "cat /etc/shadow" | grep -q "^root:\$6\$" \
+  || { echo "ERROR: cuenta root sigue bloqueada en /etc/shadow"; exit 1; }
 RO "stat /etc/runlevels/default/sshd" | grep -q 'Type: symlink' \
   || { echo "ERROR: sshd no habilitado en runlevel default"; exit 1; }
 

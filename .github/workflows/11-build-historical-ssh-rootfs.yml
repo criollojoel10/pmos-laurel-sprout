@@ -432,6 +432,9 @@ jobs:
           debugfs -R "cat /etc/ssh/sshd_config" "$P2" 2>/dev/null | grep -qx 'PubkeyAuthentication yes' \
             || { echo "ERROR: PubkeyAuthentication yes"; exit 1; }
           echo "OK sshd_config: PermitRootLogin prohibit-password / PasswordAuthentication no / PubkeyAuthentication yes"
+          debugfs -R "cat /etc/shadow" "$P2" 2>/dev/null | grep -q '^root:\$6\$' \
+            || { echo "ERROR: cuenta root bloqueada (!) en /etc/shadow"; exit 1; }
+          echo "OK /etc/shadow: root desbloqueado con hash SHA-512 (password determinista)"
           echo "== resumen =="
           sha256sum "$SPARSE"
           ls -la "$ROOTFS/"
@@ -488,6 +491,7 @@ jobs:
             echo "- Clave pública Ed25519 (secreto \`SSH_PUBLIC_KEY\`): $(ssh-keygen -l -f /tmp/authorized_keys | awk '{print $2}')"
             echo "- authorized_keys: \`/home/pmos/.ssh/authorized_keys\` (pmbootstrap) y \`/root/.ssh/authorized_keys\` (ssh-harden-rootfs.sh)"
             echo "- sshd_config: PermitRootLogin prohibit-password, PasswordAuthentication no, PubkeyAuthentication yes"
+            echo "- Cuenta root desbloqueada en \`/etc/shadow\` (hash determinista SHA-512; accesible solo por clave pública)"
             echo "- Imagen MBR COMPLETA (sparse): \`$SPARSE\`"
             stat -c "- Tamaño sparse: %s bytes" "$SPARSE"
             echo
@@ -499,6 +503,11 @@ jobs:
             echo "## /root/.ssh (p2 final)"
             echo '```'
             debugfs -R "ls -l /root/.ssh" /tmp/final-part2.img 2>/dev/null
+            echo '```'
+            echo
+            echo "## /etc/shadow: línea root (p2 final)"
+            echo '```'
+            debugfs -R "cat /etc/shadow" /tmp/final-part2.img 2>/dev/null | grep '^root:' | cut -c1-50
             echo '```'
             echo
             echo "## runlevel default (p2 final)"
