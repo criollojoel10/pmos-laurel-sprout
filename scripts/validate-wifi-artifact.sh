@@ -14,6 +14,8 @@
 
 set -Eeuo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 CFG=""
 DTB=""
 OUT="."
@@ -47,31 +49,12 @@ for sym in "CONFIG_ATH10K=y" "CONFIG_ATH10K_SNOC=y" "CONFIG_QCOM_SMEM=y" \
   fi
 done
 
-# 2) DTB: nodo wifi y propiedades
+# 2) DTB: nodo wifi y propiedades (validación con resolución de phandles)
 DTS="$OUT/laurel-wifi.dts"
 dtc -I dtb -O dts -o "$DTS" "$DTB" 2>/dev/null
-check_dtb() { # check_dtb <label> <regex>
-  local label="$1" regex="$2"
-  if grep -Eq "$regex" "$DTS"; then
-    info "OK: DTB $label"
-  else
-    info "FALLO: DTB sin $label"
-    fail="dtb"
-  fi
-}
-check_dtb "nodo wifi@c800000" 'wifi@c800000 \{'
-check_dtb "compatible qcom,wcn3990-wifi" 'compatible = "qcom,wcn3990-wifi"'
-check_dtb "reg 0x0c800000/0x800000" 'reg = <0x0c800000 0x800000>'
-check_dtb "memory-region wlan_msa_mem" 'memory-region = <&wlan_msa_mem>'
-check_dtb "iommus apps_smmu 0x80 0x1" 'iommus = <&apps_smmu 0x80 0x1>'
-check_dtb "qcom,msa-fixed-perm" 'qcom,msa-fixed-perm'
-check_dtb "IRQ 358" 'GIC_SPI 358'
-check_dtb "IRQ 369" 'GIC_SPI 369'
-check_dtb "vreg_l8a" 'vdd-0.8-cx-mx-supply = <&vreg_l8a>'
-check_dtb "vreg_l16a" 'vdd-1.8-xo-supply = <&vreg_l16a>'
-check_dtb "vreg_l17a" 'vdd-1.3-rfa-supply = <&vreg_l17a>'
-check_dtb "vreg_l23a" 'vdd-3.3-ch0-supply = <&vreg_l23a>'
-check_dtb "framebuffer@5c000000" 'framebuffer@5c000000'
+if ! python3 "$REPO_ROOT/scripts/validate-wifi-dtb.py" --dts "$DTS"; then
+  fail="dtb"
+fi
 
 cat > "$OUT/wifi-validation.md" <<EOF
 # Validación artefacto kernel (WCN3990/SNOC)
