@@ -162,7 +162,7 @@ jobs:
             /tmp/boot-out/manifest.json
             /tmp/boot-validation/config-critical.txt
             /tmp/boot-validation/initramfs-file-list.txt
-            /tmp/boot-validation/initramfs-verification.md
+            /tmp/boot-validation/native/initramfs-verification.md
             /tmp/boot-validation/boot-unpack-report.md
           retention-days: 7
       - name: Subir logs de diagnóstico (siempre)
