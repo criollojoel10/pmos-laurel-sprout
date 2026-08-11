@@ -15,11 +15,12 @@ DRM/KMS, GPU 3D, Wi-Fi, Bluetooth ni OTG host.
 | Commit display | `671b6b6` |
 | Commit diagnóstico | `94aa7d4` |
 | Corrección Kconfig bool | `a3167ec` |
-| Kernel run | `pendiente` |
-| Boot run | `pendiente` |
+| Kernel run | `31447941911` (success) |
+| Boot run | `31458775118` (success) |
 | Artefacto | `boot-laurel-diagnostic.img` |
-| SHA-256 | `pendiente de la run 04` |
-| Tamaño | `pendiente; límite 67108864 bytes` |
+| Ruta local | `local-private/boot-31458775118/boot-out/boot-laurel-diagnostic.img` |
+| SHA-256 | `09fbd1eb964dd49c1c3058f9a6ff7fc4e8fa5ffb9fae7ffbbf5e3049f9bf05e3` |
+| Tamaño | `23085056 bytes` (límite `67108864`) |
 | Partición prevista | solo `boot_b` |
 
 ## Configuración esperada
@@ -32,12 +33,17 @@ DRM/KMS, GPU 3D, Wi-Fi, Bluetooth ni OTG host.
 - `CONFIG_VT=y`
 - `console=tty0 consoleblank=0`
 - DTB con `framebuffer@5c000000`, 720x1560, stride 2880, `a8r8g8b8`.
+- Extracción independiente validada: kernel, ramdisk y DTB idénticos; BusyBox
+  `ELF aarch64, statically linked`; `ifconfig` y `telnetd` presentes.
 
 ## Estado físico conocido
 
 La prueba anterior de v7.1 fue `boot-untested` con pantalla negra. El slot
 actual documentado es `b`; no se debe asumir que siga igual sin repetir las
 consultas Fastboot de solo lectura inmediatamente antes de la prueba.
+
+El canal SSH root del 6.1 está operativo como baseline de recuperación y
+diagnóstico; no constituye evidencia de funcionamiento v7.1.
 
 ## Recuperación
 

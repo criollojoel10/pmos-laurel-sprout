@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-10",
+  "generated_at": "2026-08-11",
   "boot_attempts": [
     {
       "date": "2026-08-09",
@@ -24,6 +24,12 @@
       "test": "Diagnóstico SSH forense boot 6.1 (boot_b=run 31320766387, system_b=run 31355730519 SSH): captura completa solo-lectura vía ssh root@172.16.42.1",
       "result": "partially-working",
       "notes": "43 archivos en local-private/diagnostics/kernel-6.1/20260810-090149/ + manifest.json + SHA256SUMS. Kernel 6.1.0-sm6125 UP 2899s. Display: simplefb 720x1560x32, fb ALL-BLACK tras ~10min (CAUSA: consoleblank 600s -> fbcon_generic_blank limpia fb; clocks hw_state=Y). msm NO cargado (modulo), sin /dev/dri. WiFi/BT: sin bus mmc, sin wlan0/hci0 (modulos presentes, no cargados). USB gadget RNDIS FUNCIONAL (SSH); sin host (no xhci). UFS working (arranca de system_b). Audio: no soundcards. Sin input devices."
+    },
+    {
+      "date": "2026-08-11",
+      "test": "Diagnóstico root SSH 6.1 de solo-lectura: inventario completo vía root@172.16.42.1",
+      "result": "partially-working",
+      "notes": "Root SSH por clave Ed25519 confirmado; no se habilitó password authentication. Dmesg confirma simplefb registrado en 0x5c000000 (720x1560x32, stride 2880), RNDIS/QUSB2 y UFS. No aparecen mmc/SDIO, wlan0, hci0, power_supply, thermal zones, cpufreq ni /dev/dri. Resumen público en reports/physical-tests/SSH-ROOT-6_1-READONLY/result.md."
     }
   ],
   "device": {
@@ -34,7 +40,7 @@
   "components": {
     "display": {
       "status": "partially-working",
-      "notes": "Boot 6.1 SSH (2026-08-10, boot_b=run 31320766387, system_b=run 31355730519): consola pmOS VISIBLE vía simplefb/fbcon (fb0 720x1560x32, state=0). CAUSA del apagado de pantalla identificada: sin consoleblank en cmdline -> timeout VT por defecto (600s) -> fbcon_generic_blank (v6.1) rellena TODO el framebuffer con el char de borrado (negro) porque simplefb no tiene fb_blank. Evidencia: fb completo uniforme 00 00 00 ff; clocks de display hw_state=Y (vivos); sin suspensión/térmica/mensajes kernel; sin dispositivos de input -> nada desbloquea el VT. FIX: consoleblank=0 en cmdline (boot.img parcheado, payload idéntico). DRM-KMS NO operativo: CONFIG_DRM_MSM=m NO cargado en este boot, sin /dev/dri. EX3 comparación 7.1: pantalla NEGRA persistente (pipeline 7.1 no funcional en hardware)."
+      "notes": "Boot 6.1 SSH (2026-08-11, boot_b=run 31320766387, system_b=run 31355730519): consola pmOS VISIBLE vía simplefb/fbcon (fb0 720x1560x32), root SSH por clave confirmado y dmesg registra simplefb en 0x5c000000, 720x1560x32, stride 2880. CAUSA del apagado de pantalla identificada: sin consoleblank en cmdline -> timeout VT por defecto (600s) -> fbcon_generic_blank (v6.1) rellena TODO el framebuffer con el char de borrado (negro) porque simplefb no tiene fb_blank. El boot diagnóstico v7.1 final (kernel run 31447941911, boot run 31458775118) replica FB_SIMPLE=y + DRM_MSM=m + consoleblank=0 y está validado estáticamente; la prueba física v7.1 sigue boot-untested."
     },
     "gpu": {
       "status": "compiled",

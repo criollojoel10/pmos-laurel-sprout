@@ -18,7 +18,7 @@ Punto de control para sesiones futuras. Documento canónico de progreso:
 |---|---|---|
 | M0 | Fundación (repo, CI, estructura) | completado |
 | M1 | Investigación y fuentes congeladas | completado (2026-08-03) |
-| M2 | Kernel mainline v7.1 | en progreso — compilado + DTB + boot diag; display 7.1 da negro (M8) |
+| M2 | Kernel mainline v7.1 | en progreso — kernel + DTB + boot diag simplefb validados; prueba física M8 pendiente |
 | M3 | Rootfs | completado (2026-08-09, CI) — rootfs histórico 6.1 reproducido y verificado |
 | M4 | Prueba física (bring-up 6.1) | en progreso — PMOS_CONSOLE_6_1_BOOTED (2026-08-09) |
 | M5 | Release | pendiente |
@@ -65,7 +65,15 @@ Punto de control para sesiones futuras. Documento canónico de progreso:
   - `CROSS_COMPILE=aarch64-linux-gnu-` en CI;
   - fragmentos validados contra Kconfig v7.1 (ver abajo);
   - verify-kconfig busca Kconfig recursivamente y acepta strings;
-  - `upload_artifacts` con `!= 'false'` para que los artefactos se emitan por defecto.
+   - `upload_artifacts` con `!= 'false'` para que los artefactos se emitan por defecto.
+
+- **M8 simplefb preparado y validado en CI** (2026-08-11): run kernel
+  `31447941911`, boot diagnóstico `31458775118`. Config final:
+  `FB_SIMPLE=y`, `DRM_MSM=m`, `FRAMEBUFFER_CONSOLE=y`, `VT=y`; el boot final
+  mide 23,085,056 B y su SHA-256 es
+  `09fbd1eb964dd49c1c3058f9a6ff7fc4e8fa5ffb9fae7ffbbf5e3049f9bf05e3`.
+  La extracción independiente confirmó kernel/ramdisk/DTB idénticos, DTB
+  `framebuffer@5c000000` y BusyBox arm64 estático. **No hay prueba física aún**.
 
 ## Parches downstream (patches/kernel/)
 
@@ -134,7 +142,14 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
    FASE 8, con recovery-kit preparado en `local-private/phase-e-flash/recovery-kit/`
    (TEST_IMG, KNOWN_GOOD_BOOT /e/OS 4.1.1, SHA256SUMS, recovery-manifest.json,
    recovery-commands.txt, preflight sanitizado). ORIGINAL_SLOT=a, TARGET_SLOT=b.
-6. ✅ **M6 en curso (SSH)**: workflow `11-build-historical-ssh-rootfs.yml`
+ 6. ✅ **M6 SSH baseline confirmado (2026-08-11)**: el rootfs preparado quedó
+    instalado en `system_b`; RNDIS y SSH como `pmos` funcionan, y root SSH por
+    clave funciona tras desbloquear la cuenta con la contraseña histórica
+    documentada. La política permanece `PermitRootLogin prohibit-password` y
+    `PasswordAuthentication no`. La captura root de solo lectura está en
+    `local-private/diagnostics/ssh-live/` y el informe sanitizado en
+    `reports/physical-tests/SSH-ROOT-6_1-READONLY/result.md`. Workflow
+    `11-build-historical-ssh-rootfs.yml`:
    reproduce el rootfs 6.1 con sshd habilitado + clave pública Ed25519
    (secret `SSH_PUBLIC_KEY`) + sshd_config endurecido.
     `scripts/ssh-harden-rootfs.sh` probado localmente end-to-end. **Run
