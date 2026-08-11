@@ -69,9 +69,11 @@ CONFIG_DRM=y
 CONFIG_FB=y
 CONFIG_FB_SIMPLE=y
 CONFIG_DRM_MSM=m
-CONFIG_DRM_MSM_DPU=m
-CONFIG_DRM_MSM_DSI=m
-CONFIG_DRM_MSM_MDSS=m
+# Estos tres símbolos son bool en Kconfig v7.1; el soporte se compila dentro
+# del módulo DRM_MSM aunque el driver principal permanezca =m.
+CONFIG_DRM_MSM_DPU=y
+CONFIG_DRM_MSM_DSI=y
+CONFIG_DRM_MSM_MDSS=y
 CONFIG_DRM_PANEL_SAMSUNG_S6E8FC0=m
 
 # Backlight: el panel queda como módulo para la fase DRM/GPU posterior.
