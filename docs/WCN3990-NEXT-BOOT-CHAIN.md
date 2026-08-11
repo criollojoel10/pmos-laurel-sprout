@@ -3,10 +3,14 @@
 Secuencia automática a ejecutar cuando la nueva build 03 (con 31a256e + SID
 0x80) termine success. NO se ejecuta todavía.
 
-> Estado 2026-08-11: la run 03 `31509183456` (commit 6e3d97d, sin 31a256e)
-> terminó success pero NO es el kernel Wi-Fi final. Lanzada la nueva 03
-> **`31513653872`** desde `main` (HEAD `e1957d3`, incluye 31a256e + SID 0x80).
-> Esperar a que termine y validar su artefacto antes de encadenar 04/05.
+> Estado 2026-08-11: kernel Wi-Fi `31513653872` (HEAD `e1957d3`, SID 0x80)
+> terminó success y fue validado (Kconfig + DTB con phandles resueltas).
+> Encadenados 04 `31523487558` (diag) y 05 `31523494602` (pmOS-shell),
+> ambos success. Boot pmOS-shell final:
+> `local-private/boot-31523494602/boot-out/boot-laurel-pmos-shell-v71.img`
+> SHA-256 `998df537f4d993d1c3adf9abd2790359553e07cf74ccb3d6da77c74b28d13ec2`.
+> Pendiente: prueba física FASE 8 y `dmesg` para confirmar probe ath10k_snoc /
+> board-id en board-2.bin.
 
 ## 1. Validar kernel-debug (03)
 

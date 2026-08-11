@@ -15,12 +15,12 @@ por uno que "entra directo al shell pmOS" como el 6.1.
 
 | Campo | Valor |
 |---|---|
-| Kernel run (03) | `31459886925` (success) |
+| Kernel run (03) | `31513653872` (success, WCN3990 SID 0x80) |
 | Rootfs run (11) | `31355730519` (success) |
-| Boot run (05) | `31509192782` (success) |
+| Boot run (05) | `31523494602` (success) |
 | Artefacto | `boot-laurel-pmos-shell-v71.img` |
-| Ruta local | `local-private/boot-31509192782/boot-out/boot-laurel-pmos-shell-v71.img` |
-| SHA-256 | `80792ca2f835e04b4d8e47a45c48512ba7da2319d38b4175647593fbffa49f0f` |
+| Ruta local | `local-private/boot-31523494602/boot-out/boot-laurel-pmos-shell-v71.img` |
+| SHA-256 | `998df537f4d993d1c3adf9abd2790359553e07cf74ccb3d6da77c74b28d13ec2` |
 | Tamaño | 24,846,336 bytes (límite 67,108,864) |
 | Partición prevista | solo `boot_b` |
 | skip_initramfs | no (corre el initramfs pmOS) |
