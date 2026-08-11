@@ -61,8 +61,10 @@ fi
 [[ -f "$RAWIN" ]]  || { echo "error: raw-in no existe: $RAWIN" >&2; exit 1; }
 [[ -f "$AUTHKEYS" ]] || { echo "error: authorized_keys no existe: $AUTHKEYS" >&2; exit 1; }
 [[ "$RAWIN" != "$RAWOUT" ]] || { echo "error: raw-out debe ser distinto de raw-in" >&2; exit 1; }
-[[ "$SECTOR" =~ ^[0-9]+$ ]] && [[ "$SECTOR" -gt 0 ]] \
-  || { echo "error: sector no válido: $SECTOR" >&2; exit 1; }
+if ! [[ "$SECTOR" =~ ^[0-9]+$ ]] || (( SECTOR == 0 )); then
+  echo "error: sector no válido: $SECTOR" >&2
+  exit 1
+fi
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
