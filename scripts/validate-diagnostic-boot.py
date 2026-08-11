@@ -59,7 +59,7 @@ def main():
         raise SystemExit("ERROR: payload truncado en boot.img")
     if len(boot) > 67108864:
         raise SystemExit("ERROR: boot.img excede 64 MiB")
-    required = ["console=ttyMSM0,115200n8", "console=tty0", "consoleblank=0", "g_ether.use_eem=0"]
+    required = ["console=ttyMSM0,115200n8", "console=tty0", "consoleblank=0"]
     missing = [item for item in required if item not in cmdline]
     if missing:
         raise SystemExit(f"ERROR: cmdline sin {', '.join(missing)}")

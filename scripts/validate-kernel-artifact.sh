@@ -55,6 +55,8 @@ expect CONFIG_FRAMEBUFFER_CONSOLE=y
 expect CONFIG_VT=y
 expect CONFIG_USB_ETH=y
 expect CONFIG_USB_ETH_RNDIS=y
+expect CONFIG_CONFIGFS_FS=y
+expect CONFIG_USB_CONFIGFS_RNDIS=y
 if grep -Eq '^CONFIG_DRM_SIMPLEDRM=' kernel.config; then
   echo "ERROR: DRM_SIMPLEDRM no debe competir con FB_SIMPLE" >&2
   exit 1

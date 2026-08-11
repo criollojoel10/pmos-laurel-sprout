@@ -77,6 +77,17 @@ else
   diag "  /chosen/framebuffer@5c000000 ausente"
 fi
 
+# Protección doble contra el blanking del VT: consoleblank=0 va en cmdline,
+# pero algunos handoffs de framebuffer pueden conservar el valor por defecto.
+for blank_param in /sys/module/kernel/parameters/consoleblank \
+                   /sys/module/vt/parameters/consoleblank; do
+  if test -w "$blank_param"; then
+    printf '0' > "$blank_param" 2>/dev/null || true
+    diag "consoleblank runtime: 0 ($blank_param)"
+  fi
+done
+printf '\033[9;0' > /dev/console 2>/dev/null || true
+
 # 2) Diagnóstico de hardware visible en mainline
 diag "nodos de video (drm):"
 /bin/busybox ls -l /dev/dri 2>/dev/null | indent || diag "  sin /dev/dri (DRM no hay /panel no probado)"
@@ -92,8 +103,28 @@ diag "UDC disponibles:"
 /bin/busybox ls -l /sys/class/udc 2>/dev/null | indent || diag "  sin UDC"
 diag "usb0:"
 /bin/busybox ls -l /sys/class/net/usb0 2>/dev/null | indent || diag "  usb0 ausente"
+if have ifconfig; then
+  # RNDIS temporal por configfs; las MAC las genera el kernel y no se fijan en
+  # el repositorio. El enlace es punto a punto con el host de prueba.
+  /bin/busybox mkdir -p /sys/kernel/config
+  /bin/busybox mount -t configfs none /sys/kernel/config 2>/dev/null || true
+  G=/sys/kernel/config/usb_gadget/diag
+  /bin/busybox mkdir -p "$G" "$G/strings/0x409" \
+    "$G/configs/c.1/strings/0x409" "$G/functions/rndis.usb0" 2>/dev/null || true
+  printf '0x18d1' > "$G/idVendor" 2>/dev/null || true
+  printf '0x4ee7' > "$G/idProduct" 2>/dev/null || true
+  printf 'laurel_sprout' > "$G/strings/0x409/serialnumber" 2>/dev/null || true
+  printf 'pmos' > "$G/strings/0x409/manufacturer" 2>/dev/null || true
+  printf '7.1 diagnostic' > "$G/strings/0x409/product" 2>/dev/null || true
+  printf 'RNDIS diagnostic' > "$G/configs/c.1/strings/0x409/configuration" 2>/dev/null || true
+  /bin/busybox ln -s "$G/functions/rndis.usb0" "$G/configs/c.1/rndis.usb0" 2>/dev/null || true
+  for udc in /sys/class/udc/*; do
+    test -e "$udc" || continue
+    printf '%s' "${udc##*/}" > "$G/UDC" 2>/dev/null || true
+    break
+  done
+fi
 if test -d /sys/class/net/usb0 && have ifconfig; then
-  # Gadget RNDIS temporal: el enlace es punto a punto con el host de prueba.
   /bin/busybox ifconfig usb0 172.16.42.1 netmask 255.255.255.0 up 2>&1 || true
   diag "usb0 configurado para diagnóstico en 172.16.42.1/24"
   if have telnetd; then
