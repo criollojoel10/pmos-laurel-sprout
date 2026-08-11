@@ -3,6 +3,15 @@
 Secuencia automática a ejecutar cuando la nueva build 03 (con 31a256e + SID
 0x80) termine success. NO se ejecuta todavía.
 
+> Estado 2026-08-11: la run 03 `31509183456` (commit 6e3d97d, sin 31a256e)
+> sigue in_progress y NO es el kernel Wi-Fi final. Cuando termine, relanzar
+> exactamente UNA build desde `main` (HEAD = 1075372, incluye el SID 0x80):
+
+```sh
+gh workflow run 03-build-kernel.yml --ref main \
+  --field build_variant=debug --field upload_artifacts=true
+```
+
 ## 1. Validar kernel-debug (03)
 
 ```sh
