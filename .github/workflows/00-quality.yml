@@ -121,17 +121,17 @@ jobs:
           data = json.load(open("sources.lock.json"))
           srcs = data.get("sources", [])
           required = {"name","url","vcs","branch_informational","commit","commit_date","license","purpose","verification_status","last_audited","notes"}
-           for i, s in enumerate(srcs):
-               missing = required - set(s.keys())
-               if missing:
-                   sys.exit(f"FALLO: source[{i}] {s.get('name')} sin campos: {sorted(missing)}")
-               if s.get("verification_status") == "verified":
-                   commit = s.get("commit")
-                   if s.get("vcs") == "git" and not isinstance(commit, str):
-                       sys.exit(f"FALLO: source[{i}] {s.get('name')} verified sin commit git")
-                   if isinstance(commit, str) and commit.upper() in {"PENDIENTE", "HEAD", "LATEST", "MAIN", "MASTER"}:
-                       sys.exit(f"FALLO: source[{i}] {s.get('name')} verified con commit mutable: {commit}")
-           print(f"[OK] sources.lock.json: {len(srcs)} entradas con campos requeridos")
+          for i, s in enumerate(srcs):
+              missing = required - set(s.keys())
+              if missing:
+                  sys.exit(f"FALLO: source[{i}] {s.get('name')} sin campos: {sorted(missing)}")
+              if s.get("verification_status") == "verified":
+                  commit = s.get("commit")
+                  if s.get("vcs") == "git" and not isinstance(commit, str):
+                      sys.exit(f"FALLO: source[{i}] {s.get('name')} verified sin commit git")
+                  if isinstance(commit, str) and commit.upper() in {"PENDIENTE", "HEAD", "LATEST", "MAIN", "MASTER"}:
+                      sys.exit(f"FALLO: source[{i}] {s.get('name')} verified con commit mutable: {commit}")
+          print(f"[OK] sources.lock.json: {len(srcs)} entradas con campos requeridos")
           PY
       - name: Validar fuentes y fragmentos Kconfig
         run: |
