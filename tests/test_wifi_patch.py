@@ -17,7 +17,7 @@ class WifiPatchTest(unittest.TestCase):
             'compatible = "qcom,wcn3990-wifi"',
             "reg = <0x0c800000 0x800000>",
             "memory-region = <&wlan_msa_mem>",
-            "iommus = <&apps_smmu 0x1a0 0x1>",
+            "iommus = <&apps_smmu 0x80 0x1>",
             "qcom,msa-fixed-perm",
             "GIC_SPI 358",
             "GIC_SPI 369",
