@@ -86,12 +86,12 @@ def main():
     os.makedirs(initramfs_dir)
     extract_newc(extracted_ramdisk, initramfs_dir)
     for path in ("init", "bin/busybox", "etc/issue"):
-        if not os.path.exists(os.path.join(initramfs_dir, path)):
+        if not os.path.lexists(os.path.join(initramfs_dir, path)):
             raise SystemExit(f"ERROR: initramfs sin {path}")
     for applet in ("ifconfig", "telnetd"):
         candidates = [os.path.join(initramfs_dir, directory, applet)
                       for directory in ("bin", "sbin", "usr/bin", "usr/sbin")]
-        if not any(os.path.exists(path) for path in candidates):
+        if not any(os.path.lexists(path) for path in candidates):
             raise SystemExit(f"ERROR: initramfs sin applet {applet}")
     busybox_path = os.path.join(initramfs_dir, "bin/busybox")
     busybox_info = subprocess.check_output(["file", busybox_path], text=True)
