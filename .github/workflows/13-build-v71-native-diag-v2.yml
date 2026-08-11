@@ -106,7 +106,7 @@ jobs:
             --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
             --busybox-root /tmp/busybox-out/applet-root \
             --out /tmp/initramfs-out
-          cpio -t < /tmp/initramfs-out/initramfs.cpio.gz > /tmp/initramfs-file-list.txt
+          gzip -dc /tmp/initramfs-out/initramfs.cpio.gz | cpio -t > /tmp/initramfs-file-list.txt
       - name: Ensamblar boot nativo v7.1 v2
         run: |
           set -Eeuo pipefail
