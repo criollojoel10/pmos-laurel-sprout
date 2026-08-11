@@ -94,7 +94,7 @@ elif [[ -n "$BUSYBOX" && -f "$BUSYBOX" ]]; then
   cp "$BUSYBOX" "$STAGE/bin/busybox"
   for a in sh mount umount cat echo ls sleep uname dmesg chmod ln mkdir mknod \
            ps cp mv rm touch tail head free df sed grep awk uptime setsid \
-           sync switch_root tr wc test; do
+           sync switch_root tr wc test ifconfig telnetd; do
     ln -sf /bin/busybox "$STAGE/bin/$a"
   done
   ln -sf /bin/busybox "$STAGE/sbin/mount"
@@ -112,6 +112,7 @@ chmod 0755 "$STAGE/init"
 # 3) /etc — mínimo
 mkdir -p "$STAGE/etc"
 printf 'pmos-diag' > "$STAGE/etc/hostname"
+printf 'pmos-diag (telnet diagnostic shell)\n' > "$STAGE/etc/issue"
 : > "$STAGE/etc/mtab"
 
 # 4) Empaquetar como cpio gzip (format initramfs del kernel)
@@ -129,6 +130,7 @@ initramfs de diagnóstico laurel_sprout (mainline v7.1)
   (make CONFIG_PREFIX install: bin/sbin/usr), incluye sed/grep/awk/uptime
 - init: initramfs/init (PID 1)
 - consola serial ttyMSM0 + /dev/console
+- gadget RNDIS temporal en 172.16.42.1/24 + telnetd solo para diagnóstico
 - NADA se monta del rootfs del dispositivo
 generado: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF

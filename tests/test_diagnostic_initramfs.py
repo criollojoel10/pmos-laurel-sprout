@@ -45,7 +45,8 @@ while true; do sleep 3600; done
 
 REQUIRED_APPLETS = ["sh", "cat", "sed", "grep", "awk", "mount", "umount",
                     "mkdir", "mknod", "sleep", "dmesg", "uptime", "ls", "cp",
-                    "sync", "switch_root", "tr", "wc", "setsid"]
+                    "sync", "switch_root", "tr", "wc", "setsid", "ifconfig",
+                    "telnetd"]
 
 
 def fake_aarch64_busybox():

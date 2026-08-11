@@ -18,7 +18,7 @@
 #   - bin/busybox existe y es aarch64 estático
 #   - existen los applets requeridos por /init y la shell de rescate
 #     (sed, grep, awk, mount, umount, mkdir, mknod, sleep, dmesg, uptime,
-#     ls, cp, sync, switch_root, cat, sh, tr, wc, setsid)
+#     ls, cp, sync, switch_root, cat, sh, tr, wc, setsid, ifconfig, telnetd)
 #   - sed está disponible (causa raíz EX3)
 #
 # Uso:
@@ -49,7 +49,7 @@ done
 mkdir -p "$OUT"
 
 REQUIRED_APPLETS=(sh cat sed grep awk mount umount mkdir mknod sleep dmesg \
-                  uptime ls cp sync switch_root tr wc setsid)
+                  uptime ls cp sync switch_root tr wc setsid ifconfig telnetd)
 # Comandos destructivos: se buscan SOLO en líneas de código (no comentarios),
 # como palabra completa. Un encabezado que diga "NO formatea" no debe fallar.
 DESTRUCTIVE=(reboot format mkfs fsck dd flash erase fastboot userdata \

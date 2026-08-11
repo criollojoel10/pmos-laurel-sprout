@@ -73,7 +73,10 @@ jobs:
             exit 1
           fi
           if [[ -f /tmp/kernel-artifact/SHA256SUMS ]]; then
-            (cd /tmp/kernel-artifact && sha256sum -c SHA256SUMS) || true
+            (cd /tmp/kernel-artifact && sha256sum -c SHA256SUMS)
+          else
+            echo "ERROR: falta SHA256SUMS del artefacto kernel-debug" >&2
+            exit 1
           fi
           ls -la /tmp/kernel-artifact/Image.gz /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb
       - name: Construir BusyBox arm64 estático
@@ -119,7 +122,7 @@ jobs:
             --dtb-offset 0x0000000001f00000 \
             --os-version 12.0.0 \
             --os-patch-level 2026-08 \
-            --cmdline "console=ttyMSM0,115200n8 console=tty0 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 msm_rtb.filter=0x237 lpm_levels.sleep_disabled=1 service_locator.enable=1 loop.max_part=7 buildvariant=user"
+            --cmdline "console=ttyMSM0,115200n8 console=tty0 consoleblank=0 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 msm_rtb.filter=0x237 lpm_levels.sleep_disabled=1 service_locator.enable=1 loop.max_part=7 buildvariant=user g_ether.use_eem=0"
       - name: Inspeccionar y verificar boot.img
         run: |
           set -Eeuo pipefail

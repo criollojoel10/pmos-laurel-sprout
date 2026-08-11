@@ -64,6 +64,19 @@ fi
 log "--- mtab ---"
 /bin/busybox mount 2>/dev/null | indent
 
+# Diagnóstico temprano del framebuffer que entrega el bootloader.
+diag "framebuffer sysfs:"
+/bin/busybox cat /sys/class/graphics/fb0/name 2>/dev/null | indent || diag "  fb0/name ausente"
+/bin/busybox cat /sys/class/graphics/fb0/modes 2>/dev/null | indent || true
+/bin/busybox cat /sys/class/graphics/fb0/stride 2>/dev/null | indent || true
+/bin/busybox cat /sys/class/graphics/fb0/virtual_size 2>/dev/null | indent || true
+diag "nodo DT framebuffer:"
+if test -e /sys/firmware/devicetree/base/chosen/framebuffer@5c000000; then
+  diag "  /chosen/framebuffer@5c000000 presente"
+else
+  diag "  /chosen/framebuffer@5c000000 ausente"
+fi
+
 # 2) Diagnóstico de hardware visible en mainline
 diag "nodos de video (drm):"
 /bin/busybox ls -l /dev/dri 2>/dev/null | indent || diag "  sin /dev/dri (DRM no hay /panel no probado)"
@@ -74,6 +87,22 @@ diag "bloques UFS/emmc:"
 diag "ramoops/pstore:"
 /bin/busybox ls -la /sys/fs/pstore 2>/dev/null | indent || diag "  /sys/fs/pstore sin montar"
 /bin/busybox mount -t pstore pstore /sys/fs/pstore 2>/dev/null && diag "  pstore montado" || true
+
+diag "UDC disponibles:"
+/bin/busybox ls -l /sys/class/udc 2>/dev/null | indent || diag "  sin UDC"
+diag "usb0:"
+/bin/busybox ls -l /sys/class/net/usb0 2>/dev/null | indent || diag "  usb0 ausente"
+if test -d /sys/class/net/usb0 && have ifconfig; then
+  # Gadget RNDIS temporal: el enlace es punto a punto con el host de prueba.
+  /bin/busybox ifconfig usb0 172.16.42.1 netmask 255.255.255.0 up 2>&1 || true
+  diag "usb0 configurado para diagnóstico en 172.16.42.1/24"
+  if have telnetd; then
+    /bin/busybox telnetd -f /etc/issue -l /bin/sh -p 23 2>&1 || true
+    diag "telnetd diagnóstico iniciado en usb0:23 (sin autenticación, enlace aislado)"
+  else
+    diag "telnetd no disponible en BusyBox"
+  fi
+fi
 
 log "=== diagnostico de dispositivos (cpufreq /regulators) ==="
 diag "gobernadores: $(/bin/busybox cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo n/d)"
@@ -88,6 +117,8 @@ diag "firmware: $(/bin/busybox ls /lib/firmware/qcom/sm6125/xiaomi/laurel 2>/dev
 
 log "=== fin del init (a partir de aqui: consola + triggers) ==="
 log "linea de comandos del kernel: $(/bin/busybox cat /proc/cmdline)"
+diag "dmesg display/usb:"
+/bin/busybox dmesg 2>/dev/null | /bin/busybox grep -iE 'simplefb|simpledrm|fbcon|framebuffer|msm|dpu|dsi|panel|dwc3|gadget|udc|rndis' | indent || true
 
 # --- 4) Abrir una shell en la consola serial principal (ttyMSM0) ---
 # Cuando el serial (UART a 115200) esta conectado, esto da interaccion.
