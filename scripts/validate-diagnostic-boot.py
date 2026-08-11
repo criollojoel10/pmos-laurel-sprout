@@ -85,10 +85,16 @@ def main():
     initramfs_dir = os.path.join(args.out, "initramfs")
     os.makedirs(initramfs_dir)
     extract_newc(extracted_ramdisk, initramfs_dir)
-    for path in ("init", "bin/busybox", "bin/ifconfig", "bin/telnetd", "etc/issue"):
+    for path in ("init", "bin/busybox", "etc/issue"):
         if not os.path.exists(os.path.join(initramfs_dir, path)):
             raise SystemExit(f"ERROR: initramfs sin {path}")
-    busybox_info = subprocess.check_output(["file", os.path.join(initramfs_dir, "bin/busybox")], text=True)
+    for applet in ("ifconfig", "telnetd"):
+        candidates = [os.path.join(initramfs_dir, directory, applet)
+                      for directory in ("bin", "sbin", "usr/bin", "usr/sbin")]
+        if not any(os.path.exists(path) for path in candidates):
+            raise SystemExit(f"ERROR: initramfs sin applet {applet}")
+    busybox_path = os.path.join(initramfs_dir, "bin/busybox")
+    busybox_info = subprocess.check_output(["file", busybox_path], text=True)
     if "ARM aarch64" not in busybox_info or "static" not in busybox_info:
         raise SystemExit(f"ERROR: BusyBox no es aarch64 estático: {busybox_info.strip()}")
     report = os.path.join(args.out, "diagnostic-boot-validation.md")
