@@ -11,6 +11,7 @@
 #   0001-dts-mdss-panel-s6e8fc0.patch  Enable MDSS + panel S6E8FC0 (typo corregido)
 #   0002-dtsi-gpu-adreno610.patch      Nodos GPU (gpu/gmu_wrapper/gpucc/adreno_smmu)
 #   0003-dts-enable-gpu.patch          Enable GPU + zap-shader en DTS de placa
+#   0004-dts-enable-wifi-wcn3990.patch Nodo WCN3990 SNOC + MSA/reguladores
 #
 # Uso:
 #   scripts/apply-kernel-patches.sh <árbol-kernel>

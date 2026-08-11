@@ -57,11 +57,13 @@ def main():
     if dtb:
         with open(os.path.join(args.out, "dtb"), "wb") as fh:
             fh.write(dtb)
-        print(f"dtb: {len(dtb)} bytes")
-    print(f"header v{version} page {page} kernel {kernel_size} ramdisk {ramdisk_size}")
-    print(f"cmdline: {cmdline}")
     if args.print_cmdline:
         print(cmdline)
+    else:
+        if dtb:
+            print(f"dtb: {len(dtb)} bytes")
+        print(f"header v{version} page {page} kernel {kernel_size} ramdisk {ramdisk_size}")
+        print(f"cmdline: {cmdline}")
 
 
 if __name__ == "__main__":
