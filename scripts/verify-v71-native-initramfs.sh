@@ -21,10 +21,11 @@ gzip -dc "$RAMDISK" > "$TMP/root.cpio"
 mkdir -p "$TMP/root"
 (cd "$TMP/root" && cpio -idm < "$TMP/root.cpio" >/dev/null 2>&1)
 test -f "$TMP/root/init" || { echo "ERROR: falta /init" >&2; exit 1; }
-grep -q 'V71_INITRAMFS_REACHED' "$TMP/root/init"
-grep -q 'V71_HEARTBEAT' "$TMP/root/init"
-grep -q 'V71_GADGET_CONFIGURED' "$TMP/root/init"
-grep -q 'V71_RESCUE_SHELL_ACTIVE' "$TMP/root/init"
+# Acepta conjunto v1 y v2 de marcadores.
+grep -qE 'V71_INITRAMFS_REACHED|V71_V2_INITRAMFS_REACHED' "$TMP/root/init"
+grep -qE 'V71_HEARTBEAT|V71_V2_HEARTBEAT' "$TMP/root/init"
+grep -qE 'V71_GADGET_CONFIGURED|V71_V2_GADGET_BIND_SUCCESS' "$TMP/root/init"
+grep -qE 'V71_RESCUE_SHELL_ACTIVE|V71_V2_STABLE_LOOP' "$TMP/root/init"
 if grep -qE '6\.1\.0-sm6125|/lib/modules/6\.1|vermagic.*6\.1' "$TMP/root/init"; then
   echo "ERROR: referencia a módulos 6.1 en init nativo" >&2
   exit 1
