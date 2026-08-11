@@ -60,15 +60,21 @@ CONFIG_I2C_QCOM_GENI=y
 CONFIG_TOUCHSCREEN_EDT_FT5X06=y
 
 # DRM / MSM
+# Bring-up de pantalla: el DTB ya declara /chosen/framebuffer@5c000000 y el
+# kernel 6.1 probado lo expone mediante simplefb/fbcon. FB_SIMPLE enlaza
+# directamente el nodo OF "simple-framebuffer"; SYSFB_SIMPLEFB no aplica en
+# ARM64 (solo X86/EFI) y DRM_SIMPLEDRM no se habilita simultáneamente porque
+# FB_SIMPLE depende de !DRM_SIMPLEDRM.
 CONFIG_DRM=y
-CONFIG_DRM_MSM=y
-CONFIG_DRM_MSM_DPU=y
-CONFIG_DRM_MSM_DSI=y
-CONFIG_DRM_MSM_MDSS=y
-CONFIG_DRM_PANEL_SAMSUNG_S6E8FC0=y
+CONFIG_FB=y
+CONFIG_FB_SIMPLE=y
+CONFIG_DRM_MSM=m
+CONFIG_DRM_MSM_DPU=m
+CONFIG_DRM_MSM_DSI=m
+CONFIG_DRM_MSM_MDSS=m
+CONFIG_DRM_PANEL_SAMSUNG_S6E8FC0=m
 
-# Backlight: el panel S6E8FC0 es tristate y 'depends on BACKLIGHT_CLASS_DEVICE'.
-# Sin esto, olddefconfig capa el panel de =y a =m (o n) y el checkpoint aborta.
+# Backlight: el panel queda como módulo para la fase DRM/GPU posterior.
 CONFIG_BACKLIGHT_CLASS_DEVICE=y
 
 # fbcon (paridad con 6.1, que muestra consola en pantalla):
@@ -98,11 +104,8 @@ CONFIG_REGULATOR_QCOM_SPMI=y
 # el driver no se puede habilitar hasta que el Kconfig suba upstream (v7.2+).
 # CONFIG_PINCTRL_SM6125=y
 
-# Dependencias tristate de DRM_MSM (v7.1: "depends on QCOM_OCMEM || QCOM_OCMEM=n"
-# y "depends on QCOM_LLCC || QCOM_LLCC=n"). La defconfig base las deja en =m;
-# un =m en esa expresión capa DRM_MSM a =m aunque el fragmento pida =y.
-# Fijarlas a =y (built-in) es lo que permite que DRM_MSM=y sobreviva a
-# `make olddefconfig`.
+# Dependencias de DRM_MSM: se mantienen built-in para que el módulo DRM pueda
+# cargarse más adelante sin volver a degradar otras piezas del SoC.
 CONFIG_QCOM_OCMEM=y
 CONFIG_QCOM_LLCC=y
 
