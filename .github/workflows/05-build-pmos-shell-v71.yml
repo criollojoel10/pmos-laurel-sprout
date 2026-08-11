@@ -1,0 +1,202 @@
+name: 05-build-pmos-shell-v71
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_artifact_run_id:
+        description: Run ID del workflow 03-build-kernel (kernel-debug v7.1)
+        type: string
+        default: "31459886925"
+      rootfs_artifact_run_id:
+        description: Run ID del workflow 11-build-historical-ssh-rootfs (boot.img pmOS histórico)
+        type: string
+        default: "31355730519"
+      skip_initramfs:
+        description: Añadir skip_initramfs al cmdline (monta root=PARTUUID directo)
+        type: boolean
+        default: false
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: pmos-shell-v71
+  cancel-in-progress: true
+
+jobs:
+  build-shell-boot:
+    name: Boot 7.1 que continúa al rootfs pmOS (system_b)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Instalar dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            device-tree-compiler cpio zstd xz-utils gzip file \
+            python3 crossbuild-essential-arm64 android-sdk-libsparse-utils \
+            e2fsprogs
+      - name: Descargar artefacto kernel-debug (workflow 03)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kernel-debug
+          path: /tmp/kernel-artifact
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.inputs.kernel_artifact_run_id }}
+      - name: Verificar artefacto kernel
+        run: |
+          set -Eeuo pipefail
+          ls -la /tmp/kernel-artifact/
+          test -f /tmp/kernel-artifact/Image.gz
+          test -f /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb
+          test -f /tmp/kernel-artifact/SHA256SUMS || {
+            echo "ERROR: falta SHA256SUMS del kernel-debug" >&2
+            exit 1
+          }
+          (cd /tmp/kernel-artifact && sha256sum -c SHA256SUMS)
+      - name: Descargar boot.img pmOS histórico (workflow 11)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: historical-rootfs-ssh
+          path: /tmp/rootfs-artifact
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.inputs.rootfs_artifact_run_id }}
+      - name: Extraer ramdisk pmOS del boot.img histórico
+        run: |
+          set -Eeuo pipefail
+          PMOS_BOOT="$(find /tmp/rootfs-artifact -name 'boot.img' -path '*export-resolved*' -print -quit)"
+          test -n "$PMOS_BOOT" || {
+            PMOS_BOOT="$(find /tmp/rootfs-artifact -name 'boot.img' -print -quit)"
+          }
+          test -n "$PMOS_BOOT" || { echo "ERROR: no se encontró boot.img pmOS" >&2; exit 1; }
+          echo "boot.img pmOS: $PMOS_BOOT"
+          mkdir -p /tmp/pmos
+          python3 scripts/unpack-boot-image.py --boot "$PMOS_BOOT" --out /tmp/pmos --print-cmdline
+          file /tmp/pmos/ramdisk
+          gzip -dc /tmp/pmos/ramdisk > /tmp/pmos/ramdisk.cpio
+          cpio -t < /tmp/pmos/ramdisk.cpio >/dev/null && echo "OK: ramdisk es cpio gzip"
+      - name: Ensamblar boot.img v7.1 -> rootfs pmOS
+        run: |
+          set -Eeuo pipefail
+          SKIP_INITRAMFS="${{ github.event.inputs.skip_initramfs }}"
+          CMDLINE="console=ttyMSM0,115200n8 console=tty0 consoleblank=0 clk_ignore_unused androidboot.hardware=qcom androidboot.console=ttyMSM0 root=PARTUUID=dd9c45fe-41b1-02a1-ed69-58eb218e5043 rootwait ro init=/init loop.max_part=7 buildvariant=user"
+          if [[ "$SKIP_INITRAMFS" == "true" ]]; then
+            CMDLINE="$CMDLINE skip_initramfs"
+          fi
+          echo "cmdline: $CMDLINE"
+          mkdir -p /tmp/boot-out
+          python3 scripts/build-boot-image.py \
+            --kernel /tmp/kernel-artifact/Image.gz \
+            --ramdisk /tmp/pmos/ramdisk \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --out /tmp/boot-out/boot-laurel-pmos-shell-v71.img \
+            --base 0x00000000 \
+            --page-size 4096 \
+            --kernel-offset 0x00008000 \
+            --ramdisk-offset 0x01000000 \
+            --tags-offset 0x00000100 \
+            --dtb-offset 0x0000000001f00000 \
+            --os-version 12.0.0 \
+            --os-patch-level 2026-08 \
+            --cmdline "$CMDLINE"
+      - name: Validación estricta del boot extraído (layout pmOS)
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/boot-validation
+          python3 scripts/unpack-boot-image.py \
+            --boot /tmp/boot-out/boot-laurel-pmos-shell-v71.img \
+            --out /tmp/boot-validation
+          # Hashes byte-idénticos de kernel, ramdisk y DTB
+          sha256sum -c <<EOF
+          $(sha256sum /tmp/kernel-artifact/Image.gz | awk '{print $1}')  /tmp/boot-validation/kernel
+          $(sha256sum /tmp/pmos/ramdisk | awk '{print $1}')  /tmp/boot-validation/ramdisk
+          $(sha256sum /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb | awk '{print $1}')  /tmp/boot-validation/dtb
+          EOF
+          CMDLINE="$(python3 scripts/unpack-boot-image.py --boot /tmp/boot-out/boot-laurel-pmos-shell-v71.img --out /tmp/boot-validation2 --print-cmdline)"
+          echo "== cmdline del boot final =="
+          echo "$CMDLINE"
+          for tok in "root=PARTUUID=dd9c45fe-41b1-02a1-ed69-58eb218e5043" "rootwait" "console=tty0" "consoleblank=0"; do
+            grep -q "$tok" <<<"$CMDLINE" || { echo "ERROR: cmdline sin $tok" >&2; exit 1; }
+          done
+          if grep -q "skip_initramfs" <<<"$CMDLINE"; then
+            echo "AVISO: cmdline contiene skip_initramfs (el kernel monta root directo)"
+          else
+            echo "OK: cmdline SIN skip_initramfs (corre el initramfs pmOS)"
+          fi
+          # DTB conserva el framebuffer simple
+          dtc -I dtb -O dts -o /tmp/boot-validation/dtb.dts /tmp/boot-validation/dtb
+          grep -q 'framebuffer@5c000000' /tmp/boot-validation/dtb.dts || {
+            echo "ERROR: DTB sin framebuffer@5c000000" >&2; exit 1; }
+          grep -Eq 'width = <(0x2d0|720)>' /tmp/boot-validation/dtb.dts || {
+            echo "ERROR: DTB framebuffer sin 720" >&2; exit 1; }
+          # El ramdisk pmOS es cpio gzip con /init
+          gzip -dc /tmp/boot-validation/ramdisk > /tmp/boot-validation/ramdisk.cpio
+          mkdir -p /tmp/boot-validation/ramfs
+          (cd /tmp/boot-validation/ramfs && cpio -idm < /tmp/boot-validation/ramdisk.cpio >/dev/null 2>&1)
+          test -f /tmp/boot-validation/ramfs/init || {
+            echo "ERROR: el ramdisk pmOS no contiene /init" >&2; exit 1; }
+          echo "OK: ramdisk pmOS contiene /init"
+          SIZE="$(stat -c %s /tmp/boot-out/boot-laurel-pmos-shell-v71.img)"
+          echo "boot.img: $SIZE bytes (límite 67108864)"
+          (( SIZE <= 67108864 )) || { echo "ERROR: excede 64 MiB" >&2; exit 1; }
+          echo "OK: boot.img cabe en boot_b"
+          # Resumen en informe
+          cat > /tmp/boot-validation/pmos-shell-boot-validation.md <<EOF
+          # Validación boot pmOS shell v7.1
+          - boot bytes: $SIZE / 67108864
+          - kernel/ramdisk/DTB: extracción y hashes idénticos
+          - cmdline: $CMDLINE
+          - DTB: framebuffer@5c000000 presente
+          - ramdisk pmOS: /init presente (cpio gzip)
+          EOF
+      - name: Generar checksums y manifest
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/boot-out
+          sha256sum boot-laurel-pmos-shell-v71.img > SHA256SUMS
+          jq -n \
+            --arg kernel_run "${{ github.event.inputs.kernel_artifact_run_id }}" \
+            --arg rootfs_run "${{ github.event.inputs.rootfs_artifact_run_id }}" \
+            --arg size "$(stat -c %s boot-laurel-pmos-shell-v71.img)" \
+            --arg skip "${{ github.event.inputs.skip_initramfs }}" \
+            '{artifact:"boot-laurel-pmos-shell-v71", kernel_run_id:$kernel_run, rootfs_run_id:$rootfs_run, skip_initramfs:($skip=="true"), size_bytes:($size|tonumber), limit_bytes:67108864, fits:(($size|tonumber)<=67108864), root_partuuid:"dd9c45fe-41b1-02a1-ed69-58eb218e5043", generated_at:"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' \
+            > manifest.json
+          cat SHA256SUMS; cat manifest.json
+      - name: Empaquetar salida
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: boot-laurel-pmos-shell-v71
+          path: |
+            /tmp/boot-out/boot-laurel-pmos-shell-v71.img
+            /tmp/boot-out/SHA256SUMS
+            /tmp/boot-out/manifest.json
+            /tmp/boot-validation/pmos-shell-boot-validation.md
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pmos-shell-v71-diagnostic
+          path: |
+            /tmp/boot-out/*.log
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore

@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmos-laurel-sprout <dev@pmos.laurel.invalid>
+Date: 2026-08-11
+Subject: [PATCH] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: enable WCN3990 Wi-Fi
+
+Habilita el nodo Wi-Fi WCN3990 por SNOC (ath10k-snoc), NO por SDIO.
+
+El DT Android de referencia (LineageOS android_kernel_xiaomi_sm6125,
+commit 713c1f8d, arch/arm64/boot/dts/qcom/trinket.dtsi) declara:
+- icnss@C800000 (reg membase 0xC800000, 8 MiB)
+- wlan_msa_mem@53300000 (2 MiB, ya presente en mainline sm6125.dtsi)
+- IRQs SPI 358..369 (12 CE)
+- vregs L8A (cx-mx), L16A (1.8 XO), L17A (1.3 RFA), L23A (3.3 CH0)
+
+Este nodo replica esa topología con el binding mainline
+qcom,wcn3990-wifi y los reguladores PM6125 vreg_l8a/l16a/l17a/l23a
+ya definidos en el DTS de placa. El nodo se inserta bajo /soc@0
+mediante merge por ruta (soc@0 no expone label en mainline).
+
+Estado: downstream-only (no upstream). El firmware ath10k WCN3990
+(sin /lib/firmware/qcom/wcn3990/hw1.0/*) y el board file específico
+son requisito runtime; sin ellos el driver carga pero no funciona.
+
+No se tocan mmc@4744000 / mmc@4784000 (el primero está disabled; el
+segundo es el lector microSD con no-sdio/no-mmc).
+
+Signed-off-by: pmos-laurel-sprout <dev@pmos.laurel.invalid>
+---
+ arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts | 28 ++++++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
+--- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
++++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
+@@ -484,3 +484,31 @@
+ &usb3_dwc3 {
+ 	extcon = <&extcon_usb>;
+ };
++
++/ {
++	soc@0 {
++		wifi@c800000 {
++			compatible = "qcom,wcn3990-wifi";
++			reg = <0x0c800000 0x800000>;
++			reg-names = "membase";
++			memory-region = <&wlan_msa_mem>;
++			interrupts =
++				<GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 362 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>;
++			vdd-0.8-cx-mx-supply = <&vreg_l8a>;
++			vdd-1.8-xo-supply = <&vreg_l16a>;
++			vdd-1.3-rfa-supply = <&vreg_l17a>;
++			vdd-3.3-ch0-supply = <&vreg_l23a>;
++		};
++	};
++};
