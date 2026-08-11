@@ -152,6 +152,15 @@ jobs:
             echo "original  kernel sha: $(sha256sum /tmp/kernel-artifact/Image.gz | cut -c1-16)"
             echo "kernels iguales: $([[ "$(sha256sum /tmp/rt/kernel | cut -c1-16)" == "$(sha256sum /tmp/kernel-artifact/Image.gz | cut -c1-16)" ]] && echo SÍ || echo NO)"
           fi
+      - name: Validación estricta del boot extraído
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/validate-diagnostic-boot.py \
+            --boot /tmp/boot-out/boot-laurel-diagnostic.img \
+            --kernel /tmp/kernel-artifact/Image.gz \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --out /tmp/boot-validation
       - name: Generar checksums y manifest
         run: |
           set -Eeuo pipefail
@@ -175,7 +184,8 @@ jobs:
             /tmp/boot-out/manifest.json
             /tmp/initramfs-out/initramfs.cpio.gz
             /tmp/initramfs-out/initramfs-manifest.txt
-            /tmp/boot-report/boot-image-report.md
+             /tmp/boot-report/boot-image-report.md
+             /tmp/boot-validation/diagnostic-boot-validation.md
           retention-days: 7
       - name: Subir logs de diagnóstico (siempre)
         if: always()
