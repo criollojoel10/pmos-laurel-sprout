@@ -1,0 +1,106 @@
+#!/bin/busybox sh
+# Licencia: GPL-3.0-or-later
+# PID 1 nativo para kernel v7.1. No usa módulos ni scripts del kernel 6.1.
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+APPLETS="$(/bin/busybox --list 2>/dev/null | tr '\n' ' ')"
+have() { case " $APPLETS " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+
+emit() {
+  line="$*"
+  echo "$line"
+  for console in /dev/console /dev/tty0 /dev/ttyMSM0 /dev/kmsg; do
+    test -e "$console" && echo "$line" > "$console" 2>/dev/null || true
+  done
+}
+
+stage() { printf '%s\n' "$1" > /run/v71-stage 2>/dev/null || true; }
+mark() { stage "$1"; emit "$1"; }
+
+mark "V71_KERNEL_USERSPACE_ENTERED kernel=$(uname -r) arch=$(uname -m)"
+/bin/busybox mkdir -p /proc /sys /dev /run /tmp /mnt /sys/kernel/config
+
+if /bin/busybox mount -t proc none /proc 2>&1; then mark V71_PROC_MOUNTED; else mark V71_PROC_MOUNT_FAILED; fi
+if /bin/busybox mount -t sysfs none /sys 2>&1; then mark V71_SYS_MOUNTED; else mark V71_SYS_MOUNT_FAILED; fi
+if /bin/busybox mount -t devtmpfs none /dev 2>&1; then mark V71_DEVTMPFS_MOUNTED; else mark V71_DEVTMPFS_MOUNT_FAILED; fi
+
+for param in /sys/module/kernel/parameters/consoleblank /sys/module/vt/parameters/consoleblank; do
+  test -w "$param" && printf '0' > "$param" 2>/dev/null || true
+done
+printf '\033[9;0' > /dev/console 2>/dev/null || true
+
+if test -e /dev/fb0; then mark V71_FB_PRESENT; else mark V71_FB_ABSENT; fi
+if ls /dev/sd* /dev/mmcblk* >/dev/null 2>&1; then mark V71_UFS_PRESENT; else mark V71_UFS_ABSENT; fi
+
+setup_gadget() {
+  function="$(/bin/busybox cat /etc/diag-usb-function 2>/dev/null || echo rndis)"
+  G=/sys/kernel/config/usb_gadget/v71diag
+  /bin/busybox mount -t configfs none /sys/kernel/config 2>/dev/null || true
+  test -d /sys/kernel/config || { mark V71_GADGET_FAILED_CONFIGFS; return; }
+  /bin/busybox mkdir -p "$G/strings/0x409" "$G/configs/c.1/strings/0x409" \
+    "$G/functions/$function.usb0" 2>/dev/null || { mark V71_GADGET_FAILED_FUNCTION; return; }
+  printf '0x18d1' > "$G/idVendor" 2>/dev/null || true
+  printf '0x4ee7' > "$G/idProduct" 2>/dev/null || true
+  printf 'v71diag' > "$G/strings/0x409/serialnumber" 2>/dev/null || true
+  printf 'postmarketOS' > "$G/strings/0x409/manufacturer" 2>/dev/null || true
+  printf 'laurel v7.1 diagnostic' > "$G/strings/0x409/product" 2>/dev/null || true
+  printf 'USB %s diagnostic' "$function" > "$G/configs/c.1/strings/0x409/configuration" 2>/dev/null || true
+  /bin/busybox ln -s "$G/functions/$function.usb0" "$G/configs/c.1/$function.usb0" 2>/dev/null || true
+  for udc in /sys/class/udc/*; do
+    test -e "$udc" || continue
+    printf '%s' "${udc##*/}" > "$G/UDC" 2>/dev/null || { mark V71_GADGET_FAILED_BIND; return; }
+    mark "V71_UDC_PRESENT name=${udc##*/}"
+    mark "V71_GADGET_CONFIGURED function=$function"
+    return
+  done
+  mark V71_UDC_ABSENT
+  mark V71_GADGET_FAILED_NO_UDC
+}
+
+if ls /sys/class/udc/* >/dev/null 2>&1; then mark V71_UDC_PRESENT; else mark V71_UDC_ABSENT; fi
+setup_gadget
+
+if test -d /sys/class/net/usb0 && have ifconfig; then
+  /bin/busybox ifconfig usb0 172.16.42.1 netmask 255.255.255.0 up 2>&1 || true
+  mark V71_USB0_PRESENT
+  if have telnetd; then
+    /bin/busybox telnetd -f /etc/issue -l /bin/sh -p 23 2>&1 || true
+    mark V71_REMOTE_SHELL_STARTED
+  else
+    mark V71_REMOTE_SHELL_FAILED
+  fi
+else
+  mark V71_USB0_ABSENT
+  mark V71_REMOTE_SHELL_FAILED
+fi
+
+if /bin/busybox mount -t pstore pstore /sys/fs/pstore 2>/dev/null; then
+  emit "V71_PSTORE_MOUNTED"
+else
+  emit "V71_PSTORE_UNAVAILABLE"
+fi
+
+emit "V71_CMDLINE $(cat /proc/cmdline 2>/dev/null)"
+emit "V71_DMESG_BEGIN"
+/bin/busybox dmesg 2>/dev/null | /bin/busybox grep -iE 'panic|oops|error|fail|dwc3|gadget|udc|usb|ufshcd|ufs|simplefb|fbcon|framebuffer|console|qcom|ath10k|wcn|qmi|qrtr' || true
+emit "V71_DMESG_END"
+mark V71_INITRAMFS_REACHED
+mark V71_RESCUE_SHELL_ACTIVE
+
+# El heartbeat vive separado para que PID 1 y el canal remoto sigan activos.
+(
+  while true; do
+    uptime_value="$(awk '{print $1}' /proc/uptime 2>/dev/null || echo '?')"
+    current_stage="$(cat /run/v71-stage 2>/dev/null || echo unknown)"
+    emit "[V71_HEARTBEAT] uptime=$uptime_value stage=$current_stage"
+    sleep 15
+  done
+) &
+
+# Shell local opcional; si termina, PID 1 permanece vivo.
+PS1='v71diag# '
+if test -c /dev/console; then
+  /bin/busybox sh </dev/console >/dev/console 2>&1 || true
+fi
+mark V71_RESCUE_SHELL_ACTIVE
+while true; do sleep 3600; done

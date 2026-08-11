@@ -21,6 +21,7 @@ INIT=""
 OUT=""
 BUSYBOX=""
 BUSYBOX_ROOT=""
+USB_FUNCTION="rndis"
 
 usage() {
   echo "uso: $0 --init <init> --out <dir> [--busybox /ruta] [--busybox-root /ruta/al-árbol]" >&2
@@ -33,12 +34,17 @@ while (( $# > 0 )); do
     --out) OUT="$2"; shift 2 ;;
     --busybox) BUSYBOX="$2"; shift 2 ;;
     --busybox-root) BUSYBOX_ROOT="$2"; shift 2 ;;
+    --usb-function) USB_FUNCTION="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
 
 [[ -n "$INIT" && -n "$OUT" ]] || usage
 [[ -f "$INIT" ]] || { echo "ERROR: init no existe: $INIT" >&2; exit 1; }
+case "$USB_FUNCTION" in
+  ecm|ncm|rndis) ;;
+  *) echo "ERROR: usb-function debe ser ecm, ncm o rndis" >&2; exit 2 ;;
+esac
 # Rutas absolutas: el empaquetado corre en un subshell con `cd "$STAGE"` y una
 # ruta relativa de OUT no se resolvería ahí.
 INIT="$(readlink -f "$INIT")"
@@ -113,6 +119,7 @@ chmod 0755 "$STAGE/init"
 mkdir -p "$STAGE/etc"
 printf 'pmos-diag' > "$STAGE/etc/hostname"
 printf 'pmos-diag (telnet diagnostic shell)\n' > "$STAGE/etc/issue"
+printf '%s\n' "$USB_FUNCTION" > "$STAGE/etc/diag-usb-function"
 : > "$STAGE/etc/mtab"
 
 # 4) Empaquetar como cpio gzip (format initramfs del kernel)
@@ -130,7 +137,7 @@ initramfs de diagnóstico laurel_sprout (mainline v7.1)
   (make CONFIG_PREFIX install: bin/sbin/usr), incluye sed/grep/awk/uptime
 - init: initramfs/init (PID 1)
 - consola serial ttyMSM0 + /dev/console
-- gadget RNDIS temporal en 172.16.42.1/24 + telnetd solo para diagnóstico
+- gadget $USB_FUNCTION temporal en 172.16.42.1/24 + telnetd solo para diagnóstico
 - NADA se monta del rootfs del dispositivo
 generado: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
