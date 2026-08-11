@@ -122,11 +122,11 @@ DBG "set_inode_field /root/.ssh mode 0x41c0"
 echo "==> desbloqueando cuenta root (/etc/shadow)"
 RO "cat /etc/shadow" > "$TMP/shadow" \
   || { echo "ERROR: no existe /etc/shadow en p2"; exit 1; }
-# Hash determinista SHA-512 de '147147' (salt fijo pmosroot). Root con '!'
-# es "account locked" para OpenSSH: rechaza publickey aun con clave válida.
+# Hash determinista SHA-512 de '147147' (salt fijo pmosroot). Root con '!' o
+# '*' es "account locked" para OpenSSH: rechaza publickey aun con clave válida.
 ROOT_HASH="\$6\$pmosroot\$5agmDwTqS6OfJAJRUQ9V4j6kE1hCs7couJeso8NAk99FXSWzAS6TFbeXHbF79ZcadYOMyzk5gMkytuKrPWM4T0"
-if grep -q '^root:!' "$TMP/shadow"; then
-  sed -i "s|^root:!:|root:${ROOT_HASH}:|" "$TMP/shadow"
+if grep -qE '^root:(!|\*|):' "$TMP/shadow"; then
+  sed -Ei "s|^root:[^:]*:|root:${ROOT_HASH}:|" "$TMP/shadow"
   echo "   root desbloqueado (password '147147', hash determinista)"
 else
   echo "   root ya no estaba bloqueado ('!' no encontrado); sin cambios"

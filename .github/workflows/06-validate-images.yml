@@ -15,9 +15,22 @@ on:
         description: Nombre del artifact de Plasma
         type: string
         default: pmos-plasma
+      kernel_run_id:
+        description: Run ID de 03 que produjo kernel_artifact
+        type: string
+        default: ""
+      console_run_id:
+        description: Run ID de 04 que produjo console_artifact (opcional)
+        type: string
+        default: ""
+      plasma_run_id:
+        description: Run ID de 05 que produjo plasma_artifact (opcional)
+        type: string
+        default: ""
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: validate-images
@@ -41,31 +54,38 @@ jobs:
         with:
           fetch-depth: 0
       - name: Descargar artifact de kernel
+        if: ${{ github.event.inputs.kernel_run_id != '' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ github.event.inputs.kernel_artifact }}
           path: artifacts/kernel
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.inputs.kernel_run_id }}
       - name: Descargar artifact de consola
-        continue-on-error: true
+        if: ${{ github.event.inputs.console_run_id != '' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ github.event.inputs.console_artifact }}
           path: artifacts/console
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.inputs.console_run_id }}
       - name: Descargar artifact de Plasma
-        continue-on-error: true
+        if: ${{ github.event.inputs.plasma_run_id != '' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ github.event.inputs.plasma_artifact }}
           path: artifacts/plasma
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.inputs.plasma_run_id }}
       - name: Validar hashes del kernel
         run: |
           set -Eeuo pipefail
           cd artifacts/kernel
-          if [[ -f SHA256SUMS ]]; then
-            sha256sum -c SHA256SUMS
-          else
-            sha256sum Image Image.gz System.map kernel.config 2>/dev/null || true
-          fi
+           test -f SHA256SUMS || {
+             echo "ERROR: falta SHA256SUMS del artefacto kernel" >&2
+             exit 1
+           }
+           sha256sum -c SHA256SUMS
       - name: Validar DTB extraído del artifact kernel
         run: |
           set -Eeuo pipefail

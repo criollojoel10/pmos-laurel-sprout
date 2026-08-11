@@ -88,3 +88,13 @@ fi
 
 echo "== artefactos finales =="
 ls -la "$(dirname "$SPARSE")/"
+
+P2="$(dirname "$SPARSE")/final-part2.img"
+if [[ -f "$P2" ]]; then
+  ROOT_SHADOW="$(debugfs -R 'cat /etc/shadow' "$P2" 2>/dev/null || true)"
+  if ! grep -qE '^root:\$[0-9]+\$' <<<"$ROOT_SHADOW"; then
+    echo "ERROR: final-part2.img mantiene root bloqueado; falta hash de password" >&2
+    exit 1
+  fi
+  echo "OK: final-part2.img contiene cuenta root desbloqueada"
+fi
