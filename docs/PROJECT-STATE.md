@@ -3,6 +3,20 @@
 Punto de control para sesiones futuras. Documento canónico de progreso:
 `reports/milestones.json`, `reports/hardware-matrix.json`, `docs/HARDWARE-STATUS.md`.
 
+## Prioridad actual (2026-08-11)
+
+La migración funcional directa a Linux 7.1 queda temporalmente congelada en el
+artefacto display-first v4 (`31553208748`, estado `boot-untested`). El trabajo
+activo vuelve al baseline físico Linux 6.1: composición reproducible de boot,
+rootfs SSH, framebuffer persistente, UFS, RNDIS y captura observable. No se
+habilitan todavía GPU, DRM, Wi-Fi, Bluetooth, audio, OTG host ni Plasma en 7.1.
+La evidencia 6.1 y la separación de artefactos están en:
+
+- `reports/linux-61-authoritative-baseline.md`
+- `reports/linux-61-artifact-inventory.md`
+- `reports/linux-61-physical-evidence.md`
+- `docs/FASE8-PREFLIGHT-LINUX61-BASELINE.md`
+
 ## Base del kernel
 
 - **Decisión: Linux mainline v7.1** (tag `v7.1` = commit `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`).

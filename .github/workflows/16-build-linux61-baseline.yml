@@ -1,0 +1,136 @@
+name: 16-build-linux61-baseline
+
+# Empaqueta el baseline fisico reproducible 6.1 usando el artefacto historico
+# SSH ya construido. Solo modifica el campo cmdline de una copia del boot.img;
+# nunca flashea ni consulta el telefono.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rootfs_run_id:
+        description: Run 11 que contiene historical-rootfs-ssh
+        type: string
+        default: '31355730519'
+      upload_artifacts:
+        description: Subir baseline y reportes
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: linux61-baseline
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Empaquetar baseline fisico Linux 6.1
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          df -h
+          free -h
+          uname -a
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+      - name: Dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xz-utils file python3
+      - name: Descargar rootfs historico SSH fijado
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: historical-rootfs-ssh
+          path: /tmp/historical-rootfs-ssh
+          run-id: ${{ github.event.inputs.rootfs_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verificar componentes de entrada
+        run: |
+          set -Eeuo pipefail
+          BOOT=$(find /tmp/historical-rootfs-ssh -type f -name boot.img -print -quit)
+          ROOTFS=$(find /tmp/historical-rootfs-ssh -type f -name xiaomi-laurel-ssh.img -print -quit)
+          MANIFEST=$(find /tmp/historical-rootfs-ssh -type f -name manifest.json -print -quit)
+          test -n "$BOOT" && test -n "$ROOTFS" && test -n "$MANIFEST"
+          test "$(jq -r .kernel "$MANIFEST")" = "linux-postmarketos-qcom-sm6125 6.1 @77de535b8dbd8f483b5802c8937cb714bab5b485"
+          test "$(jq -r .ssh.enabled "$MANIFEST")" = true
+          test "$(jq -r .ssh.sshd_config[0] "$MANIFEST")" = "PermitRootLogin prohibit-password"
+          file "$BOOT" "$ROOTFS"
+          stat -c '%n %s bytes' "$BOOT" "$ROOTFS"
+          sha256sum "$BOOT" "$ROOTFS"
+          printf '%s\n' "$BOOT" > /tmp/boot.path
+          printf '%s\n' "$ROOTFS" > /tmp/rootfs.path
+      - name: Crear variante baseline con consoleblank=0
+        run: |
+          set -Eeuo pipefail
+          BOOT=$(cat /tmp/boot.path)
+          python3 scripts/patch-bootimg-cmdline.py \
+            "$BOOT" /tmp/boot-linux61-baseline-consoleblank0.img consoleblank=0
+          python3 - "$BOOT" /tmp/boot-linux61-baseline-consoleblank0.img <<'PY'
+          import hashlib, struct, sys
+          original, fixed = sys.argv[1:]
+          def payloads(path):
+              data = open(path, 'rb').read()
+              if data[:8] != b'ANDROID!': raise SystemExit('bad boot magic')
+              page = struct.unpack_from('<I', data, 36)[0]
+              version = struct.unpack_from('<I', data, 40)[0]
+              if page != 4096 or version != 0: raise SystemExit('expected v0/page4096')
+              sizes = struct.unpack_from('<4I', data, 8)
+              pos = page
+              out = []
+              for size in sizes[:3]:
+                  out.append(data[pos:pos + size])
+                  pos += (size + page - 1) // page * page
+              return data, out
+          before, old = payloads(original)
+          after, new = payloads(fixed)
+          if old != new: raise SystemExit('payload changed while patching cmdline')
+          if b'consoleblank=0' not in after[64:576]: raise SystemExit('consoleblank missing')
+          print('OK: header cmdline changed; kernel/ramdisk/second payloads identical')
+          print('original_sha256=', hashlib.sha256(before).hexdigest())
+          print('baseline_sha256=', hashlib.sha256(after).hexdigest())
+          PY
+      - name: Preparar salida comprimida y manifiesto
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/baseline
+          BOOT=$(cat /tmp/boot.path)
+          ROOTFS=$(cat /tmp/rootfs.path)
+          cp "$BOOT" /tmp/baseline/boot-linux61-original.img
+          cp /tmp/boot-linux61-baseline-consoleblank0.img /tmp/baseline/boot-linux61-baseline-consoleblank0.img
+          xz -T0 -9 -k "$ROOTFS"
+          cp "$ROOTFS.xz" /tmp/baseline/xiaomi-laurel-ssh.img.xz
+          cp "$(find /tmp/historical-rootfs-ssh -type f -name manifest.json -print -quit)" /tmp/baseline/rootfs-manifest.json
+          cp reports/linux-61-*.md /tmp/baseline/
+          (cd /tmp/baseline && sha256sum * > SHA256SUMS)
+          jq -n --arg run "${{ github.event.inputs.rootfs_run_id }}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{artifact:"linux61-physical-baseline", rootfs_run_id:$run, generated_at:$date,
+              kernel_commit:"77de535b8dbd8f483b5802c8937cb714bab5b485",
+              boot_header:0, page_size:4096, consoleblank:0,
+              physical_status:"boot-untested", flash_required:false}' > /tmp/baseline/manifest.json
+          cat /tmp/baseline/manifest.json
+          cat /tmp/baseline/SHA256SUMS
+      - name: Subir baseline
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux61-physical-baseline
+          path: /tmp/baseline/
+          retention-days: 7
+      - name: Subir logs siempre
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux61-baseline-logs
+          path: /tmp/*.log
+          retention-days: 3
+          if-no-files-found: ignore

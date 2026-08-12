@@ -52,7 +52,7 @@
     },
     "wifi": {
       "status": "configured",
-      "notes": "Runtime 2026-08-10 (boot 6.1 SSH, captura limpia): SIN wlan0, sin wcn3990/ath10k probando, sin bus mmc/sdio (mmc_host vacío). CONFIG_ATH10K=m (ATH10K_SNOC, NO SDIO), WCN36XX=m; módulos ath10k_core/pci/snoc + wcn36xx .ko presentes en el rootfs pero NO cargados. El WCN3990 de laurel va por SDIO (driver wcn3990_sdio del fork ausente en este config). Sin bus mmc la WiFi no puede funcionar. Conectividad: no probada (no hay interfaz)."
+      "notes": "Runtime 2026-08-10 (boot 6.1 SSH, captura limpia): SIN wlan0, sin wcn3990/ath10k probando, sin bus mmc/sdio (mmc_host vacío). CONFIG_ATH10K=m (ATH10K_SNOC), WCN36XX=m; módulos ath10k_core/pci/snoc + wcn36xx .ko presentes en el rootfs pero NO cargados. El transporte WCN3990 no está demostrado en este kernel: la ausencia de mmc no prueba por sí sola SDIO, y ATH10K_SNOC tampoco prueba el camino correcto. Conectividad no probada."
     },
     "bluetooth": {
       "status": "configured",
