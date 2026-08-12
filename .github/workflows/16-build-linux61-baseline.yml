@@ -106,17 +106,21 @@ jobs:
           ROOTFS=$(cat /tmp/rootfs.path)
           cp "$BOOT" /tmp/baseline/boot-linux61-original.img
           cp /tmp/boot-linux61-baseline-consoleblank0.img /tmp/baseline/boot-linux61-baseline-consoleblank0.img
-          xz -T0 -9 -k "$ROOTFS"
-          cp "$ROOTFS.xz" /tmp/baseline/xiaomi-laurel-ssh.img.xz
+          if [[ -f "$ROOTFS.xz" ]]; then
+            cp "$ROOTFS.xz" /tmp/baseline/xiaomi-laurel-ssh.img.xz
+          else
+            xz -T0 -9 -k "$ROOTFS"
+            cp "$ROOTFS.xz" /tmp/baseline/xiaomi-laurel-ssh.img.xz
+          fi
           cp "$(find /tmp/historical-rootfs-ssh -type f -name manifest.json -print -quit)" /tmp/baseline/rootfs-manifest.json
           cp reports/linux-61-*.md /tmp/baseline/
-          (cd /tmp/baseline && sha256sum * > SHA256SUMS)
           jq -n --arg run "${{ github.event.inputs.rootfs_run_id }}" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{artifact:"linux61-physical-baseline", rootfs_run_id:$run, generated_at:$date,
               kernel_commit:"77de535b8dbd8f483b5802c8937cb714bab5b485",
               boot_header:0, page_size:4096, consoleblank:0,
               physical_status:"boot-untested", flash_required:false}' > /tmp/baseline/manifest.json
+          (cd /tmp/baseline && sha256sum -- * > SHA256SUMS)
           cat /tmp/baseline/manifest.json
           cat /tmp/baseline/SHA256SUMS
       - name: Subir baseline
