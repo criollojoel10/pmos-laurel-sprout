@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmos-laurel-sprout <dev@laurel.invalid>
+Date: 2026-08-12
+Subject: [PATCH] arm64: dts: sm6125: laurel: add WCN3990 first-probe node
+
+Downstream-only first-probe patch for the frozen 6.1 fork at
+77de535b8dbd8f483b5802c8937cb714bab5b485.
+
+The installed DT has wlan_msa_mem at 0x53300000 and PM6125 rails, but no
+qcom,wcn3990-wifi node. The fork's ath10k_snoc driver matches this compatible
+and uses the TrustZone path when no wifi-firmware child is present. Do not add
+MMC/SDIO nodes here: the transport decision is SNOC-probable, not SDIO.
+
+The 6.1 driver has a fifth vdd-3.3-ch1 entry, while the laurel vendor DT
+exposes four WCN rails. This first probe intentionally declares only the four
+rails demonstrated by the vendor DT; a regulator failure is expected evidence
+for the next iteration, not hidden with an invented L22A/L24A mapping.
+
+No apps_smmu/iommus property is added in this first probe. The driver enters
+its TrustZone path without a wifi-firmware child; a failed probe will determine
+whether an SMMU backport is required. This keeps UFS, USB and display paths
+unchanged.
+
+Signed-off-by: pmos-laurel-sprout <dev@laurel.invalid>
+---
+ arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts | 34 +++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
+--- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
++++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
+@@ -9,0 +10,2 @@
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/interrupt-controller/irq.h>
+@@ -251,0 +253,32 @@
++/ {
++	soc {
++		wifi@c800000 {
++			compatible = "qcom,wcn3990-wifi";
++			reg = <0x0c800000 0x800000>;
++			reg-names = "membase";
++			memory-region = <&wlan_msa_mem>;
++			qcom,msa-fixed-perm;
++			interrupts =
++				<GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 362 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>;
++			vdd-0.8-cx-mx-supply = <&vreg_l8a>;
++			vdd-1.8-xo-supply = <&vreg_l16a>;
++			vdd-1.3-rfa-supply = <&vreg_l17a>;
++			vdd-3.3-ch0-supply = <&vreg_l23a>;
++			status = "okay";
++		};
++	};
++};

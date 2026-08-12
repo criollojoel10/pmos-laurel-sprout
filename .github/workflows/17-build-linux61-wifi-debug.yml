@@ -1,0 +1,158 @@
+name: 17-build-linux61-wifi-debug
+
+# Primer probe Wi-Fi 6.1. Solo cambia el DTB; reutiliza kernel/ramdisk del
+# baseline y no reconstruye rootfs. No ejecuta Fastboot ni escribe el teléfono.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rootfs_run_id:
+        description: Run 11 con boot/rootfs SSH histórico
+        type: string
+        default: '31355730519'
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: linux61-wifi-debug
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: DTB Wi-Fi 6.1 primer probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          df -h
+          free -h
+          uname -a
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+      - name: Dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq device-tree-compiler flex bison bc libssl-dev libelf-dev python3 gzip cpio file jq
+      - name: Descargar boot/rootfs fuente
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: historical-rootfs-ssh
+          path: /tmp/historical-rootfs-ssh
+          run-id: ${{ github.event.inputs.rootfs_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verificar fuente y extraer kernel/ramdisk
+        run: |
+          set -Eeuo pipefail
+          BOOT=$(find /tmp/historical-rootfs-ssh -type f -name boot.img -print -quit)
+          MANIFEST=$(find /tmp/historical-rootfs-ssh -type f -name manifest.json -print -quit)
+          test -n "$BOOT" && test -n "$MANIFEST"
+          test "$(jq -r .kernel "$MANIFEST")" = "linux-postmarketos-qcom-sm6125 6.1 @77de535b8dbd8f483b5802c8937cb714bab5b485"
+          python3 - "$BOOT" <<'PY'
+          import struct, sys
+          from pathlib import Path
+          boot = Path(sys.argv[1]).read_bytes()
+          ksz, _, rsz, _, _, _, _, page, version, _ = struct.unpack_from('<10I', boot, 8)
+          if version != 0 or page != 4096:
+              raise SystemExit('ERROR: no es boot v0/page4096')
+          kernel = boot[page:page + ksz]
+          roff = page + ((ksz + page - 1) // page) * page
+          ramdisk = boot[roff:roff + rsz]
+          magic = b'\xd0\x0d\xfe\xed'
+          pos = kernel.rfind(magic)
+          if pos < 0:
+              raise SystemExit('ERROR: DTB appendado no encontrado')
+          Path('/tmp/kernel.gz').write_bytes(kernel[:pos])
+          Path('/tmp/old.dtb').write_bytes(kernel[pos:pos + struct.unpack_from('>I', kernel, pos + 4)[0]])
+          Path('/tmp/ramdisk').write_bytes(ramdisk)
+          print('kernel.gz', pos, 'ramdisk', len(ramdisk), 'old.dtb', len(kernel) - pos)
+          PY
+          gzip -t /tmp/kernel.gz
+          stat -c '%n %s bytes' /tmp/kernel.gz /tmp/ramdisk /tmp/old.dtb
+      - name: Clonar kernel 6.1 fijado para construir solo DTB
+        run: |
+          set -Eeuo pipefail
+          git clone --filter=blob:none --no-checkout https://gitlab.com/sm6125-mainline/linux.git kernel61
+          git -C kernel61 fetch --depth 1 origin 77de535b8dbd8f483b5802c8937cb714bab5b485
+          git -C kernel61 checkout -q 77de535b8dbd8f483b5802c8937cb714bab5b485
+          git -C kernel61 apply --check "$GITHUB_WORKSPACE/patches/kernel-61/0001-dts-laurel-wcn3990-first-probe.patch"
+          git -C kernel61 apply "$GITHUB_WORKSPACE/patches/kernel-61/0001-dts-laurel-wcn3990-first-probe.patch"
+      - name: Construir DTB y validar simbolos Wi-Fi
+        run: |
+          set -Eeuo pipefail
+          make -C kernel61 ARCH=arm64 defconfig >/tmp/dtb-defconfig.log 2>&1
+          make -C kernel61 ARCH=arm64 dtbs -j"$(nproc)" >/tmp/dtb-build.log 2>&1
+          DTB=$(find kernel61/arch/arm64/boot/dts -name sm6125-xiaomi-laurel_sprout.dtb -print -quit)
+          test -n "$DTB"
+          cp "$DTB" /tmp/new.dtb
+          dtc -I dtb -O dts -o /tmp/new.dts /tmp/new.dtb 2>/tmp/new-dtc.log
+          for token in 'qcom,wcn3990-wifi' 'c800000' '53300000' 'vdd-0.8-cx-mx' 'vdd-3.3-ch0' 'interrupts'; do
+            grep -q "$token" /tmp/new.dts || { echo "ERROR: falta $token" >&2; exit 1; }
+          done
+          ! grep -q 'mmc@4744000.*status = "okay"' /tmp/new.dts
+          ! grep -q 'mmc@4784000.*status = "okay"' /tmp/new.dts
+          sha256sum /tmp/new.dtb
+      - name: Ensamblar boot v0 Wi-Fi con kernel/ramdisk sin cambios
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/boot-out
+          python3 scripts/build-boot-image.py \
+            --kernel /tmp/kernel.gz \
+            --ramdisk /tmp/ramdisk \
+            --dtb /tmp/new.dtb \
+            --out /tmp/boot-out/boot-linux61-wifi-debug-v1.img \
+            --header-version 0 --append-dtb --base 0x0 --page-size 4096 \
+            --kernel-offset 0x8000 --ramdisk-offset 0x1000000 --tags-offset 0x100 \
+            --cmdline 'clk_ignore_unused consoleblank=0' \
+            --os-version 1.0.0 --os-patch-level 2026-08
+          python3 - <<'PY'
+          import hashlib, struct
+          from pathlib import Path
+          d=Path('/tmp/boot-out/boot-linux61-wifi-debug-v1.img').read_bytes()
+          ksz,_,rsz,_,_,_,_,page,version,_=struct.unpack_from('<10I',d,8)
+          assert version == 0 and page == 4096 and len(d) < 67108864
+          roff=page+((ksz+page-1)//page)*page
+          assert d[64:576].split(b'\0')[0] == b'clk_ignore_unused consoleblank=0'
+          assert d[roff:roff+rsz] == Path('/tmp/ramdisk').read_bytes()
+          k=d[page:page+ksz]; pos=k.rfind(b'\xd0\x0d\xfe\xed')
+          assert pos >= 0 and k[pos:] == Path('/tmp/new.dtb').read_bytes()
+          print('OK: boot v0, payload kernel/ramdisk conservados, DTB nuevo appendado')
+          print('boot_sha256', hashlib.sha256(d).hexdigest())
+          PY
+          (cd /tmp/boot-out && sha256sum *.img > SHA256SUMS)
+          cp /tmp/new.dtb /tmp/boot-out/sm6125-xiaomi-laurel_sprout-wifi.dtb
+          cp /tmp/new.dts /tmp/boot-out/final-wifi.dts
+          jq -n --arg run "${{ github.event.inputs.rootfs_run_id }}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{artifact:"boot-linux61-wifi-debug-v1", source_rootfs_run:$run,
+              kernel_commit:"77de535b8dbd8f483b5802c8937cb714bab5b485",
+              transport:"SNOC-probable", dt_change:"wifi-node-only-first-probe",
+              firmware_in_rootfs:false, physical_status:"boot-untested",
+              generated_at:$date}' > /tmp/boot-out/manifest.json
+          cat /tmp/boot-out/SHA256SUMS
+          cat /tmp/boot-out/manifest.json
+      - name: Subir artefacto Wi-Fi
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: boot-linux61-wifi-debug-v1
+          path: /tmp/boot-out/
+          retention-days: 7
+      - name: Subir logs siempre
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux61-wifi-debug-logs
+          path: /tmp/*.log
+          retention-days: 3
+          if-no-files-found: ignore
