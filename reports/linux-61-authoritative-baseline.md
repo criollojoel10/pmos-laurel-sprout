@@ -11,13 +11,16 @@ una imagen historica unica cuando las pruebas usaron componentes distintos.
 | Kernel 6.1 reconstruido | commit `77de535b8dbd8f483b5802c8937cb714bab5b485`, config SHA-256 `08bcee71d4164ef3e7c1244cdf4d5a0e4e7e2eedcadd9e5576166f8661417c4a` | Compilacion historica reproducida en CI | `compiled` |
 | Boot diagnostico sedfix | workflow 09, 12,402,688 B, SHA-256 `ff5f0905282b105c3b17f49c2c07c98971547c29b25ddc75ba19453426b0a8be` | `INITRAMFS_REACHED` y shell de rescate | `partially-working` |
 | Rootfs SSH | run `31355730519`, `xiaomi-laurel-ssh.img`, 550,935,480 B, SHA-256 `ebc8287f277d8ffd28c5eb128e1248e668e44a316cb4484916d0748d5bc40a2a` | root SSH por clave sobre RNDIS, UFS operativo | `partially-working` |
+| Boot exportado junto al rootfs SSH | run `31355730519`, 12,402,688 B, SHA-256 `5b03b8847f449bf740a7e648f705163f491ecb346e55750475eb7321227d5ac1` | entrada usada por workflow 16; no fue la imagen del test fisico original | `boot-untested` |
 
 ## Baseline de trabajo
 
-La siguiente imagen de prueba debe combinar el kernel 6.1 fijado, el DTB
-correspondiente, un initramfs compatible con 6.1 y el rootfs SSH del run
-`31355730519`. El boot original y el rootfs SSH no son el mismo artefacto ni
-se deben describir como una sola imagen ya probada.
+La imagen empaquetada por workflow 16 combina el boot exportado del run SSH
+`31355730519` con el rootfs SSH del mismo run y solo anade `consoleblank=0`.
+El boot fisico original del test `PMOS_CONSOLE_6_1_BOOTED` tiene SHA diferente
+(`3b692f...`), por lo que el resultado del workflow 16 sigue siendo
+`boot-untested`. El boot original y el rootfs SSH no se deben describir como una
+sola imagen ya probada.
 
 Cmdline inicial preferida para una variante nueva, pendiente de build y prueba:
 

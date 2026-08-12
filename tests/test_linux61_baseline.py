@@ -10,7 +10,7 @@ class Linux61BaselineTests(unittest.TestCase):
         report = (ROOT / "reports/linux-61-authoritative-baseline.md").read_text()
         for token in ("31320766387", "31355730519", "3b692fefa", "ebc8287f"):
             self.assertIn(token, report)
-        self.assertIn("no son el mismo artefacto", report)
+        self.assertIn("no se deben describir como una\nsola imagen ya probada", report)
 
     def test_preflight_is_non_executing(self):
         preflight = (ROOT / "docs/FASE8-PREFLIGHT-LINUX61-BASELINE.md").read_text()

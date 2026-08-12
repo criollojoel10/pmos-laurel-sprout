@@ -18,8 +18,16 @@ Se producira en CI mediante `16-build-linux61-baseline.yml`, usando el artefacto
 - hashes: `SHA256SUMS`;
 - manifest: `manifest.json`.
 
-El boot original conocido mide 12,402,688 B y tiene SHA-256
+La run final de empaquetado es `31562923337`. El boot que contiene ese artefacto
+proviene del export del run SSH y, antes del parche de cmdline, tiene SHA-256
+`5b03b8847f449bf740a7e648f705163f491ecb346e55750475eb7321227d5ac1`. La
+variante baseline generada tiene SHA-256
+`41ed6045f5b587f4917fa24e1e00b5710c9e7fab088212ab98f9979a9c4f6056`.
+
+El boot fisico original conocido mide 12,402,688 B y tiene SHA-256
 `3b692fefa4836246634955318232f416502a3ac316f403736a489ab9edf7b5fb3`.
+No es byte-identico al boot del nuevo baseline y por eso el nuevo artefacto
+permanece `boot-untested`.
 El rootfs SSH mide 550,935,480 B sin comprimir y tiene SHA-256
 `ebc8287f277d8ffd28c5eb128e1248e668e44a316cb4484916d0748d5bc40a2a`.
 

@@ -112,7 +112,9 @@ jobs:
             xz -T0 -9 -k "$ROOTFS"
             cp "$ROOTFS.xz" /tmp/baseline/xiaomi-laurel-ssh.img.xz
           fi
-          cp "$(find /tmp/historical-rootfs-ssh -type f -name manifest.json -print -quit)" /tmp/baseline/rootfs-manifest.json
+          jq 'del(.ssh.public_key_ed25519_fingerprint)' \
+            "$(find /tmp/historical-rootfs-ssh -type f -name manifest.json -print -quit)" \
+            > /tmp/baseline/rootfs-manifest.json
           cp reports/linux-61-*.md /tmp/baseline/
           jq -n --arg run "${{ github.event.inputs.rootfs_run_id }}" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
