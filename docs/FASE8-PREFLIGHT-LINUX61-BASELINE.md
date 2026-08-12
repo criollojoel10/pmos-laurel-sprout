@@ -18,7 +18,7 @@ Se producira en CI mediante `16-build-linux61-baseline.yml`, usando el artefacto
 - hashes: `SHA256SUMS`;
 - manifest: `manifest.json`.
 
-La run final de empaquetado es `31562923337`. El boot que contiene ese artefacto
+La run final de empaquetado es `31563265029`. El boot que contiene ese artefacto
 proviene del export del run SSH y, antes del parche de cmdline, tiene SHA-256
 `5b03b8847f449bf740a7e648f705163f491ecb346e55750475eb7321227d5ac1`. La
 variante baseline generada tiene SHA-256
