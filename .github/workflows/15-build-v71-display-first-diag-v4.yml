@@ -1,0 +1,196 @@
+name: 15-build-v71-display-first-diag-v4
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_artifact_run_id:
+        description: Run ID 03 con kernel v7.1/DTB Laurel
+        type: string
+        default: "31513653872"
+      usb_function:
+        description: Función USB después de checkpoints display
+        type: choice
+        options: [rndis, ncm, ecm]
+        default: rndis
+      preserve_boot_resources:
+        description: Mantener clocks/power/regulators durante diagnóstico
+        type: boolean
+        default: true
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: v71-display-first-diag-v4
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Boot v7.1 display-first diagnóstico v4
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq device-tree-compiler cpio gzip file python3 \
+            crossbuild-essential-arm64 android-sdk-libsparse-utils e2fsprogs
+      - name: Descargar kernel-debug
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kernel-debug
+          path: /tmp/kernel-artifact
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.inputs.kernel_artifact_run_id }}
+      - name: Verificar config y DTB
+        run: |
+          set -Eeuo pipefail
+          (cd /tmp/kernel-artifact && sha256sum -c SHA256SUMS)
+          bash scripts/validate-v71-usb-dtb.sh \
+            --config /tmp/kernel-artifact/kernel.config \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --out /tmp/usb-dtb-audit
+          cp /tmp/usb-dtb-audit/usb-dtb-audit.md /tmp/usb-dtb-audit/display-dtb-audit.md
+          grep -E '^CONFIG_(COMMON_CLK|PM_GENERIC_DOMAINS|REGULATOR|REGULATOR_FIXED_VOLTAGE|FB|FB_SIMPLE|FRAMEBUFFER_CONSOLE|VT_CONSOLE|PRINTK|PRINTK_TIME|PSTORE|PSTORE_RAM|PSTORE_CONSOLE|PSTORE_PMSG|DEBUG_FS|DYNAMIC_DEBUG)=' /tmp/kernel-artifact/kernel.config > /tmp/config-display-critical.txt
+          printf 'dtbs_check: no ejecutado; no se descarga árbol fuente, se usó fdtget/dtc sobre DTB exacto\n' > /tmp/dtbs-check.log
+      - name: Construir BusyBox arm64
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-busybox-arm64.sh --out /tmp/busybox-out
+          file /tmp/busybox-out/busybox
+      - name: Generar patrones framebuffer
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/display-payload
+          python3 - <<'PY'
+          pixels = 720 * 1560
+          for name, pixel in {
+              "green": b"\x00\xff\x00\xff",
+              "blue": b"\xff\x00\x00\xff",
+              "red": b"\x00\x00\xff\xff",
+          }.items():
+              with open(f"/tmp/display-payload/{name}.raw", "wb") as stream:
+                  stream.write(pixel * pixels)
+          PY
+          stat -c '%n %s bytes' /tmp/display-payload/*.raw
+      - name: Construir initramfs display-first v4
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-diagnostic-initramfs.sh \
+            --init initramfs/native-diag-init-v4 \
+            --busybox-root /tmp/busybox-out/applet-root \
+            --display-payload /tmp/display-payload \
+            --usb-function "${{ github.event.inputs.usb_function }}" \
+            --out /tmp/initramfs-out
+          bash scripts/verify-v71-display-first-initramfs-v4.sh \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --busybox-root /tmp/busybox-out/applet-root \
+            --out /tmp/initramfs-out
+          gzip -dc /tmp/initramfs-out/initramfs.cpio.gz | cpio -t > /tmp/initramfs-file-list.txt
+      - name: Ensamblar boot display-first v4
+        run: |
+          set -Eeuo pipefail
+          if [[ "${{ github.event.inputs.preserve_boot_resources }}" == "true" ]]; then
+            RESOURCES="clk_ignore_unused pd_ignore_unused regulator_ignore_unused"
+          else
+            RESOURCES=""
+          fi
+          CMDLINE="console=ttyMSM0,115200n8 console=tty0 consoleblank=0 loglevel=7 ignore_loglevel printk.time=1 panic=0 $RESOURCES androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7 buildvariant=user"
+          printf '%s\n' "$CMDLINE" > /tmp/cmdline.txt
+          mkdir -p /tmp/boot-out
+          python3 scripts/build-boot-image.py \
+            --kernel /tmp/kernel-artifact/Image.gz \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --out /tmp/boot-out/boot-laurel-v71-display-first-diag-v4.img \
+            --base 0 --page-size 4096 --kernel-offset 0x8000 \
+            --ramdisk-offset 0x1000000 --tags-offset 0x100 \
+            --dtb-offset 0x1f00000 --os-version 12.0.0 --os-patch-level 2026-08 \
+            --cmdline "$CMDLINE"
+      - name: Extraer y validar boot final
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/validate-diagnostic-boot.py \
+            --boot /tmp/boot-out/boot-laurel-v71-display-first-diag-v4.img \
+            --kernel /tmp/kernel-artifact/Image.gz \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --out /tmp/boot-validation
+          bash scripts/verify-v71-display-first-initramfs-v4.sh \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --busybox-root /tmp/busybox-out/applet-root \
+            --out /tmp/boot-validation/native
+          CMDLINE="$(python3 scripts/unpack-boot-image.py --boot /tmp/boot-out/boot-laurel-v71-display-first-diag-v4.img --out /tmp/boot-validation/unpack --print-cmdline)"
+          printf '%s\n' "$CMDLINE" > /tmp/cmdline-extracted.txt
+          for tok in console=ttyMSM0,115200n8 console=tty0 consoleblank=0 loglevel=7 ignore_loglevel printk.time=1 panic=0; do
+            grep -q "$tok" <<<"$CMDLINE" || { echo "ERROR: falta $tok" >&2; exit 1; }
+          done
+          for tok in clk_ignore_unused pd_ignore_unused regulator_ignore_unused; do
+            if [[ "${{ github.event.inputs.preserve_boot_resources }}" == "true" ]]; then
+              grep -q "$tok" <<<"$CMDLINE" || { echo "ERROR: falta $tok" >&2; exit 1; }
+            fi
+          done
+          ! grep -qE 'initcall_debug|panic=10|panic_on_warn=1|root=|skip_initramfs|quiet|splash|vt.global_cursor_default=0' <<<"$CMDLINE"
+          SIZE="$(stat -c %s /tmp/boot-out/boot-laurel-v71-display-first-diag-v4.img)"
+          (( SIZE < 67108864 ))
+          cp /tmp/config-display-critical.txt /tmp/boot-validation/config-display-critical.txt
+          cp /tmp/dtbs-check.log /tmp/boot-validation/dtbs-check.log
+          cp /tmp/initramfs-file-list.txt /tmp/boot-validation/initramfs-file-list.txt
+          cp /tmp/cmdline-extracted.txt /tmp/boot-validation/cmdline.txt
+          cp /tmp/boot-validation/diagnostic-boot-validation.md /tmp/boot-validation/boot-unpack-report.md
+      - name: Checksums y manifest
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/boot-out
+          sha256sum boot-laurel-v71-display-first-diag-v4.img > SHA256SUMS
+          jq -n --arg run "${{ github.event.inputs.kernel_artifact_run_id }}" \
+            --arg fn "${{ github.event.inputs.usb_function }}" \
+            --arg size "$(stat -c %s boot-laurel-v71-display-first-diag-v4.img)" \
+            '{artifact:"boot-laurel-v71-display-first-diag-v4", kernel_run_id:$run, usb_function:$fn, size_bytes:($size|tonumber), limit_bytes:67108864, fits:(($size|tonumber)<67108864), root:false, skip_initramfs:false, panic:0, generated_at:"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > manifest.json
+          sha256sum -c SHA256SUMS
+          cat SHA256SUMS manifest.json
+      - name: Empaquetar salida
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: boot-laurel-v71-display-first-diag-v4
+          path: |
+            /tmp/boot-out/boot-laurel-v71-display-first-diag-v4.img
+            /tmp/boot-out/SHA256SUMS
+            /tmp/boot-out/manifest.json
+            /tmp/usb-dtb-audit/display-dtb-audit.md
+            /tmp/usb-dtb-audit/usb-dtb-audit.md
+            /tmp/boot-validation/native/initramfs-verification.md
+            /tmp/boot-validation/initramfs-file-list.txt
+            /tmp/boot-validation/config-display-critical.txt
+            /tmp/boot-validation/dtbs-check.log
+            /tmp/boot-validation/cmdline.txt
+            /tmp/boot-validation/boot-unpack-report.md
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: v71-display-first-v4-logs
+          path: |
+            /tmp/boot-out/*.log
+            /tmp/busybox-out/*.log
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore
