@@ -44,6 +44,7 @@ if test -e /sys/bus/platform/devices/4ef8800.usb; then mark V71_V3_DWC3_WRAPPER_
 if test -e /sys/bus/platform/devices/4ef8800.usb/4e00000.usb; then mark V71_V3_DWC3_CORE_PRESENT; else mark V71_V3_DWC3_CORE_ABSENT; fi
 if test -e /sys/class/extcon; then mark V71_V3_EXTCON_PRESENT; else mark V71_V3_EXTCON_ABSENT; fi
 
+mark V71_V3_USB_PHY_STATUS_BEGIN
 mark V71_V3_USB_AUDIT_BEGIN
 ls -la /sys/bus/platform/drivers/qcom-dwc3 /sys/bus/platform/drivers/dwc3 \
   /sys/bus/platform/drivers/qcom-qusb2-phy /sys/bus/platform/devices 2>/dev/null || true
@@ -53,6 +54,11 @@ cat /sys/kernel/debug/clk/clk_summary /sys/kernel/debug/regulator/regulator_summ
   grep -iE 'usb|dwc|qusb|phy|regulator|clock|genpd' || true
 dmesg 2>/dev/null | grep -iE 'dwc3|qusb2|usb|phy|udc|gadget|extcon|deferred|regulator|clock|genpd|probe|error|fail' || true
 mark V71_V3_USB_AUDIT_END
+mark V71_V3_USB_PHY_STATUS_END
+
+mark V71_V3_DWC3_STATUS_BEGIN
+dmesg 2>/dev/null | grep -iE 'dwc3|qusb2|usb.*phy|gadget|udc' || true
+mark V71_V3_DWC3_STATUS_END
 
 mark V71_V3_UDC_SCAN_BEGIN
 udc_name=""; n=0
@@ -85,7 +91,13 @@ else
   ln -sfn "$G/functions/$function.usb0" "$G/configs/c.1/$function.usb0" 2>/dev/null; rc=$?
   emit "V71_V3_GADGET_SYMLINK rc=$rc"
   printf '%s' "$udc_name" > "$G/UDC" 2>/dev/null; rc=$?
-  if [ "$rc" -eq 0 ]; then mark V71_V3_GADGET_BIND_SUCCESS; else mark V71_V3_GADGET_BIND_FAILED; fi
+  if [ "$rc" -eq 0 ]; then
+    mark V71_V3_GADGET_BIND_SUCCESS
+    mark V71_V3_RNDIS_BOUND
+  else
+    mark V71_V3_GADGET_BIND_FAILED
+    mark V71_V3_RNDIS_BIND_FAILED
+  fi
   iface=""; n=0
   while [ "$n" -lt 20 ]; do
     for candidate in usb0 rndis0; do test -d "/sys/class/net/$candidate" && iface="$candidate" && break 2; done

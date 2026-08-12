@@ -23,9 +23,12 @@ class UsbV3StaticTest(unittest.TestCase):
     def test_markers_and_probe_stages(self):
         for marker in (
             "V71_V3_PID1_FIRST_INSTRUCTION", "V71_V3_PHY_NODE_PRESENT",
+            "V71_V3_USB_PHY_STATUS_BEGIN", "V71_V3_USB_PHY_STATUS_END",
+            "V71_V3_DWC3_STATUS_BEGIN", "V71_V3_DWC3_STATUS_END",
             "V71_V3_DWC3_WRAPPER_PRESENT", "V71_V3_DWC3_CORE_PRESENT",
             "V71_V3_EXTCON_PRESENT", "V71_V3_UDC_FOUND",
             "V71_V3_UDC_TIMEOUT", "V71_V3_GADGET_BIND_SUCCESS",
+            "V71_V3_RNDIS_BOUND", "V71_V3_RNDIS_BIND_FAILED",
             "V71_V3_GADGET_BIND_FAILED", "V71_V3_STABLE_LOOP",
             "V71_V3_HEARTBEAT",
         ):
