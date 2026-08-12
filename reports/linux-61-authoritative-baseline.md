@@ -13,6 +13,13 @@ una imagen historica unica cuando las pruebas usaron componentes distintos.
 | Rootfs SSH | run `31355730519`, `xiaomi-laurel-ssh.img`, 550,935,480 B, SHA-256 `ebc8287f277d8ffd28c5eb128e1248e668e44a316cb4484916d0748d5bc40a2a` | root SSH por clave sobre RNDIS, UFS operativo | `partially-working` |
 | Boot exportado junto al rootfs SSH | run `31355730519`, 12,402,688 B, SHA-256 `5b03b8847f449bf740a7e648f705163f491ecb346e55750475eb7321227d5ac1` | entrada usada por workflow 16; no fue la imagen del test fisico original | `boot-untested` |
 
+Nota (revisión independiente, 2026-08-12): el kernel del boot exportado
+(`637c94ec…`, banner `Mon Aug 10 05:15…`) no es byte-idéntico al del boot
+físico probado (`7dd4103e…`, banner `Sun Aug 9 16:22…`); difieren 53 bytes del
+`linux_banner` en el kernel descomprimido. Es el mismo fork `77de535b` y la
+misma config, pero son dos compilaciones CI distintas. Detalle en
+`reports/deepseek-linux61-independent-review.md` (H-C2).
+
 ## Baseline de trabajo
 
 La imagen empaquetada por workflow 16 combina el boot exportado del run SSH

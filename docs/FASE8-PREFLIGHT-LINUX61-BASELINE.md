@@ -10,11 +10,13 @@ continua accesible por SSH.
 ## Artefactos
 
 Se producira en CI mediante `16-build-linux61-baseline.yml`, usando el artefacto
-`historical-rootfs-ssh` del run `31355730519`:
+`historical-rootfs-ssh` del run `31355730519`. El directorio local con los
+artefactos del run final `31563265029` es
+`local-private/linux61-baseline-31563265029/`:
 
 - boot original: `boot-linux61-original.img`;
 - boot preferido: `boot-linux61-baseline-consoleblank0.img`;
-- rootfs: `xiaomi-laurel-ssh.img.xz`;
+- rootfs comprimido: `xiaomi-laurel-ssh.img.xz` (descomprimir antes de flashear);
 - hashes: `SHA256SUMS`;
 - manifest: `manifest.json`.
 
@@ -41,20 +43,24 @@ El rootfs SSH mide 550,935,480 B sin comprimir y tiene SHA-256
 - procedimiento de restauracion verificado;
 - rootfs descomprimido localmente y hash comprobado;
 - particiones objetivo confirmadas: `boot_b` y `system_b` solamente;
-- no tocar `dtbo`, `vbmeta` ni cambiar slot en esta primera prueba.
+- no tocar `dtbo`, `vbmeta` ni cambiar slot en esta primera prueba;
+- descomprimir el rootfs antes de flashear:
+  `xz -dk local-private/linux61-baseline-31563265029/xiaomi-laurel-ssh.img.xz`
+  (genera `xiaomi-laurel-ssh.img` y permite comprobar su SHA-256
+  `ebc8287f277d8ffd28c5eb128e1248e668e44a316cb4484916d0748d5bc40a2a`).
 
 ## Comando preparado
 
 COMANDO PREPARADO, NO EJECUTADO:
 
 ```text
-fastboot flash boot_b local-private/linux61-baseline/boot-linux61-baseline-consoleblank0.img
+fastboot flash boot_b local-private/linux61-baseline-31563265029/boot-linux61-baseline-consoleblank0.img
 ```
 
 COMANDO PREPARADO, NO EJECUTADO:
 
 ```text
-fastboot flash system_b local-private/linux61-baseline/xiaomi-laurel-ssh.img
+fastboot flash system_b local-private/linux61-baseline-31563265029/xiaomi-laurel-ssh.img
 ```
 
 La primera prueba recomendada es la menos destructiva disponible. El bootloader
@@ -68,7 +74,9 @@ respaldos de FASE 8 y revisar la recuperacion.
 - `usb0`/RNDIS enumera y `172.16.42.1` responde;
 - SSH root por clave funciona, sin password authentication;
 - tres arranques independientes con el mismo artefacto;
-- dmesg, cmdline, pstore y health report recuperables;
+- dmesg y cmdline recuperables (vía SSH); pstore queda pendiente hasta añadir
+  `CONFIG_PSTORE_RAM=y` en el kernel 6.1 (config actual solo tiene
+  `CONFIG_EFI_VARS_PSTORE`, sin backend RAM para este arranque);
 - UFS sin errores graves;
 - ningun panic, oops, SError ni watchdog reset.
 
