@@ -40,8 +40,21 @@ display_color() {
   color="$1"
   path="/usr/share/v71-display/${color}.raw"
   mark V71_V4_FB_DIRECT_WRITE_BEGIN
-  if test -c /dev/fb0 && test -f "$path" && cat "$path" > /dev/fb0 2>/dev/null; then
+  fb_bytes="$(wc -c < "$path" 2>/dev/null || echo 0)"
+  fb_mode="$(cat /sys/class/graphics/fb0/virtual_size 2>/dev/null || echo '')"
+  fb_stride="$(cat /sys/class/graphics/fb0/stride 2>/dev/null || echo 0)"
+  fb_width="${fb_mode%%,*}"; fb_height="${fb_mode##*,}"
+  fb_expected=$((fb_stride * fb_height))
+  if test "$fb_width" = 720 && test "$fb_height" = 1560 && \
+     test "$fb_stride" = 2880 && test "$fb_bytes" = "$fb_expected" && \
+     test -c /dev/fb0 && cat "$path" > /dev/fb0 2>/dev/null; then
     mark V71_V4_FB_DIRECT_WRITE_SUCCESS
+    head -c 16 /dev/fb0 > /run/v71-fb-sample 2>/dev/null || true
+    if test "$(wc -c < /run/v71-fb-sample 2>/dev/null || echo 0)" = 16; then
+      emit V71_V4_FB_READBACK_SUCCESS
+    else
+      emit V71_V4_FB_READBACK_FAILED
+    fi
     case "$color" in
       green) mark V71_V4_FB_CHECKPOINT_GREEN ;;
       blue) mark V71_V4_FB_CHECKPOINT_BLUE ;;
@@ -63,6 +76,19 @@ if test -c /dev/fb0; then
 else
   mark V71_V4_FB_DEVICE_ABSENT
   mark V71_V4_FBCON_ABSENT
+fi
+
+if mount -t pstore pstore /sys/fs/pstore 2>/dev/null; then
+  emit V71_V4_PSTORE_READY
+  ls -la /sys/fs/pstore 2>/dev/null || true
+  for record in /sys/fs/pstore/*; do
+    test -f "$record" || continue
+    emit "V71_V4_PSTORE_RECORD ${record##*/}"
+    head -5 "$record" 2>/dev/null || true
+    tail -5 "$record" 2>/dev/null || true
+  done
+else
+  emit V71_V4_PSTORE_UNAVAILABLE
 fi
 
 # Display summary: máximo unas pocas líneas, dmesg completo solo en tmpfs.

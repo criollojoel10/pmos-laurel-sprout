@@ -7,11 +7,6 @@ on:
         description: Run ID 03 con kernel v7.1/DTB Laurel
         type: string
         default: "31513653872"
-      usb_function:
-        description: Función USB después de checkpoints display
-        type: choice
-        options: [rndis, ncm, ecm]
-        default: rndis
       preserve_boot_resources:
         description: Mantener clocks/power/regulators durante diagnóstico
         type: boolean
@@ -67,7 +62,12 @@ jobs:
             --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
             --out /tmp/usb-dtb-audit
           cp /tmp/usb-dtb-audit/usb-dtb-audit.md /tmp/usb-dtb-audit/display-dtb-audit.md
-          grep -E '^CONFIG_(COMMON_CLK|PM_GENERIC_DOMAINS|REGULATOR|REGULATOR_FIXED_VOLTAGE|FB|FB_SIMPLE|FRAMEBUFFER_CONSOLE|VT_CONSOLE|PRINTK|PRINTK_TIME|PSTORE|PSTORE_RAM|PSTORE_CONSOLE|PSTORE_PMSG|DEBUG_FS|DYNAMIC_DEBUG)=' /tmp/kernel-artifact/kernel.config > /tmp/config-display-critical.txt
+          for sym in CONFIG_SYSFB=y CONFIG_FB_SIMPLE=y CONFIG_FRAMEBUFFER_CONSOLE=y CONFIG_VT_CONSOLE=y \
+            CONFIG_PSTORE=y CONFIG_PSTORE_RAM=y CONFIG_PSTORE_CONSOLE=y CONFIG_PSTORE_PMSG=y; do
+            grep -qx "$sym" /tmp/kernel-artifact/kernel.config || { echo "ERROR: $sym" >&2; exit 1; }
+          done
+          ! grep -q '^CONFIG_DRM_SIMPLEDRM=' /tmp/kernel-artifact/kernel.config
+          grep -E '^CONFIG_(COMMON_CLK|PM_GENERIC_DOMAINS|REGULATOR|REGULATOR_FIXED_VOLTAGE|FB|FB_SIMPLE|FRAMEBUFFER_CONSOLE|VT_CONSOLE|PRINTK|PRINTK_TIME|PSTORE|PSTORE_RAM|PSTORE_CONSOLE|PSTORE_PMSG|DEBUG_FS|DYNAMIC_DEBUG|SYSFB)=' /tmp/kernel-artifact/kernel.config > /tmp/config-display-critical.txt
           printf 'dtbs_check: no ejecutado; no se descarga árbol fuente, se usó fdtget/dtc sobre DTB exacto\n' > /tmp/dtbs-check.log
       - name: Construir BusyBox arm64
         run: |
@@ -96,7 +96,7 @@ jobs:
             --init initramfs/native-diag-init-v4 \
             --busybox-root /tmp/busybox-out/applet-root \
             --display-payload /tmp/display-payload \
-            --usb-function "${{ github.event.inputs.usb_function }}" \
+            --usb-function rndis \
             --out /tmp/initramfs-out
           bash scripts/verify-v71-display-first-initramfs-v4.sh \
             --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
@@ -160,9 +160,8 @@ jobs:
           cd /tmp/boot-out
           sha256sum boot-laurel-v71-display-first-diag-v4.img > SHA256SUMS
           jq -n --arg run "${{ github.event.inputs.kernel_artifact_run_id }}" \
-            --arg fn "${{ github.event.inputs.usb_function }}" \
             --arg size "$(stat -c %s boot-laurel-v71-display-first-diag-v4.img)" \
-            '{artifact:"boot-laurel-v71-display-first-diag-v4", kernel_run_id:$run, usb_function:$fn, size_bytes:($size|tonumber), limit_bytes:67108864, fits:(($size|tonumber)<67108864), root:false, skip_initramfs:false, panic:0, generated_at:"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > manifest.json
+            '{artifact:"boot-laurel-v71-display-first-diag-v4", kernel_run_id:$run, usb_function:"rndis", size_bytes:($size|tonumber), limit_bytes:67108864, fits:(($size|tonumber)<67108864), root:false, skip_initramfs:false, panic:0, generated_at:"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > manifest.json
           sha256sum -c SHA256SUMS
           cat SHA256SUMS manifest.json
       - name: Empaquetar salida
