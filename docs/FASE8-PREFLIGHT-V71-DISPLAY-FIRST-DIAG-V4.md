@@ -5,11 +5,11 @@ Estado: artefacto construido/validado; **detenerse antes de Fastboot**.
 | Campo | Valor |
 |---|---|
 | Kernel run | `31513653872` |
-| Workflow 15 | `31552881595` |
-| Commit | `73ddbc0` |
+| Workflow 15 | `31553208748` |
+| Commit | `7a386f5` |
 | Artefacto | `boot-laurel-v71-display-first-diag-v4.img` |
-| Ruta local | `local-private/boot-31552881595/boot-out/boot-laurel-v71-display-first-diag-v4.img` |
-| SHA-256 | `3737b43f873e6ce2f8c2446b21032c170e993c036da79c3574b975ce3c3f2276` |
+| Ruta local | `local-private/boot-31553208748/boot-out/boot-laurel-v71-display-first-diag-v4.img` |
+| SHA-256 | `a8190fdeddda66e34112c1a5105ed559a2eeef7a0f7ef554d7fb00eff4a7f84d` |
 | Tamaño | 23,097,344 bytes |
 | Límite boot | 67,108,864 bytes |
 | Rootfs | no monta `system_b` |
@@ -56,5 +56,5 @@ de cualquier prueba.
 ## Comando preparado, NO ejecutado
 
 ```text
-fastboot flash boot_b local-private/boot-31552881595/boot-out/boot-laurel-v71-display-first-diag-v4.img
+fastboot flash boot_b local-private/boot-31553208748/boot-out/boot-laurel-v71-display-first-diag-v4.img
 ```
