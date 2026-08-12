@@ -1,0 +1,170 @@
+name: 14-build-v71-usb-dtb-diag-v3
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_artifact_run_id:
+        description: Run ID 03 con kernel v7.1/DTB Laurel
+        type: string
+        default: "31513653872"
+      usb_function:
+        description: Función USB diagnóstico
+        type: choice
+        options: [rndis, ncm, ecm]
+        default: rndis
+      preserve_boot_resources:
+        description: Añadir ignore_unused para diagnóstico temporal
+        type: boolean
+        default: true
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: v71-usb-dtb-diag-v3
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Boot v7.1 USB/DTB diagnóstico v3
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq device-tree-compiler cpio gzip file python3 \
+            crossbuild-essential-arm64 android-sdk-libsparse-utils e2fsprogs
+      - name: Descargar kernel-debug
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kernel-debug
+          path: /tmp/kernel-artifact
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.inputs.kernel_artifact_run_id }}
+      - name: Verificar config y DTB
+        run: |
+          set -Eeuo pipefail
+          (cd /tmp/kernel-artifact && sha256sum -c SHA256SUMS)
+          bash scripts/validate-v71-usb-dtb.sh \
+            --config /tmp/kernel-artifact/kernel.config \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --out /tmp/usb-dtb-audit
+          cp /tmp/usb-dtb-audit/usb-dtb-audit.md /tmp/usb-dtb-audit/usb-dtb-audit-source.md
+          grep -E '^CONFIG_(EXTCON|EXTCON_USB_GPIO|USB_DWC3|USB_DWC3_QCOM|PHY_QCOM_QUSB2|USB_GADGET|USB_LIBCOMPOSITE|USB_CONFIGFS|USB_CONFIGFS_RNDIS|FB_SIMPLE|FRAMEBUFFER_CONSOLE|VT_CONSOLE|PSTORE_RAM)=' /tmp/kernel-artifact/kernel.config > /tmp/config-critical.txt
+      - name: Construir BusyBox arm64
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-busybox-arm64.sh --out /tmp/busybox-out
+          file /tmp/busybox-out/busybox
+      - name: Construir initramfs nativo v3
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-diagnostic-initramfs.sh \
+            --init initramfs/native-diag-init-v3 \
+            --busybox-root /tmp/busybox-out/applet-root \
+            --usb-function "${{ github.event.inputs.usb_function }}" \
+            --out /tmp/initramfs-out
+          bash scripts/verify-v71-native-initramfs-v3.sh \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --busybox-root /tmp/busybox-out/applet-root \
+            --out /tmp/initramfs-out
+          gzip -dc /tmp/initramfs-out/initramfs.cpio.gz | cpio -t > /tmp/initramfs-file-list.txt
+      - name: Ensamblar boot v3
+        run: |
+          set -Eeuo pipefail
+          RESOURCES=""
+          if [[ "${{ github.event.inputs.preserve_boot_resources }}" == "true" ]]; then
+            RESOURCES="clk_ignore_unused pd_ignore_unused regulator_ignore_unused"
+          fi
+          CMDLINE="console=ttyMSM0,115200n8 console=tty0 consoleblank=0 ignore_loglevel loglevel=8 initcall_debug printk.time=1 panic=10 $RESOURCES androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7 buildvariant=user"
+          echo "$CMDLINE" > /tmp/cmdline.txt
+          mkdir -p /tmp/boot-out
+          python3 scripts/build-boot-image.py \
+            --kernel /tmp/kernel-artifact/Image.gz \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --out /tmp/boot-out/boot-laurel-v71-usb-dtb-diag-v3.img \
+            --base 0 --page-size 4096 --kernel-offset 0x8000 \
+            --ramdisk-offset 0x1000000 --tags-offset 0x100 \
+            --dtb-offset 0x1f00000 --os-version 12.0.0 --os-patch-level 2026-08 \
+            --cmdline "$CMDLINE"
+      - name: Extraer y validar boot final
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/validate-diagnostic-boot.py \
+            --boot /tmp/boot-out/boot-laurel-v71-usb-dtb-diag-v3.img \
+            --kernel /tmp/kernel-artifact/Image.gz \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --out /tmp/boot-validation
+          bash scripts/verify-v71-native-initramfs-v3.sh \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --busybox-root /tmp/busybox-out/applet-root \
+            --out /tmp/boot-validation/native
+          CMDLINE="$(python3 scripts/unpack-boot-image.py --boot /tmp/boot-out/boot-laurel-v71-usb-dtb-diag-v3.img --out /tmp/boot-validation/unpack --print-cmdline)"
+          printf '%s\n' "$CMDLINE" > /tmp/cmdline-extracted.txt
+          for tok in console=ttyMSM0,115200n8 console=tty0 consoleblank=0 ignore_loglevel loglevel=8 initcall_debug printk.time=1 panic=10; do
+            grep -q "$tok" <<<"$CMDLINE" || { echo "ERROR: falta $tok" >&2; exit 1; }
+          done
+          ! grep -qE 'root=|skip_initramfs|quiet|splash' <<<"$CMDLINE"
+          SIZE="$(stat -c %s /tmp/boot-out/boot-laurel-v71-usb-dtb-diag-v3.img)"
+          (( SIZE < 67108864 ))
+          cp /tmp/config-critical.txt /tmp/boot-validation/config-critical.txt 2>/dev/null || true
+          cp /tmp/initramfs-file-list.txt /tmp/boot-validation/initramfs-file-list.txt
+          cp /tmp/cmdline-extracted.txt /tmp/boot-validation/cmdline.txt
+          cp /tmp/boot-validation/diagnostic-boot-validation.md /tmp/boot-validation/boot-unpack-report.md
+      - name: Checksums y manifest
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/boot-out
+          sha256sum boot-laurel-v71-usb-dtb-diag-v3.img > SHA256SUMS
+          jq -n --arg run "${{ github.event.inputs.kernel_artifact_run_id }}" \
+            --arg fn "${{ github.event.inputs.usb_function }}" \
+            --arg size "$(stat -c %s boot-laurel-v71-usb-dtb-diag-v3.img)" \
+            '{artifact:"boot-laurel-v71-usb-dtb-diag-v3", kernel_run_id:$run, usb_function:$fn, size_bytes:($size|tonumber), limit_bytes:67108864, fits:(($size|tonumber)<67108864), root:false, skip_initramfs:false, generated_at:"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > manifest.json
+          sha256sum -c SHA256SUMS
+          cat SHA256SUMS manifest.json
+      - name: Empaquetar salida
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: boot-laurel-v71-usb-dtb-diag-v3
+          path: |
+            /tmp/boot-out/boot-laurel-v71-usb-dtb-diag-v3.img
+            /tmp/boot-out/SHA256SUMS
+            /tmp/boot-out/manifest.json
+            /tmp/usb-dtb-audit/usb-dtb-audit.md
+            /tmp/boot-validation/native/initramfs-verification.md
+            /tmp/boot-validation/initramfs-file-list.txt
+            /tmp/boot-validation/config-critical.txt
+            /tmp/boot-validation/cmdline.txt
+            /tmp/boot-validation/boot-unpack-report.md
+          retention-days: 7
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: v71-usb-dtb-diag-v3-logs
+          path: |
+            /tmp/boot-out/*.log
+            /tmp/busybox-out/*.log
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore

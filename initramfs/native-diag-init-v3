@@ -1,0 +1,124 @@
+#!/bin/busybox sh
+# Licencia: GPL-3.0-or-later
+# PID 1 nativo v3 para diagnosticar display/USB v7.1. No monta rootfs.
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+APPLETS="$(/bin/busybox --list 2>/dev/null | tr '\n' ' ')"
+have() { case " $APPLETS " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+stage() { printf '%s\n' "$1" > /run/v71-stage 2>/dev/null || true; }
+emit() {
+  line="$*"; echo "$line"
+  for c in /dev/console /dev/tty0 /dev/ttyMSM0 /dev/kmsg; do
+    test -e "$c" && echo "$line" > "$c" 2>/dev/null || true
+  done
+}
+mark() { stage "$1"; emit "$1"; sleep 2; emit "$1 (repeat)"; sync 2>/dev/null || true; }
+mac_gen() { id="$1"; case "$id" in 1|2) ;; *) id=1 ;; esac; printf '%s:%s:%s:%s:%s:%s' 02 73 00 00 00 "$id"; }
+
+mark V71_V3_PID1_FIRST_INSTRUCTION
+sleep 5; emit "V71_V3_PID1_FIRST_INSTRUCTION (after 5s)"
+/bin/busybox mkdir -p /proc /sys /dev /run /tmp /mnt /sys/kernel/config /sys/kernel/debug
+
+if mount -t proc none /proc 2>&1; then mark V71_V3_PROC_READY; else mark V71_V3_PROC_FAILED; fi
+if mount -t sysfs none /sys 2>&1; then mark V71_V3_SYS_READY; else mark V71_V3_SYS_FAILED; fi
+if mount -t devtmpfs none /dev 2>&1; then mark V71_V3_DEVTMPFS_READY; else mark V71_V3_DEVTMPFS_FAILED; fi
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null || true
+
+for p in /sys/module/kernel/parameters/consoleblank /sys/module/vt/parameters/consoleblank; do
+  test -w "$p" && printf '0' > "$p" 2>/dev/null || true
+done
+printf '\033[9;0' > /dev/console 2>/dev/null || true
+
+mark V71_V3_FB_STATUS_BEGIN
+ls -la /dev/fb* 2>/dev/null || true
+cat /sys/class/graphics/fb0/name /sys/class/graphics/fb0/modes 2>/dev/null || true
+if test -e /dev/fb0; then mark V71_V3_FB_ALIVE; else mark V71_V3_FB_LOST; fi
+mark V71_V3_FB_STATUS_END
+
+mark V71_V3_BEFORE_DEFERRED_PROBE
+cat /sys/kernel/debug/devices_deferred 2>/dev/null || true
+mark V71_V3_AFTER_DEFERRED_PROBE
+
+if test -e /sys/bus/platform/devices/1613000.phy; then mark V71_V3_PHY_NODE_PRESENT; else mark V71_V3_PHY_NODE_ABSENT; fi
+if test -e /sys/bus/platform/devices/4ef8800.usb; then mark V71_V3_DWC3_WRAPPER_PRESENT; else mark V71_V3_DWC3_WRAPPER_ABSENT; fi
+if test -e /sys/bus/platform/devices/4ef8800.usb/4e00000.usb; then mark V71_V3_DWC3_CORE_PRESENT; else mark V71_V3_DWC3_CORE_ABSENT; fi
+if test -e /sys/class/extcon; then mark V71_V3_EXTCON_PRESENT; else mark V71_V3_EXTCON_ABSENT; fi
+
+mark V71_V3_USB_AUDIT_BEGIN
+ls -la /sys/bus/platform/drivers/qcom-dwc3 /sys/bus/platform/drivers/dwc3 \
+  /sys/bus/platform/drivers/qcom-qusb2-phy /sys/bus/platform/devices 2>/dev/null || true
+find /sys/class/udc /sys/kernel/debug/usb -maxdepth 3 -type f -print 2>/dev/null || true
+cat /sys/kernel/debug/clk/clk_summary /sys/kernel/debug/regulator/regulator_summary \
+  /sys/kernel/debug/pm_genpd/pm_genpd_summary 2>/dev/null | \
+  grep -iE 'usb|dwc|qusb|phy|regulator|clock|genpd' || true
+dmesg 2>/dev/null | grep -iE 'dwc3|qusb2|usb|phy|udc|gadget|extcon|deferred|regulator|clock|genpd|probe|error|fail' || true
+mark V71_V3_USB_AUDIT_END
+
+mark V71_V3_UDC_SCAN_BEGIN
+udc_name=""; n=0
+while [ "$n" -lt 30 ]; do
+  for udc in /sys/class/udc/*; do
+    test -e "$udc" || continue
+    udc_name="${udc##*/}"; mark "V71_V3_UDC_FOUND name=$udc_name"; break 2
+  done
+  emit "V71_V3_UDC_WAIT second=$n"; n=$((n + 1)); sleep 1
+done
+if [ -z "$udc_name" ]; then
+  mark V71_V3_UDC_TIMEOUT
+else
+  function="$(cat /etc/diag-usb-function 2>/dev/null || echo rndis)"
+  G=/sys/kernel/config/usb_gadget/v71diag
+  mark V71_V3_CONFIGFS_BEGIN
+  mount -t configfs none /sys/kernel/config 2>/dev/null || true
+  mkdir -p "$G/strings/0x409" "$G/configs/c.1/strings/0x409" \
+    "$G/functions/$function.usb0" 2>/dev/null; rc=$?
+  emit "V71_V3_CONFIGFS_MKDIR rc=$rc"
+  printf '0x18d1' > "$G/idVendor" 2>/dev/null || true
+  printf '0x4ee7' > "$G/idProduct" 2>/dev/null || true
+  printf 'v71v3' > "$G/strings/0x409/serialnumber" 2>/dev/null || true
+  printf 'postmarketOS' > "$G/strings/0x409/manufacturer" 2>/dev/null || true
+  printf 'laurel v7.1 diag v3' > "$G/strings/0x409/product" 2>/dev/null || true
+  printf '%s' "$(mac_gen 1)" > "$G/functions/$function.usb0/dev_addr" 2>/dev/null || true
+  printf '%s' "$(mac_gen 2)" > "$G/functions/$function.usb0/host_addr" 2>/dev/null || true
+  mark V71_V3_CONFIGFS_END
+  mark V71_V3_GADGET_BIND_BEGIN
+  ln -sfn "$G/functions/$function.usb0" "$G/configs/c.1/$function.usb0" 2>/dev/null; rc=$?
+  emit "V71_V3_GADGET_SYMLINK rc=$rc"
+  printf '%s' "$udc_name" > "$G/UDC" 2>/dev/null; rc=$?
+  if [ "$rc" -eq 0 ]; then mark V71_V3_GADGET_BIND_SUCCESS; else mark V71_V3_GADGET_BIND_FAILED; fi
+  iface=""; n=0
+  while [ "$n" -lt 20 ]; do
+    for candidate in usb0 rndis0; do test -d "/sys/class/net/$candidate" && iface="$candidate" && break 2; done
+    sleep 1; n=$((n + 1))
+  done
+  if [ -n "$iface" ]; then
+    ifconfig "$iface" 172.16.42.1 netmask 255.255.255.0 up 2>&1 || true
+    emit "V71_V3_USB0_PRESENT iface=$iface"
+    if have telnetd; then
+      if telnetd -f /etc/issue -l /bin/sh -p 23 2>/dev/null; then
+        mark V71_V3_TELNET_STARTED
+      else
+        mark V71_V3_TELNET_FAILED
+      fi
+    else
+      mark V71_V3_TELNET_FAILED
+    fi
+  else
+    mark V71_V3_USB0_ABSENT; mark V71_V3_TELNET_FAILED
+  fi
+fi
+mark V71_V3_UDC_SCAN_END
+if mount -t pstore pstore /sys/fs/pstore 2>/dev/null; then mark V71_V3_PSTORE_READY; fi
+emit V71_V3_FILTERED_DMESG_BEGIN
+dmesg 2>/dev/null | grep -iE 'simplefb|fbcon|framebuffer|dwc3|qusb2|usb|phy|udc|gadget|extcon|deferred|regulator|clock|genpd|probe|error|fail' || true
+emit V71_V3_FILTERED_DMESG_END
+mark V71_V3_STABLE_LOOP
+
+(
+  while true; do
+    emit "[V71_V3_HEARTBEAT] uptime=$(awk '{print $1}' /proc/uptime 2>/dev/null || echo '?') stage=$(cat /run/v71-stage 2>/dev/null || echo unknown)"
+    sleep 10
+  done
+) &
+if test -c /dev/console; then /bin/busybox sh </dev/console >/dev/console 2>&1 || true; fi
+while true; do sleep 3600; done

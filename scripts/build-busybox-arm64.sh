@@ -91,7 +91,7 @@ declare -A APP_SYM=(
   [switch_root]=SWITCH_ROOT [tr]=TR [wc]=WC [setsid]=SETSID
   [echo]=ECHO [test]=TEST [uname]=UNAME [chmod]=CHMOD [ln]=LN
   [mv]=MV [rm]=RM [touch]=TOUCH [head]=HEAD [tail]=TAIL
-  [ifconfig]=IFCONFIG [telnetd]=TELNETD
+  [ifconfig]=IFCONFIG [telnetd]=TELNETD [find]=FIND [readlink]=READLINK
 )
 for a in "${!APP_SYM[@]}"; do
   sym="CONFIG_${APP_SYM[$a]}"
@@ -162,7 +162,7 @@ cp busybox.links "$OUT/busybox.links"
 
 # Validar ANTES de crear enlaces que cada applet requerido aparece en
 # busybox.links; su presencia garantiza que quedó compilado en el binario.
-REQUIRED=(sh cat sed grep awk mount umount mkdir mknod sleep dmesg uptime ls cp sync switch_root ifconfig telnetd)
+REQUIRED=(sh cat sed grep awk mount umount mkdir mknod sleep dmesg uptime ls cp sync switch_root ifconfig telnetd find readlink)
 for a in "${REQUIRED[@]}"; do
   grep -Eq "/${a}$" busybox.links || {
     echo "ERROR: busybox.links no incluye el applet requerido '$a' (no se compiló)" >&2
