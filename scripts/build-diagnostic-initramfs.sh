@@ -22,6 +22,7 @@ OUT=""
 BUSYBOX=""
 BUSYBOX_ROOT=""
 USB_FUNCTION="rndis"
+DISPLAY_PAYLOAD=""
 
 usage() {
   echo "uso: $0 --init <init> --out <dir> [--busybox /ruta] [--busybox-root /ruta/al-árbol]" >&2
@@ -35,6 +36,7 @@ while (( $# > 0 )); do
     --busybox) BUSYBOX="$2"; shift 2 ;;
     --busybox-root) BUSYBOX_ROOT="$2"; shift 2 ;;
     --usb-function) USB_FUNCTION="$2"; shift 2 ;;
+    --display-payload) DISPLAY_PAYLOAD="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
@@ -45,6 +47,9 @@ case "$USB_FUNCTION" in
   ecm|ncm|rndis) ;;
   *) echo "ERROR: usb-function debe ser ecm, ncm o rndis" >&2; exit 2 ;;
 esac
+if [[ -n "$DISPLAY_PAYLOAD" ]]; then
+  [[ -d "$DISPLAY_PAYLOAD" ]] || { echo "ERROR: display-payload no existe" >&2; exit 1; }
+fi
 # Rutas absolutas: el empaquetado corre en un subshell con `cd "$STAGE"` y una
 # ruta relativa de OUT no se resolvería ahí.
 INIT="$(readlink -f "$INIT")"
@@ -121,6 +126,10 @@ printf 'pmos-diag' > "$STAGE/etc/hostname"
 printf 'pmos-diag (telnet diagnostic shell)\n' > "$STAGE/etc/issue"
 printf '%s\n' "$USB_FUNCTION" > "$STAGE/etc/diag-usb-function"
 : > "$STAGE/etc/mtab"
+if [[ -n "$DISPLAY_PAYLOAD" ]]; then
+  mkdir -p "$STAGE/usr/share/v71-display"
+  cp -a "$DISPLAY_PAYLOAD"/*.raw "$STAGE/usr/share/v71-display/"
+fi
 
 # 4) Empaquetar como cpio gzip (format initramfs del kernel)
 info "empaquetando initramfs..."
