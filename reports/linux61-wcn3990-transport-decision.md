@@ -39,7 +39,15 @@ hay `wlan0`, `phy`, `rfkill` ni firmware cargado.
   parche 7.1.
 - El driver 6.1 pide clocks opcionales `cxo_ref_clk_pin`/`qdss` y cinco
   nombres de regulator: `vdd-0.8-cx-mx`, `vdd-1.8-xo`, `vdd-1.3-rfa`,
-  `vdd-3.3-ch0`, `vdd-3.3-ch1`. El último mapping físico no está demostrado.
+  `vdd-3.3-ch0`, `vdd-3.3-ch1`. El mapping físico del quinto no está
+  demostrado.
+- IMPORTANTE (revisión independiente 2026-08-12): con DT poblada, un supply
+  ausente NO aborta el probe: `have_full_constraints()` es true vía
+  `of_have_populated_dt()`, `dummy.o` se compila con `CONFIG_REGULATOR=y` y
+  `regulator_dummy_init()` se llama incondicionalmente en `regulator_init`;
+  por tanto `devm_regulator_bulk_get` resolverá `vdd-3.3-ch1` con el dummy
+  regulator (warning) y el probe continuará. El primer probe NO debe
+  interpretarse como "fallo por regulator faltante".
 
 ## Decisión de implementación
 

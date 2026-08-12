@@ -13,8 +13,9 @@ MMC/SDIO nodes here: the transport decision is SNOC-probable, not SDIO.
 
 The 6.1 driver has a fifth vdd-3.3-ch1 entry, while the laurel vendor DT
 exposes four WCN rails. This first probe intentionally declares only the four
-rails demonstrated by the vendor DT; a regulator failure is expected evidence
-for the next iteration, not hidden with an invented L22A/L24A mapping.
+rails demonstrated by the vendor DT; with a populated DT the missing ch1 is
+resolved by the regulator dummy (no probe abort), so the runtime result is the
+driver probing with ch1 as dummy rather than a hard regulator failure.
 
 No apps_smmu/iommus property is added in this first probe. The driver enters
 its TrustZone path without a wifi-firmware child; a failed probe will determine
