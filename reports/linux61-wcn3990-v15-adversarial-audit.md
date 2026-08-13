@@ -38,8 +38,9 @@ espera síncrona"):
 - Búsqueda `all-stacks`: ninguna tarea con `ath10k_snoc_probe`/qmi/qrtr en pila.
 - `ath10k_snoc` refcnt 0.
 
-Con `use_tz=true` y sin firmware, el probe retorna 0; el flujo de firmware se
-reintenta en `ath10k_core_register_work` cuando llegue el servidor WLFW.
+Con `use_tz=true` y sin firmware, el probe retorna 0; el primer intento de
+solicitud de firmware (`ath10k_core_probe_fw`) se ejecuta en
+`ath10k_core_register_work`, que solo se dispara cuando llega el servidor WLFW.
 
 ### 1.2 "Workqueues en rescuer_thread = idle sin work" — CORREGIDA (interpretación)
 
