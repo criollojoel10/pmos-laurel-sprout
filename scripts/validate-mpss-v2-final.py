@@ -17,6 +17,9 @@ El parser es SEMANTICO, no de coincidencias textuales fragiles:
     0x00000000 son equivalentes y NO se comparan como texto.
   - interrupts-extended se SEGMENTA derivando #interrupt-cells de cada
     provider (phandle + N celdas), en vez de contar ocurrencias de "<0x".
+  - Las strings se DECODIFICAN (decode_dts_string) y las listas de strings
+    se interpretan semanticamente: tanto la forma "a", "b", "c" como la
+    forma "a\\0b\\0c" con NUL separador (emitida por dtc en CI).
 
 Nodos validados (phandle-aware):
   - remoteproc@6080000 : compatible qcom,sm8150-mpss-pas, status disabled,
@@ -132,11 +135,96 @@ def parse_cells(value):
     return [int(t, 0) for t in toks]
 
 
+_DTS_ESCAPES = {
+    "\\": "\\",
+    '"': '"',
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+}
+
+
+def decode_dts_string(raw):
+    r"""Decodifica una string DTS (sin comillas) a su valor real.
+
+    Soporta de forma controlada los escapes que dtc puede emitir:
+      \\  -> backslash
+      \"  -> comilla
+      \n, \r, \t  -> control
+      \0  -> NUL (1-3 digitos octales: \0 .. \377)
+      \xHH -> byte hexadecimal (exactamente dos digitos)
+
+    Rechaza (ValueError):
+      - escape incompleto al final de la string;
+      - \x sin dos digitos hexadecimales validos;
+      - octal con digitos fuera de rango (8/9) o > 3 digitos;
+      - secuencia de escape desconocida.
+    """
+    out = []
+    i = 0
+    n = len(raw)
+    while i < n:
+        c = raw[i]
+        if c != "\\":
+            out.append(c)
+            i += 1
+            continue
+        if i + 1 >= n:
+            raise ValueError("escape incompleto al final: %r" % raw)
+        e = raw[i + 1]
+        if e in _DTS_ESCAPES:
+            out.append(_DTS_ESCAPES[e])
+            i += 2
+            continue
+        if e == "x":
+            hexd = raw[i + 2:i + 4]
+            if len(hexd) != 2 or not re.fullmatch(r"[0-9a-fA-F]{2}", hexd):
+                raise ValueError("\\x sin dos digitos hex validos en %r" % raw)
+            out.append(chr(int(hexd, 16)))
+            i += 4
+            continue
+        if e in "01234567":
+            m = re.match(r"[0-7]{1,3}", raw[i + 1:])
+            octal = m.group(0)
+            if octal[0] not in "01234567" or int(octal, 8) > 0o377:
+                raise ValueError("octal fuera de rango en %r" % raw)
+            out.append(chr(int(octal, 8)))
+            i += 1 + len(octal)
+            continue
+        raise ValueError("secuencia de escape desconocida \\%s en %r" % (e, raw))
+    return "".join(out)
+
+
 def parse_strings(value):
-    """Lista de strings DTS -> lista de str (sin comillas)."""
+    """Lista de strings DTS -> lista de str decodificadas.
+
+    Soporta las dos representaciones reales de dtc:
+      - forma estandar:  "a", "b", "c"  (multiline, tabs, espacios, comentarios);
+      - forma NUL:       "a\\0b\\0c"    (una string con NUL separador).
+
+    Cada string quoted se decodifica con decode_dts_string() y se divide por
+    el NUL real (\"\\x00\"). Se rechaza (ValueError) si la division por NUL
+    produce elementos vacios (NUL inicial, doble NUL o NUL final) o si una
+    string no puede decodificarse.
+    """
     if value is None:
         return []
-    return re.findall(r'"([^"]*)"', value)
+    result = []
+    for raw in re.findall(r'"([^"]*)"', value):
+        decoded = decode_dts_string(raw)
+        parts = decoded.split("\x00")
+        if any(p == "" for p in parts):
+            raise ValueError("string con NUL inicial/doble/final: %r" % raw)
+        result.extend(parts)
+    return result
+
+
+def safe_parse_strings(value):
+    """parse_strings() que nunca lanza: ante un valor invalido devuelve []."""
+    try:
+        return parse_strings(value)
+    except ValueError:
+        return []
 
 
 def parse_nodes(text):
@@ -221,7 +309,7 @@ def validate(text):
         ok('compatible "qcom,wcn3990-wifi"',
            'compatible = "qcom,wcn3990-wifi"' in wifi,
            node="wifi@c800000")
-        st = parse_strings(extract_property(wifi, "status"))
+        st = safe_parse_strings(extract_property(wifi, "status"))
         ok('wifi status = "okay"', st == ["okay"],
            parsed=st, expected=["okay"], node="wifi@c800000")
 
@@ -246,7 +334,7 @@ def validate(text):
        'compatible = "qcom,sm8150-mpss-pas"' in rp,
        node="remoteproc@6080000")
 
-    st = parse_strings(extract_property(rp, "status"))
+    st = safe_parse_strings(extract_property(rp, "status"))
     ok('remoteproc status = "disabled"', st == ["disabled"],
        parsed=st, expected=["disabled"], node="remoteproc@6080000")
 
@@ -270,12 +358,29 @@ def validate(text):
        extract_property(rp, "power-domain-names") is None,
        node="remoteproc@6080000")
 
-    # interrupt-names: lista semantica exacta (multiline/espacios no afectan)
+    # interrupt-names: lista semantica exacta (multiline/espacios/NUL no afectan)
     inm_raw = extract_property(rp, "interrupt-names")
-    inm = parse_strings(inm_raw)
-    ok("seis interrupt-names en orden", inm == EXPECTED_INTERRUPT_NAMES,
+    inm = []
+    inm_err = None
+    inm_quoted = []
+    inm_decoded = []
+    if inm_raw is not None:
+        inm_quoted = re.findall(r'"([^"]*)"', inm_raw)
+        try:
+            for raw in inm_quoted:
+                inm_decoded.append(decode_dts_string(raw))
+            inm = parse_strings(inm_raw)
+        except ValueError as exc:
+            inm_err = str(exc)
+    inm_ok = inm == EXPECTED_INTERRUPT_NAMES and inm_err is None
+    ok("seis interrupt-names en orden", inm_ok,
        raw=inm_raw, parsed=inm, expected=EXPECTED_INTERRUPT_NAMES,
        node="remoteproc@6080000")
+    if not inm_ok:
+        print("    quoted:   {0}".format(inm_quoted))
+        print("    decoded:  {0}".format(inm_decoded))
+        if inm_err:
+            print("    error:    {0}".format(inm_err))
 
     # interrupts-extended: segmentacion por provider, no por "<0x"
     ie_raw = extract_property(rp, "interrupts-extended")

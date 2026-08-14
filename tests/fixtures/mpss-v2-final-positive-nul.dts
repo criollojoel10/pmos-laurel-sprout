@@ -1,0 +1,96 @@
+/dts-v1/;
+
+/ {
+	#address-cells = <0x02>;
+	#size-cells = <0x02>;
+
+	smp2p-mpss {
+		compatible = "qcom,smp2p";
+		qcom,smem = <0x1b3 0x1ac>;
+		interrupts = <0x02 0x00 0x46 0x04>;
+		mboxes = <0x01 0x0e>;
+
+		master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <0x01>;
+			phandle = <0x05>;
+		};
+
+		slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <0x02>;
+			phandle = <0x03>;
+		};
+
+		wlan-wpss-to-ap {
+			qcom,entry-name = "wlan";
+			interrupt-controller;
+			#interrupt-cells = <0x02>;
+			phandle = <0x06>;
+		};
+	};
+
+	soc {
+		#address-cells = <0x01>;
+		#size-cells = <0x01>;
+
+		interrupt-controller@f200000 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <0x03>;
+			interrupt-controller;
+			phandle = <0x02>;
+		};
+
+		clock-controller@100000 {
+			compatible = "qcom,rpmcc-sm6125";
+			#clock-cells = <0x01>;
+			#mbox-cells = <0x01>;
+			phandle = <0x01>;
+		};
+
+		power-controller {
+			compatible = "qcom,sm6125-rpmpd";
+			#power-domain-cells = <0x01>;
+			phandle = <0x04>;
+		};
+
+		memory@4b000000 {
+			reg = <0x00 0x4b000000 0x00 0x7e00000>;
+			phandle = <0x07>;
+		};
+
+		remoteproc@6080000 {
+			compatible = "qcom,sm8150-mpss-pas";
+			reg = <0x00 0x6080000 0x00 0x100>;
+			interrupts-extended = <0x02 0x00 0x133 0x01 0x03 0x00 0x01 0x03 0x01 0x01 0x03 0x02 0x01 0x03 0x03 0x01 0x03 0x07 0x01>;
+			interrupt-names = "wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack";
+			memory-region = <0x07>;
+			power-domains = <0x04 0x00>;
+			clocks = <0x01 0x04>;
+			clock-names = "xo";
+			qcom,smem-states = <0x05 0x00>;
+			qcom,smem-state-names = "stop";
+			status = "disabled";
+
+			glink-edge {
+				interrupts = <0x02 0x00 0x00 0x44 0x01>;
+				label = "mpss";
+				mboxes = <0x01 0x0c>;
+			};
+		};
+
+		wifi@c800000 {
+			compatible = "qcom,wcn3990-wifi";
+			reg = <0xc800000 0x800000>;
+			interrupts = <0x02 0x00 0x00 0x08 0x04>;
+			memory-region = <0x08>;
+			status = "okay";
+		};
+
+		wlan-msa-mem@95500000 {
+			reg = <0x00 0x95500000 0x00 0x200000>;
+			phandle = <0x08>;
+		};
+	};
+};

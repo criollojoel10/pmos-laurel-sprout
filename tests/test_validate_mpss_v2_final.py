@@ -32,6 +32,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VALIDATOR = os.path.join(ROOT, "scripts", "validate-mpss-v2-final.py")
 FIX_POS = os.path.join(ROOT, "tests", "fixtures", "mpss-v2-final-positive.dts")
 FIX_POS_SRC = os.path.join(ROOT, "tests", "fixtures", "mpss-v2-final-positive-source.dts")
+FIX_NUL = os.path.join(ROOT, "tests", "fixtures", "mpss-v2-final-positive-nul.dts")
+
+# linea interrupt-names en formato NUL de dtc del CI
+NUL_NAMES_LINE = 'interrupt-names = "wdog\\0fatal\\0ready\\0handover\\0stop-ack\\0shutdown-ack";'
 
 
 def _load_validator():
@@ -309,6 +313,169 @@ class MpssV2FinalValidatorTest(unittest.TestCase):
             "\t\t\tpower-domains = <0x04 0x00>;",
             "\t\t\tpower-domains = <0x04 0x00 0x04 0x00>;")
         self.assert_fail_contains(text, "exactamente un power-domain (2 celdas)")
+
+    # ------------------------------------------------------------------
+    # decode_dts_string / parse_strings: formato NUL de dtc del CI
+    # ------------------------------------------------------------------
+
+    def test_decode_dts_string_escapes_basicos(self):
+        self.assertEqual(MOD.decode_dts_string(r"a\\b"), "a\\b")
+        self.assertEqual(MOD.decode_dts_string(r'a\"b'), 'a"b')
+        self.assertEqual(MOD.decode_dts_string(r"a\nb"), "a\nb")
+        self.assertEqual(MOD.decode_dts_string(r"a\rb"), "a\rb")
+        self.assertEqual(MOD.decode_dts_string(r"a\tb"), "a\tb")
+        self.assertEqual(MOD.decode_dts_string(r"plain"), "plain")
+
+    def test_decode_dts_string_nul_octal_y_hex(self):
+        self.assertEqual(MOD.decode_dts_string(r"a\0b"), "a\x00b")
+        self.assertEqual(MOD.decode_dts_string(r"a\000b"), "a\x00b")
+        self.assertEqual(MOD.decode_dts_string(r"a\012b"), "a\nb")
+        self.assertEqual(MOD.decode_dts_string(r"a\x00b"), "a\x00b")
+        self.assertEqual(MOD.decode_dts_string(r"a\x0ab"), "a\nb")
+
+    def test_decode_dts_string_escapes_octales(self):
+        self.assertEqual(MOD.decode_dts_string(r"\040"), " ")
+        self.assertEqual(MOD.decode_dts_string(r"\101"), "A")
+        self.assertEqual(MOD.decode_dts_string(r"\141"), "a")
+        self.assertEqual(MOD.decode_dts_string(r"\377"), "\xff")
+
+    def test_decode_dts_string_rechaza_malformados(self):
+        for bad in ("abc\\", "abc\\x0", "abc\\xgg", "abc\\x0g",
+                    "abc\\8", "abc\\q"):
+            with self.assertRaises(ValueError):
+                MOD.decode_dts_string(bad)
+
+    def test_parse_strings_nul(self):
+        val = r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"'
+        self.assertEqual(MOD.parse_strings(val), MOD.EXPECTED_INTERRUPT_NAMES)
+
+    def test_parse_strings_nul_octal(self):
+        val = r'"wdog\000fatal\000ready\000handover\000stop-ack\000shutdown-ack"'
+        self.assertEqual(MOD.parse_strings(val), MOD.EXPECTED_INTERRUPT_NAMES)
+
+    def test_parse_strings_nul_hex(self):
+        val = r'"wdog\x00fatal\x00ready\x00handover\x00stop-ack\x00shutdown-ack"'
+        self.assertEqual(MOD.parse_strings(val), MOD.EXPECTED_INTERRUPT_NAMES)
+
+    def test_parse_strings_comma_forma_estandar(self):
+        val = '"wdog", "fatal", "ready", "handover", "stop-ack", "shutdown-ack"'
+        self.assertEqual(MOD.parse_strings(val), MOD.EXPECTED_INTERRUPT_NAMES)
+
+    def test_parse_strings_mezcla_quoted_con_nul_interno(self):
+        val = ('"wdog\\0fatal", "ready", "handover",\n'
+               '\t\t\t"stop-ack", "shutdown-ack"')
+        self.assertEqual(MOD.parse_strings(val), MOD.EXPECTED_INTERRUPT_NAMES)
+
+    def test_parse_strings_multiline_tabs(self):
+        val = ('"wdog\\0fatal\\0ready",\n'
+               '\t"handover\\0stop-ack\\0shutdown-ack"')
+        self.assertEqual(MOD.parse_strings(val), MOD.EXPECTED_INTERRUPT_NAMES)
+
+    def test_parse_strings_backslash_literal_no_es_nul(self):
+        # "\\0" son DOS caracteres (backslash + '0'), NO un NUL
+        val = r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"'
+        self.assertEqual(MOD.parse_strings(val), MOD.EXPECTED_INTERRUPT_NAMES)
+        self.assertEqual(MOD.decode_dts_string(r"wdog\\0fatal"),
+                         "wdog\\0fatal")
+
+    def test_parse_strings_rechaza_nul_inicial(self):
+        val = r'"\0wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"'
+        with self.assertRaises(ValueError):
+            MOD.parse_strings(val)
+
+    def test_parse_strings_rechaza_nul_final(self):
+        val = r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack\0"'
+        with self.assertRaises(ValueError):
+            MOD.parse_strings(val)
+
+    def test_parse_strings_rechaza_doble_nul(self):
+        val = r'"wdog\0\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"'
+        with self.assertRaises(ValueError):
+            MOD.parse_strings(val)
+
+    def test_parse_strings_rechaza_escape_incompleto(self):
+        # escape incompleto al final de la cadena (backslash suelto)
+        with self.assertRaises(ValueError):
+            MOD.decode_dts_string("abc\\")
+        # \x sin dos digitos hex
+        with self.assertRaises(ValueError):
+            MOD.parse_strings('"wdog\\xg0fatal"')
+        # escape desconocido
+        with self.assertRaises(ValueError):
+            MOD.parse_strings(r'"wdog\qfatal"')
+
+    # ------------------------------------------------------------------
+    # Fixture NUL de CI: validador completo
+    # ------------------------------------------------------------------
+
+    def test_p_nul_7_fixture_completo_ci(self):
+        text = read(FIX_NUL)
+        self.assert_pass(text)
+
+    def test_p_nul_8_nul_interrupts_extended_pasan_validacion(self):
+        # interrupt-names con NUL y el resto del fixture correcto
+        text = read(FIX_NUL)
+        self.assertIn(r'\0', text)
+        self.assertIn("interrupts-extended", text)
+        self.assert_pass(text)
+
+    def test_n_nul_solo_cinco_nombres(self):
+        text = read(FIX_NUL).replace(
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"',
+            r'"wdog\0fatal\0ready\0handover\0stop-ack"')
+        self.assert_fail_contains(text, "seis interrupt-names en orden")
+
+    def test_n_nul_siete_nombres(self):
+        text = read(FIX_NUL).replace(
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"',
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack\0extra"')
+        self.assert_fail_contains(text, "seis interrupt-names en orden")
+
+    def test_n_nul_orden_alterado(self):
+        text = read(FIX_NUL).replace(
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"',
+            r'"fatal\0wdog\0ready\0handover\0stop-ack\0shutdown-ack"')
+        self.assert_fail_contains(text, "seis interrupt-names en orden")
+
+    def test_n_nul_nombre_duplicado(self):
+        text = read(FIX_NUL).replace(
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"',
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0stop-ack"')
+        self.assert_fail_contains(text, "seis interrupt-names en orden")
+
+    def test_n_nul_escape_hex_incompleto(self):
+        text = read(FIX_NUL).replace(
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"',
+            r'"wdog\x0fatal\x0ready\x0handover\x0stop-ack\x0shutdown-ack"')
+        self.assert_fail_contains(text, "seis interrupt-names en orden")
+
+    def test_n_nul_escape_al_final(self):
+        # cadena sin comilla de cierre: backslash suelto antes del final
+        text = read(FIX_NUL).replace(
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"',
+            '"wdog\\0fatal\\0ready\\0handover\\0stop-ack\\0shutdown-ack\\')
+        self.assert_fail_contains(text, "seis interrupt-names en orden")
+
+    def test_n_nul_string_sin_comilla_final(self):
+        text = read(FIX_NUL).replace(
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack";',
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack;')
+        self.assert_fail_contains(text, "seis interrupt-names en orden")
+
+    def test_n_nul_irq_no_corresponde(self):
+        # NUL correcto pero la spec de IRQ no coincide (bit 9 en vez de 7)
+        text = read(FIX_NUL).replace(
+            "0x03 0x07 0x01>;",
+            "0x03 0x09 0x01>;")
+        self.assert_fail_contains(text, "entrada 6 = modem_smp2p_in bit 7 (shutdown-ack)")
+
+    def test_n_nul_backslash_literal_unicode(self):
+        # "\\0" (backslash literal) en la fuente DTS no es NUL; la lista
+        # resultante no puede coincidir con la esperada.
+        text = read(FIX_NUL).replace(
+            r'"wdog\0fatal\0ready\0handover\0stop-ack\0shutdown-ack"',
+            r'"wdog\\0fatal\\0ready\\0handover\\0stop-ack\\0shutdown-ack"')
+        self.assert_fail_contains(text, "seis interrupt-names en orden")
 
 
 def re_search_single_bracket(text, prop):
