@@ -18,9 +18,15 @@
 #   --final-dts <archivo>   verifica el DTB FINAL decompilado (final-v2.dts),
 #                           phandle-aware (gates 13 y 14 de M13).
 #
+# Estado MPSS esperado (variante):
+#   --expect-mpss disabled  (default, v2): remoteproc_mpss disabled en el DTSI
+#                           y el board SIN override.
+#   --expect-mpss okay      (v3): override de placa &remoteproc_mpss con
+#                           status = "okay". El resto de la semantica es igual.
+#
 # Uso:
-#   scripts/verify-wcn3990-mpss-v2.sh --tree <árbol> [--out <dir>]
-#   scripts/verify-wcn3990-mpss-v2.sh --final-dts <final-v2.dts> [--out <dir>]
+#   scripts/verify-wcn3990-mpss-v2.sh --tree <árbol> [--expect-mpss <estado>] [--out <dir>]
+#   scripts/verify-wcn3990-mpss-v2.sh --final-dts <final-v2.dts> [--expect-mpss <estado>] [--out <dir>]
 
 set -eu
 
@@ -29,9 +35,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TREE=""
 FINAL_DTS=""
 OUT="."
+EXPECT_MPSS="disabled"
 
 usage() {
-  echo "uso: $0 (--tree <árbol> | --final-dts <final-v2.dts>) [--out <dir>]" >&2
+  echo "uso: $0 (--tree <árbol> | --final-dts <final-v2.dts>) [--expect-mpss disabled|okay] [--out <dir>]" >&2
   exit 2
 }
 
@@ -39,10 +46,13 @@ while (( $# > 0 )); do
   case "$1" in
     --tree) TREE="$2"; shift 2 ;;
     --final-dts) FINAL_DTS="$2"; shift 2 ;;
+    --expect-mpss) EXPECT_MPSS="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
+
+[[ "$EXPECT_MPSS" == "disabled" || "$EXPECT_MPSS" == "okay" ]] || usage
 
 [[ -n "$TREE" || -n "$FINAL_DTS" ]] || usage
 [[ -z "$TREE" || -z "$FINAL_DTS" ]] || usage
@@ -183,7 +193,9 @@ if [[ -n "$TREE" ]]; then
   gate "nodo remoteproc@6080000 presente" test -n "$RP"
   if [[ -n "$RP" ]]; then
     gate 'compatible "qcom,sm8150-mpss-pas"' grep -q 'compatible = "qcom,sm8150-mpss-pas"' <<<"$RP"
-    gate 'status = "disabled"' grep -q 'status = "disabled"' <<<"$RP"
+    # El nodo del DTSI queda "disabled" siempre; el estado efectivo lo decide
+    # el override de placa (ausente en v2, status="okay" en v3), validado abajo.
+    gate 'dtsi status = "disabled" (override de placa decide el efectivo)' grep -q 'status = "disabled"' <<<"$RP"
     gate "glink-edge presente" grep -q 'glink-edge' <<<"$RP"
     gate 'mboxes = <&apcs_glb 12> (glink-edge)' grep -q 'mboxes = <&apcs_glb 12>' <<<"$RP"
     gate 'memory-region = <&modem_mem>' grep -q 'memory-region = <&modem_mem>' <<<"$RP"
@@ -210,7 +222,7 @@ if [[ -n "$TREE" ]]; then
       test "$(grep -o 'GIC_SPI 307' <<<"$RP" | wc -l)" -eq 1 \
         -a "$(grep -o 'modem_smp2p_in' <<<"$RP" | wc -l)" -eq 5
   else
-    for l in 'compatible "qcom,sm8150-mpss-pas"' 'status = "disabled"' 'glink-edge' \
+    for l in 'compatible "qcom,sm8150-mpss-pas"' 'dtsi status = "disabled" (override de placa decide el efectivo)' 'glink-edge' \
              'mboxes = <&apcs_glb 12> (glink-edge)' 'memory-region = <&modem_mem>' \
              'power-domains = <&rpmpd SM6125_VDDCX>' 'qcom,smem-state-names = "stop"' \
              'exactamente una propiedad power-domains' 'power-domains contiene exactamente una entrada VDDCX' \
@@ -220,19 +232,35 @@ if [[ -n "$TREE" ]]; then
     done
   fi
 
-  # 9E: el board NO debe sobrescribir remoteproc_mpss. La v2 deja el nodo
-  # disabled en el DTSI; cualquier override de placa (unico o multilinea)
-  # se rechaza en esta fase. Extraccion ESTRUCTURAL del bloque &remoteproc_mpss.
+  # 9E: override del board segun variante. En v2 (disabled) el board NO debe
+  # sobrescribir remoteproc_mpss. En v3 (okay) el override de placa con
+  # status = "okay" ES el habilitador; se valida su contenido exacto.
+  # En ambas variantes se rechaza MÁS de un override (duplicado).
+  RP_OVR_COUNT=$(grep -c '^[[:space:]]*&remoteproc_mpss[[:space:]]*{' "$BOARD" || true)
+  gate "maximo un override de remoteproc_mpss en el board" \
+    test "$RP_OVR_COUNT" -le 1
   RP_OVR=$(extract_override_block "remoteproc_mpss" "$BOARD" || true)
-  if [[ -z "$RP_OVR" ]]; then
-    gate "board sin override de remoteproc_mpss" true
-  else
-    gate "board sin override de remoteproc_mpss" false
-    # si existe, ademas comprobar que NO contenga status = "okay" (por claridad)
-    if grep -q 'status = "okay"' <<<"$RP_OVR"; then
-      gate "override del board no contiene status = \"okay\"" false
+  if [[ "$EXPECT_MPSS" == "okay" ]]; then
+    if [[ -n "$RP_OVR" ]]; then
+      gate "board override de remoteproc_mpss presente (v3)" true
+      gate 'override status = "okay"' grep -q 'status = "okay"' <<<"$RP_OVR"
+      gate_absent "override no contiene power-domains" grep -q 'power-domains' <<<"$RP_OVR"
+      gate_absent "override no contiene memory-region" grep -q 'memory-region' <<<"$RP_OVR"
+      gate_absent "override no contiene interrupts" grep -q 'interrupts' <<<"$RP_OVR"
     else
-      gate "override del board no contiene status = \"okay\"" true
+      gate "board override de remoteproc_mpss presente (v3)" false
+    fi
+  else
+    if [[ -z "$RP_OVR" ]]; then
+      gate "board sin override de remoteproc_mpss" true
+    else
+      gate "board sin override de remoteproc_mpss" false
+      # si existe, ademas comprobar que NO contenga status = "okay" (por claridad)
+      if grep -q 'status = "okay"' <<<"$RP_OVR"; then
+        gate "override del board no contiene status = \"okay\"" false
+      else
+        gate "override del board no contiene status = \"okay\"" true
+      fi
     fi
   fi
 
@@ -247,8 +275,8 @@ fi
 # --- MODO DTB FINAL ---
 if [[ -n "$FINAL_DTS" ]]; then
   [[ -f "$FINAL_DTS" ]] || { echo "ERROR: no existe $FINAL_DTS" >&2; exit 1; }
-  info "Modo final: verificando DTB decompilado (phandle-aware)"
-  if python3 "$REPO_ROOT/scripts/validate-mpss-v2-final.py" --dts "$FINAL_DTS"; then
+  info "Modo final: verificando DTB decompilado (phandle-aware, mpss=$EXPECT_MPSS)"
+  if python3 "$REPO_ROOT/scripts/validate-mpss-v2-final.py" --dts "$FINAL_DTS" --expect-mpss "$EXPECT_MPSS"; then
     info "PASS: gates DTB final (semántica y phandles)"
   else
     info "FAIL: gates DTB final"
@@ -261,9 +289,10 @@ cat > "$OUT/mpss-v2-verification.md" <<EOF
 # Verificación WCN3990 v2 (MPSS transport) — SM6125
 
 Modo: ${TREE:+fuente ($TREE)}${FINAL_DTS:+final-dts ($FINAL_DTS)}
+MPSS esperado: $EXPECT_MPSS
 Gates: $total total.
 Resultado: $([ "$fail" -eq 0 ] && echo PASS || echo FAIL)
 EOF
-info "Verificación completa: $total gates, resultado $([ "$fail" -eq 0 ] && echo PASS || echo FAIL)"
+info "Verificación completa: $total gates, mpss=$EXPECT_MPSS, resultado $([ "$fail" -eq 0 ] && echo PASS || echo FAIL)"
 [[ "$fail" -eq 0 ]] || { echo "ERROR: la verificación falló" >&2; exit 1; }
 exit 0

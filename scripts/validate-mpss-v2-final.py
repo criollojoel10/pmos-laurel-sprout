@@ -35,7 +35,14 @@ interrupts-extended se valida por segmentacion por provider:
     (fatal, ready, handover, stop-ack, shutdown-ack), flags EDGE_RISING.
 
 Uso:
-  scripts/validate-mpss-v2-final.py --dts <final-v2.dts>
+  scripts/validate-mpss-v2-final.py --dts <final-v2.dts> [--expect-mpss <disabled|okay>]
+
+El estado MPSS esperado es configurable:
+  - disabled (default, variante v2): remoteproc@6080000 con status = "disabled"
+    y el board SIN override.
+  - okay (variante v3): remoteproc@6080000 con status = "okay" (enable de
+    placa &remoteproc_mpss). El resto de la semantica (interrupts, power
+    domains, memory-region, glink-edge, smp2p) es identica y sigue validandose.
 """
 
 import argparse
@@ -282,7 +289,7 @@ def segment_interrupts(cells, by_ph):
 # Validacion
 # ---------------------------------------------------------------------------
 
-def validate(text):
+def validate(text, expect_mpss="disabled"):
     """Ejecuta todos los gates; devuelve lista de labels fallidos (vacia si OK)."""
     by_ph = {ph: (name, block) for ph, name, block in parse_nodes(text)}
     fail = []
@@ -335,8 +342,8 @@ def validate(text):
        node="remoteproc@6080000")
 
     st = safe_parse_strings(extract_property(rp, "status"))
-    ok('remoteproc status = "disabled"', st == ["disabled"],
-       parsed=st, expected=["disabled"], node="remoteproc@6080000")
+    ok('remoteproc status = "%s"' % expect_mpss, st == [expect_mpss],
+       parsed=st, expected=[expect_mpss], node="remoteproc@6080000")
 
     # power-domains: exactamente un par (phandle, cell) -> rpmpd VDDCX=0
     pd = parse_cells(extract_property(rp, "power-domains"))
@@ -436,20 +443,24 @@ def validate(text):
     return fail
 
 
-def _finish(fail):
+def _finish(fail, expect_mpss="disabled"):
     if fail:
         print("ERROR: validación DTB final MPSS v2 falló:", ", ".join(fail))
         sys.exit(1)
-    print("OK: DTB final MPSS v2 validado (semántica y phandles)")
+    print("OK: DTB final MPSS v2 validado (semántica y phandles, status=%s)"
+          % expect_mpss)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dts", required=True)
+    ap.add_argument("--expect-mpss", choices=("disabled", "okay"),
+                    default="disabled",
+                    help="estado MPSS esperado en remoteproc@6080000")
     args = ap.parse_args()
     text = open(args.dts, encoding="utf-8").read()
-    fail = validate(text)
-    _finish(fail)
+    fail = validate(text, expect_mpss=args.expect_mpss)
+    _finish(fail, expect_mpss=args.expect_mpss)
 
 
 if __name__ == "__main__":
