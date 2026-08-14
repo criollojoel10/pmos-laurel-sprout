@@ -1,8 +1,9 @@
 # Plan de extracción de firmware MPSS (modem) — SM6125
 
-Estado: `source-available` (procedimiento listo; NO ejecutado)
-Fecha: 2026-08-13
-Fase: M10 de la misión MPSS v2
+Estado: `source-available` + **`extracted`** (ejecutado el 2026-08-14 con
+autorización de la misión v3, uso privado)
+Fecha: 2026-08-13 (actualizado 2026-08-14)
+Fase: M10 de la misión MPSS v2 / misión v3 MPSS bring-up
 Método: extracción PRIVADA del firmware propietario del modem; sin ninguna
 operación física; sin publicar blobs.
 
@@ -71,23 +72,32 @@ PAS (`qcom_mdt_load`) espera con el `fw_name` "modem" (ver
   - Valida que input y output estén dentro de `local-private/`.
   - Calcula SHA-256 del input y registra hashes de salida.
   - `bash -n` OK y ShellCheck en CI de calidad (00-quality).
-  - **NO se ejecuta en esta misión**; se deja listo y revisado.
 
-## 6. Estado
+## 6. Estado tras la misión v3 (2026-08-14)
 
-- `modem.mdt` y segmentos: **`unavailable` / `unextracted`** (se mantienen
-  dentro de NON-HLOS.bin, sin extraer). Extracción requiere autorización
-  física explícita posterior.
-- Procedimiento: `source-available` (script revisado, dry-run validado).
+- `modem.mdt` + 28 segmentos (`modem.b00..b12, b14..b18, b20..b29`):
+  **`extracted`** → `local-private/diagnostics/wifi-priority/
+  wcn3990-v2-build-ready/modem-firmware/` (29 archivos + `sha256-after.txt`).
+- SHA-256 del input verificado: `ed5279f2...` coincide con la ROM stock.
+- Integridad: re-extracción de control y comparación de hashes → 29/29 OK.
+- `modem.mdt` validado: ELF 32-bit LSB executable, QUALCOMM DSP6.
+- Destino de instalación (futuro, NO realizado aquí):
+  `/lib/firmware/qcom/sm6125/modem.mdt` + `modem.bXX` — ruta que el driver
+  PAS (`qcom_mdt_load`) espera con el `fw_name` "modem".
+- Se corrigió un bug del script: el awk generaba nombres `bXX` en vez de
+  `modem.bXX` (los nombres reales en la imagen FAT incluyen el prefijo
+  `modem.`). Sin impacto en integridad.
 - Sin prueba física. Nada se publica.
 
-## 7. Puerta de fase M10
+## 7. Puerta de fase M10 / v3
 
 - Script presente y validado (`bash -n`, ShellCheck, dry-run OK): **PASS**
 - Requisito `--i-understand-private-firmware` probado (falla sin él): **PASS**
 - Restricción a `local-private/` implementada y comprobable: **PASS**
-- `modem.mdt` sigue sin extraer (requisito de la misión): **CUMPLIDO**
+- Extracción ejecutada con hashes de salida registrados: **PASS**
+- `modem.mdt` disponible para el kit v3: **CUMPLIDO**
 
-Consecuencia de misión: BUILD-READY para kernel/DT/rootfs packaging es
-posible (M9-PASS, M10-PASS), pero **PHYSICAL-TEST queda BLOCKED** hasta la
-extracción autorizada del firmware del modem.
+Consecuencia de misión: el firmware MPSS ya no es bloqueante para el
+bring-up v3. La construcción del artefacto v3 (kernel/DT/rootfs packaging)
+sigue siendo en CI; **PHYSICAL-TEST sigue BLOCKED** hasta la autorización
+explícita de una prueba física.

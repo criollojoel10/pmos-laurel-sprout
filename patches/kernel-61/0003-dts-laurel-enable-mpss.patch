@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmos-laurel-sprout <dev@laurel.invalid>
+Date: 2026-08-14
+Subject: [PATCH] arm64: dts: sm6125: laurel: enable MPSS remoteproc (v3)
+
+Downstream-only v3 patch for the frozen 6.1 fork at
+77de535b8dbd8f483b5802c8937cb714bab5b485.
+
+Applies after 0001 (WCN3990 first-probe) and 0002 (MPSS transport v2,
+remoteproc_mpss added with status = "disabled"). This board-level
+enablement flips &remoteproc_mpss to "okay" so the MPSS boots on the
+next physical test.
+
+Kept separate from 0002 so the v2 disabled artifact stays bit-identical
+and the 6.1 rollback path (boot_b + restore boot_a) is unchanged. The
+first v3 artifact stops at MPSS bring-up gates (remoteproc running,
+GLINK/IPCRTR, QRTR services, WLFW, FW_READY); wlan0/scan/association is
+a later phase.
+
+EXPERIMENTAL / BOOT-UNTESTED: enables the MPSS remoteproc; the bring-up
+is not validated on hardware. Physical test requires explicit
+authorization (FASE 8).
+
+No MMC/SDIO, no iommus, no modem mem rework; memory-region stays
+<&modem_mem> (0x4b000000).
+
+Signed-off-by: pmos-laurel-sprout <dev@laurel.invalid>
+---
+ arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
+index 8c3f573..1b5eaf1 100644
+--- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
++++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
+@@ -280,3 +280,7 @@
+ 		};
+ 	};
+ };
++
++&remoteproc_mpss {
++	status = "okay";
++};
