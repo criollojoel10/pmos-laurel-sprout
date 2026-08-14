@@ -69,40 +69,38 @@ jobs:
           MANIFEST=$(find /tmp/historical-rootfs-ssh -type f -name manifest.json -print -quit)
           test -n "$BOOT" && test -n "$MANIFEST"
           test "$(jq -r .kernel "$MANIFEST")" = "linux-postmarketos-qcom-sm6125 6.1 @77de535b8dbd8f483b5802c8937cb714bab5b485"
+          mkdir -p /tmp/source-out /tmp/boot-out
           python3 - "$BOOT" <<'PY'
-          import struct, sys, zlib
+          import struct, sys
           from pathlib import Path
           boot = Path(sys.argv[1]).read_bytes()
           ksz, _, rsz, _, _, _, _, page, version, _ = struct.unpack_from('<10I', boot, 8)
           if version != 0 or page != 4096:
               raise SystemExit('ERROR: no es boot v0/page4096')
           kernel = boot[page:page + ksz]
-          # El boot historico se ensamblo con --append-dtb: el kernel lleva el DTB
-          # viejo incrustado tras el stream gzip. Despojarlo para quedarnos con el
-          # gzip puro; el DTB nuevo se appenda luego al ensamblar. Sin este paso,
-          # gzip -t fallaria con trailing garbage y el boot final llevaria DTB doble.
-          d = zlib.decompressobj(16 + zlib.MAX_WBITS)
-          d.decompress(kernel)
-          stream_end = len(kernel) - len(d.unused_data)
-          trailing = d.unused_data
-          if stream_end <= 0:
-              raise SystemExit('ERROR: no se encontro fin del stream gzip del kernel')
-          kernel_gz = kernel[:stream_end]
-          if trailing:
-              if not trailing.startswith(b'\xd0\x0d\xfe\xed'):
-                  raise SystemExit('ERROR: trailing del kernel no es un DTB (magic inesperado)')
-              Path('/tmp/historical.dtb').write_bytes(trailing)
-              print('kernel historico con DTB incrustado; DTB despojado:', len(trailing), 'bytes')
-          else:
-              print('kernel historico sin DTB incrustado (gzip puro)')
           roff = page + ((ksz + page - 1) // page) * page
           ramdisk = boot[roff:roff + rsz]
-          Path('/tmp/kernel.gz').write_bytes(kernel_gz)
-          Path('/tmp/ramdisk').write_bytes(ramdisk)
-          print('kernel.gz', len(kernel_gz), 'ramdisk', len(ramdisk))
+          Path('/tmp/source-out/kernel-source-with-historical-dtb').write_bytes(kernel)
+          Path('/tmp/source-out/ramdisk').write_bytes(ramdisk)
+          print('region kernel historica (Image.gz + DTB viejo):', len(kernel), 'bytes')
+          print('ramdisk:', len(ramdisk), 'bytes')
           PY
-          gzip -t /tmp/kernel.gz
-          stat -c '%n %s bytes' /tmp/kernel.gz /tmp/ramdisk
+          # Separacion estructural: Image.gz puro + DTB historico (solo evidencia).
+          # El script valida FDT magic 0xd00dfeed y totalsize big-endian, exige
+          # que la frontera del DTB termine exactamente al final del payload y
+          # rechaza gzip vacio/corrupto, DTB truncado y doble DTB.
+          python3 scripts/split-appended-dtb.py \
+            --input /tmp/source-out/kernel-source-with-historical-dtb \
+            --kernel-out /tmp/source-out/kernel.gz \
+            --dtb-out /tmp/source-out/historical-source.dtb \
+            --report /tmp/source-out/split-report.json
+          # gzip -t SOLO sobre el Image.gz puro (nunca sobre payload con DTB)
+          gzip -t /tmp/source-out/kernel.gz
+          cp /tmp/source-out/kernel.gz /tmp/kernel.gz
+          cp /tmp/source-out/ramdisk /tmp/ramdisk
+          echo "== split-report.json =="
+          cat /tmp/source-out/split-report.json
+          stat -c '%n %s bytes' /tmp/source-out/kernel-source-with-historical-dtb /tmp/source-out/kernel.gz /tmp/source-out/historical-source.dtb /tmp/source-out/ramdisk
 
       - name: Clonar kernel 6.1 fijado
         run: |
@@ -159,10 +157,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           BOOT=/tmp/boot-out/boot-linux61-wcn3990-v2.img
-          python3 - "$BOOT" /tmp/new.dtb <<'PY'
+          python3 - "$BOOT" <<'PY'
           import hashlib, struct, sys
           boot = open(sys.argv[1], 'rb').read()
-          exp = open(sys.argv[2], 'rb').read()
           if boot[:8] != b'ANDROID!': raise SystemExit('bad magic')
           kernel_size, _, ramdisk_size, _, _, _, _, page, version, _ = struct.unpack_from('<10I', boot, 8)
           if version != 0 or page != 4096: raise SystemExit('expected boot v0/page4096')
@@ -173,58 +170,72 @@ jobs:
               raise SystemExit(f'ERROR: cmdline inesperado [{cmdline!r}] (esperado [{expected_cmdline!r}])')
           # ---- tamanio maximo ----
           if len(boot) > 0x4000000: raise SystemExit('boot.img > 64 MiB')
-          # ---- DTB appendado (Bloqueante 5): comprobacion PRIMARIA endswith ----
-          if not exp: raise SystemExit('expected_dtb vacio')
+          # ---- payload kernel completo (Image.gz + DTB v2) ----
           kernel = boot[page:page + kernel_size]
-          if not kernel.endswith(exp):
-              raise SystemExit('ERROR: kernel payload no termina byte a byte en expected_dtb')
-          kernel_without_dtb = kernel[:-len(exp)]
-          if not kernel_without_dtb: raise SystemExit('kernel sin DTB vacio')
-          # ---- diagnostico adicional: magic del DTB (no primario) ----
-          magic = b'\xd0\x0d\xfe\xed'
-          diag_pos = kernel_without_dtb.rfind(magic)
-          if diag_pos < 0:
-              print('DIAG: no se encontro magic DTB dentro de kernel sin DTB (esperado, DTB va al final)')
-          else:
-              print('DIAG: magic DTB en offset', diag_pos, 'dentro de kernel_without_dtb')
-          # ---- extraer payloads a ficheros ----
-          open('/tmp/boot-out/kernel.gz', 'wb').write(kernel_without_dtb)
-          open('/tmp/boot-out/kernel-with-dtb', 'wb').write(kernel)
+          open('/tmp/boot-out/kernel-with-v2-dtb', 'wb').write(kernel)
           open('/tmp/boot-out/ramdisk', 'wb').write(boot[page + ((kernel_size + page - 1) // page) * page : page + ((kernel_size + page - 1) // page) * page + ramdisk_size])
-          open('/tmp/boot-out/sm6125-xiaomi-laurel_sprout.dtb', 'wb').write(exp)
           open('/tmp/validated-cmdline.txt', 'w').write(cmdline)
           print('cmdline OK:', cmdline)
           print('boot_sha256=', hashlib.sha256(boot).hexdigest())
-          print('kernel_without_dtb', len(kernel_without_dtb), 'kernel+dtb', len(kernel), 'dtb', len(exp))
+          print('kernel+dtb', len(kernel))
           PY
-          # kernel.gz sin DTB debe pasar gzip -t (Bloqueante 5)
+          # Verificacion estructural del payload final: DEBE ser Image.gz puro + DTB v2.
+          # El script valida FDT magic/totalsize y rechaza payload que no termine
+          # exactamente en un unico DTB (por tanto falla con Image.gz + DTB viejo + DTB
+          # nuevo). Ademas recupera kernel.gz puro y el DTB final para compararlos.
+          python3 scripts/split-appended-dtb.py \
+            --input /tmp/boot-out/kernel-with-v2-dtb \
+            --kernel-out /tmp/boot-out/kernel.gz \
+            --dtb-out /tmp/boot-out/final-v2.dtb \
+            --report /tmp/boot-out/split-report-final.json
+          # gzip -t SOLO sobre el Image.gz puro extraido del boot final
           gzip -t /tmp/boot-out/kernel.gz
-          echo "gzip -t kernel.gz OK"
+          echo "gzip -t kernel.gz OK (payload final sin DTB)"
+          # DTB final debe ser byte-identico al DTB v2 construido
+          cmp /tmp/boot-out/final-v2.dtb /tmp/new.dtb
+          echo "final-v2.dtb == new.dtb (byte-identico)"
+          # el kernel.gz puro del boot final debe coincidir con el fuente puro
+          cmp /tmp/boot-out/kernel.gz /tmp/source-out/kernel.gz
+          echo "kernel.gz del boot final == kernel.gz fuente (byte-identico)"
           test -s /tmp/boot-out/kernel.gz
           test -s /tmp/boot-out/ramdisk
-          test -s /tmp/boot-out/sm6125-xiaomi-laurel_sprout.dtb
-          test -s /tmp/boot-out/kernel-with-dtb
-          stat -c '%n %s bytes' "$BOOT" /tmp/boot-out/kernel.gz /tmp/boot-out/ramdisk /tmp/boot-out/sm6125-xiaomi-laurel_sprout.dtb /tmp/boot-out/kernel-with-dtb
+          test -s /tmp/boot-out/final-v2.dtb
+          test -s /tmp/boot-out/kernel-with-v2-dtb
+          stat -c '%n %s bytes' "$BOOT" /tmp/boot-out/kernel-with-v2-dtb /tmp/boot-out/kernel.gz /tmp/boot-out/ramdisk /tmp/boot-out/final-v2.dtb
 
       - name: Decompilar DTB final y verificar (gates 13/14)
         run: |
           set -Eeuo pipefail
-          dtc -I dtb -O dts -o /tmp/boot-out/final-v2.dts /tmp/new.dtb 2>/tmp/final-dtc.log
+          dtc -I dtb -O dts -o /tmp/boot-out/final-v2.dts /tmp/boot-out/final-v2.dtb 2>/tmp/final-dtc.log
           bash scripts/verify-wcn3990-mpss-v2.sh --final-dts /tmp/boot-out/final-v2.dts --out /tmp/final-verify
           cat /tmp/final-verify/mpss-v2-verification.md
 
       - name: Generar SHA256SUMS y manifiesto
         run: |
           set -Eeuo pipefail
+          # evidencias del split en el artefacto: kernel fuente con DTB historico,
+          # Image.gz puro, DTB historico y split-report de la fuente
+          cp /tmp/source-out/kernel-source-with-historical-dtb /tmp/boot-out/
+          cp /tmp/source-out/historical-source.dtb /tmp/boot-out/
+          cp /tmp/source-out/split-report.json /tmp/boot-out/
           (cd /tmp/boot-out && sha256sum -- * > SHA256SUMS)
+          KERNSRC=$(sha256sum /tmp/boot-out/kernel-source-with-historical-dtb | cut -d' ' -f1)
+          KERGZ=$(sha256sum /tmp/boot-out/kernel.gz | cut -d' ' -f1)
+          DTBSRC=$(sha256sum /tmp/boot-out/historical-source.dtb | cut -d' ' -f1)
+          DTBFINAL=$(sha256sum /tmp/boot-out/final-v2.dtb | cut -d' ' -f1)
+          BOOTSHA=$(sha256sum /tmp/boot-out/boot-linux61-wcn3990-v2.img | cut -d' ' -f1)
           jq -n --arg run "${{ github.event.inputs.rootfs_run_id }}" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg kcommit "$(cat /tmp/kernel-commit.txt)" \
             --arg cmdline "$(cat /tmp/validated-cmdline.txt)" \
+            --arg ksrc "$KERNSRC" --arg kgz "$KERGZ" \
+            --arg dsrc "$DTBSRC" --arg dfinal "$DTBFINAL" --arg bsha "$BOOTSHA" \
             '{artifact:"boot-linux61-wcn3990-v2", source_rootfs_run:$run,
               kernel_commit:$kcommit,
               patches:["0001-dts-laurel-wcn3990-first-probe","0002-dts-sm6125-add-mpss-transport-v2"],
               cmdline:$cmdline,
+              sha256:{boot:$bsha, kernel_source_with_historical_dtb:$ksrc,
+                      kernel_gz:$kgz, historical_source_dtb:$dsrc, final_v2_dtb:$dfinal},
               mpss_status:"disabled", boot_enabled:false,
               firmware_in_rootfs:false, physical_status:"boot-untested",
               status:"configured-ci-ready", generated_at:$date}' > /tmp/boot-out/manifest.json
