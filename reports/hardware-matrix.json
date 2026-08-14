@@ -52,7 +52,7 @@
     },
     "wifi": {
       "status": "configured",
-      "notes": "Runtime 2026-08-10 (boot 6.1 SSH, captura limpia): SIN wlan0, sin wcn3990/ath10k probando, sin bus mmc/sdio (mmc_host vacío). CONFIG_ATH10K=m (ATH10K_SNOC), WCN36XX=m; módulos ath10k_core/pci/snoc + wcn36xx .ko presentes en el rootfs pero NO cargados. El transporte WCN3990 no está demostrado en este kernel: la ausencia de mmc no prueba por sí sola SDIO, y ATH10K_SNOC tampoco prueba el camino correcto. Conectividad no probada."
+      "notes": "Runtime 2026-08-10 (boot 6.1 SSH, captura limpia): SIN wlan0, sin wcn3990/ath10k probando, sin bus mmc/sdio (mmc_host vacío). CONFIG_ATH10K=m (ATH10K_SNOC), WCN36XX=m; módulos ath10k_core/pci/snoc + wcn36xx .ko presentes en el rootfs pero NO cargados. El transporte WCN3990 no está demostrado en este kernel: la ausencia de mmc no prueba por sí sola SDIO, y ATH10K_SNOC tampoco prueba el camino correcto. Conectividad no probada. Artefacto CI listo para prueba física (2026-08-14): workflow 18 run 31819773343 en main 213d421e, boot-linux61-wcn3990-v2.img (12,402,688 B, sha256 824273ab...) con DTB final v2 (final-v2.dtb, 15,098 B, sha256 c9f5d180...) validado 24/24 gates (validate-mpss-v2-final.py) y verify-wcn3990-mpss-v2.sh rc=0; manifest status=configured-ci-ready, physical_status=boot-untested, mpss_status=disabled. Prueba física pendiente de autorización."
     },
     "bluetooth": {
       "status": "configured",
