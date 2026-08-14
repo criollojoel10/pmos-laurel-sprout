@@ -70,18 +70,36 @@ jobs:
           test -n "$BOOT" && test -n "$MANIFEST"
           test "$(jq -r .kernel "$MANIFEST")" = "linux-postmarketos-qcom-sm6125 6.1 @77de535b8dbd8f483b5802c8937cb714bab5b485"
           python3 - "$BOOT" <<'PY'
-          import struct, sys
+          import struct, sys, zlib
           from pathlib import Path
           boot = Path(sys.argv[1]).read_bytes()
           ksz, _, rsz, _, _, _, _, page, version, _ = struct.unpack_from('<10I', boot, 8)
           if version != 0 or page != 4096:
               raise SystemExit('ERROR: no es boot v0/page4096')
           kernel = boot[page:page + ksz]
+          # El boot historico se ensamblo con --append-dtb: el kernel lleva el DTB
+          # viejo incrustado tras el stream gzip. Despojarlo para quedarnos con el
+          # gzip puro; el DTB nuevo se appenda luego al ensamblar. Sin este paso,
+          # gzip -t fallaria con trailing garbage y el boot final llevaria DTB doble.
+          d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+          d.decompress(kernel)
+          stream_end = len(kernel) - len(d.unused_data)
+          trailing = d.unused_data
+          if stream_end <= 0:
+              raise SystemExit('ERROR: no se encontro fin del stream gzip del kernel')
+          kernel_gz = kernel[:stream_end]
+          if trailing:
+              if not trailing.startswith(b'\xd0\x0d\xfe\xed'):
+                  raise SystemExit('ERROR: trailing del kernel no es un DTB (magic inesperado)')
+              Path('/tmp/historical.dtb').write_bytes(trailing)
+              print('kernel historico con DTB incrustado; DTB despojado:', len(trailing), 'bytes')
+          else:
+              print('kernel historico sin DTB incrustado (gzip puro)')
           roff = page + ((ksz + page - 1) // page) * page
           ramdisk = boot[roff:roff + rsz]
-          Path('/tmp/kernel.gz').write_bytes(kernel)
+          Path('/tmp/kernel.gz').write_bytes(kernel_gz)
           Path('/tmp/ramdisk').write_bytes(ramdisk)
-          print('kernel.gz', len(kernel), 'ramdisk', len(ramdisk))
+          print('kernel.gz', len(kernel_gz), 'ramdisk', len(ramdisk))
           PY
           gzip -t /tmp/kernel.gz
           stat -c '%n %s bytes' /tmp/kernel.gz /tmp/ramdisk
