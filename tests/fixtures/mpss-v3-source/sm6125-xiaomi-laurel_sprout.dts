@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Fixture fuente MPSS v3 (board) para el modo --tree del wrapper
+ * verify-wcn3990-mpss-v2.sh. Incluye el nodo wifi@c800000 (0001) y el
+ * override &remoteproc_mpss con status = "okay" (0003). Esta es la variante
+ * v3: el board habilita el remoteproc.
+ */
+
+/dts-v1/;
+
+#include "sm6125.dtsi"
+
+&remoteproc_mpss {
+	status = "okay";
+};
+
+/ {
+	soc {
+		wifi@c800000 {
+			compatible = "qcom,wcn3990-wifi";
+			reg = <0x0c800000 0x800000>;
+			reg-names = "membase";
+			memory-region = <&wlan_msa_mem>;
+			qcom,msa-fixed-perm;
+			interrupts =
+				<GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 362 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>;
+			vdd-0.8-cx-mx-supply = <&vreg_l8a>;
+			vdd-1.8-xo-supply = <&vreg_l16a>;
+			vdd-1.3-rfa-supply = <&vreg_l17a>;
+			vdd-3.3-ch0-supply = <&vreg_l23a>;
+			status = "okay";
+		};
+	};
+};
