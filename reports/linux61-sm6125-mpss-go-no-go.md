@@ -33,8 +33,9 @@ registra como `blocked` (no `working`, no `detected`).
    `ed5279f2...`) pero la extracción NO está autorizada en esta misión.
 2. **Firmware WCN3990 real ausente** (solo stub de 60 B). Sin
    `firmware-5.bin`/`board-2.bin` reales no hay radio.
-3. **Cadena userspace ausente** (qrtr-ns, pd-mapper, rmtfs) en el rootfs
-   instalado.
+3. **Cadena userspace ausente** (pd-mapper, rmtfs, tqftpserv) en el rootfs
+   instalado. NOTA M11: el Name Service QRTR está en el kernel 6.1
+   (net/qrtr/ns.c, built-in); NO se necesita daemon qrtr-ns userspace.
 4. **Sin autorización de prueba física** (FASE 8 obligatoria; no se dio).
 
 ## Vía a GO (futuro, en orden)

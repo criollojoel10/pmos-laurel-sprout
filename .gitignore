@@ -1,5 +1,6 @@
 # Local private data — NEVER commit
 local-private/
+tools/private/
 *.raw
 *.img
 *.img.xz

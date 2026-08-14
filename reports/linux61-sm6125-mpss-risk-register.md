@@ -24,7 +24,7 @@ autorización explícita y a la FASE 8).
 | 2 | Compatible PAS ausente en fork 6.1 (sm6115/sm6125-pas) | Alta | Segura (confirmado ausente) | Usar `qcom,sm8150-mpss-pas` (mismos params) o parche downstream en v2 | `configured` (diseño) |
 | 3 | power-domain con names "cx"/"mss" mismatch | Alta | Evitable | Usar UN solo `<&rpmpd SM6125_VDDCX>` (rama single-domain) | `configured` (diseño) |
 | 4 | faltan smp2p-mpss / glink-edge / IRQs | Alta | Evitable | Replicar QCM2290 v6.6 con valores SM6125 (M3) | `configured` (diseño) |
-| 5 | QRTR/userspace ausente (qrtr-ns, pd-mapper, rmtfs) | Media | Alta (rootfs sin paquetes) | Instalar `qrtr`, `pd-mapper`, `rmtfs` de aports con autorización | `blocked` (rootfs) |
+| 5 | QRTR/userspace ausente (pd-mapper, rmtfs, tqftpserv) | Media | Alta (rootfs sin paquetes) | Instalar `pd-mapper`, `rmtfs`, `tqftpserv` de aports con autorización. NOTA M11: NS QRTR en kernel 6.1 (no requiere qrtr-ns userspace) | `blocked` (rootfs) |
 | 6 | firmware WCN3990 real ausente (stub 60 B) | Alta | Confirmada | Descargar firmware real de linux-firmware fijado | `blocked` |
 | 7 | tqftpserv/pd-mapper requieren config SM6125 | Media | Media | Verificar entradas upstream; usar referencia sm7125 | `boot-untested` |
 | 8 | SID iommus wifi divergente (0x1a0 vs 0x80) | Baja | Baja | La v1 usa ruta TrustZone sin iommus; MPSS no usa SID wifi | `configured` |

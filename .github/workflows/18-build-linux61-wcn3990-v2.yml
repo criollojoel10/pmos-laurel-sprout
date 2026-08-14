@@ -1,0 +1,234 @@
+name: 18-build-linux61-wcn3990-v2
+
+# Variante WCN3990 v2 BUILD-READY: MPSS transport DTS (smp2p-mpss +
+# remoteproc@6080000 disabled) sobre el fork fijado 77de535b.
+#
+# Extiende el procedimiento historico validado de 17-build-linux61-wifi-debug:
+# reutiliza kernel/ramdisk del artefacto historico, reconstruye SOLO el DTB del
+# fork fijado y ensambla boot v0 con el DTB nuevo. NO flashea, NO usa adb, NO
+# escribe el telefono, NO abre remoteproc_mpss (queda disabled).
+#
+# Disparo manual obligatorio (workflow_dispatch). Sin push/pull_request/schedule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rootfs_run_id:
+        description: Run 11 con boot/rootfs SSH historico
+        type: string
+        default: '31355730519'
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: linux61-wcn3990-v2
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: WCN3990 v2 DTB+boot (MPSS disabled)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          df -h
+          free -h
+          uname -a
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+
+      - name: Dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq device-tree-compiler flex bison bc libssl-dev libelf-dev python3 gzip cpio file jq
+
+      - name: Descargar boot/rootfs fuente (historico)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: historical-rootfs-ssh
+          path: /tmp/historical-rootfs-ssh
+          run-id: ${{ github.event.inputs.rootfs_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verificar fuente y extraer kernel/ramdisk
+        run: |
+          set -Eeuo pipefail
+          BOOT=$(find /tmp/historical-rootfs-ssh -type f -name boot.img -print -quit)
+          MANIFEST=$(find /tmp/historical-rootfs-ssh -type f -name manifest.json -print -quit)
+          test -n "$BOOT" && test -n "$MANIFEST"
+          test "$(jq -r .kernel "$MANIFEST")" = "linux-postmarketos-qcom-sm6125 6.1 @77de535b8dbd8f483b5802c8937cb714bab5b485"
+          python3 - "$BOOT" <<'PY'
+          import struct, sys
+          from pathlib import Path
+          boot = Path(sys.argv[1]).read_bytes()
+          ksz, _, rsz, _, _, _, _, page, version, _ = struct.unpack_from('<10I', boot, 8)
+          if version != 0 or page != 4096:
+              raise SystemExit('ERROR: no es boot v0/page4096')
+          kernel = boot[page:page + ksz]
+          roff = page + ((ksz + page - 1) // page) * page
+          ramdisk = boot[roff:roff + rsz]
+          Path('/tmp/kernel.gz').write_bytes(kernel)
+          Path('/tmp/ramdisk').write_bytes(ramdisk)
+          print('kernel.gz', len(kernel), 'ramdisk', len(ramdisk))
+          PY
+          gzip -t /tmp/kernel.gz
+          stat -c '%n %s bytes' /tmp/kernel.gz /tmp/ramdisk
+
+      - name: Clonar kernel 6.1 fijado
+        run: |
+          set -Eeuo pipefail
+          git clone --filter=blob:none --no-checkout https://gitlab.com/sm6125-mainline/linux.git kernel61
+          git -C kernel61 fetch --depth 1 origin 77de535b8dbd8f483b5802c8937cb714bab5b485
+          git -C kernel61 checkout -q 77de535b8dbd8f483b5802c8937cb714bab5b485
+          git -C kernel61 rev-parse HEAD > /tmp/kernel-commit.txt
+          cat /tmp/kernel-commit.txt
+
+      - name: Aplicar parches 0001 y 0002 en orden estricto
+        run: |
+          set -Eeuo pipefail
+          P1="$GITHUB_WORKSPACE/patches/kernel-61/0001-dts-laurel-wcn3990-first-probe.patch"
+          P2="$GITHUB_WORKSPACE/patches/kernel-61/0002-dts-sm6125-add-mpss-transport-v2.patch"
+          test -f "$P1" && test -f "$P2"
+          git -C kernel61 apply --check "$P1"
+          git -C kernel61 apply "$P1"
+          git -C kernel61 apply --check "$P2"
+          git -C kernel61 apply "$P2"
+          { echo "== git diff --stat =="; git -C kernel61 diff --stat; echo "== git diff --check =="; git -C kernel61 diff --check; } | tee /tmp/apply-diff.log
+
+      - name: Verificar fuentes tras parches (gates 8/9)
+        run: |
+          set -Eeuo pipefail
+          bash scripts/verify-wcn3990-mpss-v2.sh --tree kernel61 --out /tmp/source-verify
+          cat /tmp/source-verify/mpss-v2-verification.md
+
+      - name: Construir DTB (procedimiento historico)
+        run: |
+          set -Eeuo pipefail
+          make -C kernel61 ARCH=arm64 defconfig >/tmp/dtb-defconfig.log 2>&1
+          make -C kernel61 ARCH=arm64 dtbs -j"$(nproc)" >/tmp/dtb-build.log 2>&1
+          DTB=$(find kernel61/arch/arm64/boot/dts -name sm6125-xiaomi-laurel_sprout.dtb -print -quit)
+          test -n "$DTB"
+          cp "$DTB" /tmp/new.dtb
+          sha256sum /tmp/new.dtb
+
+      - name: Ensamblar boot v0 Wi-Fi v2 (historico)
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/boot-out
+          python3 scripts/build-boot-image.py \
+            --kernel /tmp/kernel.gz \
+            --ramdisk /tmp/ramdisk \
+            --dtb /tmp/new.dtb \
+            --out /tmp/boot-out/boot-linux61-wcn3990-v2.img \
+            --header-version 0 --append-dtb --base 0x0 --page-size 4096 \
+            --kernel-offset 0x8000 --ramdisk-offset 0x1000000 --tags-offset 0x100 \
+            --cmdline 'clk_ignore_unused consoleblank=0' \
+            --os-version 1.0.0 --os-patch-level 2026-08
+
+      - name: Extraer boot final y validar payload (gates 12)
+        run: |
+          set -Eeuo pipefail
+          BOOT=/tmp/boot-out/boot-linux61-wcn3990-v2.img
+          python3 - "$BOOT" /tmp/new.dtb <<'PY'
+          import hashlib, struct, sys
+          boot = open(sys.argv[1], 'rb').read()
+          exp = open(sys.argv[2], 'rb').read()
+          if boot[:8] != b'ANDROID!': raise SystemExit('bad magic')
+          kernel_size, _, ramdisk_size, _, _, _, _, page, version, _ = struct.unpack_from('<10I', boot, 8)
+          if version != 0 or page != 4096: raise SystemExit('expected boot v0/page4096')
+          # ---- cmdline exacto (Bloqueante 4) ----
+          cmdline = boot[64:576].split(b'\0', 1)[0].decode('ascii', 'replace')
+          expected_cmdline = 'clk_ignore_unused consoleblank=0'
+          if cmdline != expected_cmdline:
+              raise SystemExit(f'ERROR: cmdline inesperado [{cmdline!r}] (esperado [{expected_cmdline!r}])')
+          # ---- tamanio maximo ----
+          if len(boot) > 0x4000000: raise SystemExit('boot.img > 64 MiB')
+          # ---- DTB appendado (Bloqueante 5): comprobacion PRIMARIA endswith ----
+          if not exp: raise SystemExit('expected_dtb vacio')
+          kernel = boot[page:page + kernel_size]
+          if not kernel.endswith(exp):
+              raise SystemExit('ERROR: kernel payload no termina byte a byte en expected_dtb')
+          kernel_without_dtb = kernel[:-len(exp)]
+          if not kernel_without_dtb: raise SystemExit('kernel sin DTB vacio')
+          # ---- diagnostico adicional: magic del DTB (no primario) ----
+          magic = b'\xd0\x0d\xfe\xed'
+          diag_pos = kernel_without_dtb.rfind(magic)
+          if diag_pos < 0:
+              print('DIAG: no se encontro magic DTB dentro de kernel sin DTB (esperado, DTB va al final)')
+          else:
+              print('DIAG: magic DTB en offset', diag_pos, 'dentro de kernel_without_dtb')
+          # ---- extraer payloads a ficheros ----
+          open('/tmp/boot-out/kernel.gz', 'wb').write(kernel_without_dtb)
+          open('/tmp/boot-out/kernel-with-dtb', 'wb').write(kernel)
+          open('/tmp/boot-out/ramdisk', 'wb').write(boot[page + ((kernel_size + page - 1) // page) * page : page + ((kernel_size + page - 1) // page) * page + ramdisk_size])
+          open('/tmp/boot-out/sm6125-xiaomi-laurel_sprout.dtb', 'wb').write(exp)
+          open('/tmp/validated-cmdline.txt', 'w').write(cmdline)
+          print('cmdline OK:', cmdline)
+          print('boot_sha256=', hashlib.sha256(boot).hexdigest())
+          print('kernel_without_dtb', len(kernel_without_dtb), 'kernel+dtb', len(kernel), 'dtb', len(exp))
+          PY
+          # kernel.gz sin DTB debe pasar gzip -t (Bloqueante 5)
+          gzip -t /tmp/boot-out/kernel.gz
+          echo "gzip -t kernel.gz OK"
+          test -s /tmp/boot-out/kernel.gz
+          test -s /tmp/boot-out/ramdisk
+          test -s /tmp/boot-out/sm6125-xiaomi-laurel_sprout.dtb
+          test -s /tmp/boot-out/kernel-with-dtb
+          stat -c '%n %s bytes' "$BOOT" /tmp/boot-out/kernel.gz /tmp/boot-out/ramdisk /tmp/boot-out/sm6125-xiaomi-laurel_sprout.dtb /tmp/boot-out/kernel-with-dtb
+
+      - name: Decompilar DTB final y verificar (gates 13/14)
+        run: |
+          set -Eeuo pipefail
+          dtc -I dtb -O dts -o /tmp/boot-out/final-v2.dts /tmp/new.dtb 2>/tmp/final-dtc.log
+          bash scripts/verify-wcn3990-mpss-v2.sh --final-dts /tmp/boot-out/final-v2.dts --out /tmp/final-verify
+          cat /tmp/final-verify/mpss-v2-verification.md
+
+      - name: Generar SHA256SUMS y manifiesto
+        run: |
+          set -Eeuo pipefail
+          (cd /tmp/boot-out && sha256sum -- * > SHA256SUMS)
+          jq -n --arg run "${{ github.event.inputs.rootfs_run_id }}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg kcommit "$(cat /tmp/kernel-commit.txt)" \
+            --arg cmdline "$(cat /tmp/validated-cmdline.txt)" \
+            '{artifact:"boot-linux61-wcn3990-v2", source_rootfs_run:$run,
+              kernel_commit:$kcommit,
+              patches:["0001-dts-laurel-wcn3990-first-probe","0002-dts-sm6125-add-mpss-transport-v2"],
+              cmdline:$cmdline,
+              mpss_status:"disabled", boot_enabled:false,
+              firmware_in_rootfs:false, physical_status:"boot-untested",
+              status:"configured-ci-ready", generated_at:$date}' > /tmp/boot-out/manifest.json
+          cat /tmp/boot-out/SHA256SUMS
+          cat /tmp/boot-out/manifest.json
+
+      - name: Subir artefacto WCN3990 v2
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: boot-linux61-wcn3990-v2
+          path: /tmp/boot-out/
+          retention-days: 7
+
+      - name: Subir logs siempre
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux61-wcn3990-v2-logs
+          path: |
+            /tmp/*.log
+            /tmp/source-verify/mpss-v2-verification.md
+            /tmp/final-verify/mpss-v2-verification.md
+          retention-days: 3
+          if-no-files-found: ignore

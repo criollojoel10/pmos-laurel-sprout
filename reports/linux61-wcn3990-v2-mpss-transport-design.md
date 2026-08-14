@@ -122,7 +122,7 @@ Se define para la prueba física futura (no ejecutada ahora):
 |-------|----------|----------|
 | MPSS-DIAG | dmesg remoteproc/qcom_q6v5/pas tras `rproc_boot` | confirmar start del MPSS |
 | GLINK-DIAG | `/sys/bus/rpmsg/devices/` + dmesg glink | confirmar edge "mpss" y canal IPCRTR |
-| QRTR-DIAG | `/sys/kernel/debug/qrtr/` o dmesg qrtr-smd; `qrtr-ns -l` | confirmar nodo del modem |
+| QRTR-DIAG | `/sys/kernel/debug/qrtr/` o dmesg qrtr-smd; `qrtr-lookup` (herramienta de consulta; el NS está en el kernel 6.1) | confirmar nodo del modem |
 | WCN3990-DIAG | dmesg ath10k + `ath10k_qmi_*` | confirmar connect QMI y FW_READY |
 | SYSFS-SNAPSHOT | `/sys/class/remoteproc/*`, `/sys/class/net/` | estado tras cada gate |
 

@@ -6,25 +6,35 @@ descargada en `local-private/diagnostics/wifi-priority/mpss-risk-audit/`.
 
 ## Orden de arranque requerido
 
+> **CORRECCIÓN (M11, 2026-08-13):** este reporte original (M5) asumía que
+> `qrtr-ns` (daemon userspace) debía arrancar primero. La revisión M11
+> demostró que el QRTR Name Service vive en el kernel (net/qrtr/ns.c,
+> built-in con CONFIG_QRTR=y, postcore_initcall) y NO se necesita daemon
+> userspace. Ver sección "Corrección de la hipótesis M5" abajo.
+
 ```
-1. qrtr-ns        (registro de nodos del bus QRTR)
-2. rmtfs          (provee EFS/modem diag vía QRTR; requerido por el modem)
-3. pd-mapper      (mapea dominios de protección; requerido por QMI)
-4. remoteproc MPSS sube (kernel, con modem.mdt)
-5. tqftpserv      (provee firmware extra al modem por AF_QIPCRTR, si aplica)
-6. ath10k QMI client -> WLFW server -> FW_READY -> wlan0
+Kernel:
+  remoteproc MPSS sube (con modem.mdt) -> glink-edge IPCRTR
+  -> qrtr-smd endpoint (IPCRTR) -> QRTR core -> kernel QRTR Name Service
+  -> servicios QMI (SSCTL 43, WLFW) anunciados por el NS del kernel
+
+Userspace (sin qrtr-ns):
+  rmtfs      (EFS/modem diag vía QRTR; init.d: after udev-settle)
+  pd-mapper  (dominios de protección; init.d: want qrtr-ns, débil)
+  tqftpserv  (firmware extra al modem por AF_QIPCRTR, si aplica)
+  ath10k QMI client -> WLFW server -> FW_READY -> wlan0
 ```
 
-En la práctica el kernel sube la MPSS y crea el nodo QRTR; `qrtr-ns` debe
-estar corriendo ANTES para registrar el servicio SSCTL y WLFW. `pd-mapper`
-se requiere para que el subsistema tenga sus dominios. `rmtfs` es condición
+En la práctica el kernel sube la MPSS y crea el nodo QRTR; el NS del kernel
+registra los servicios SSCTL y WLFW sin daemon userspace. `pd-mapper` se
+requiere para que el subsistema tenga sus dominios. `rmtfs` es condición
 para el funcionamiento correcto del modem (UIM/EFS).
 
 ## Paquetes Alpine (verificados en aports/pmaports)
 
 | paquete | repo/ruta | versión | licencia | función | origen |
 |---------|-----------|---------|----------|---------|--------|
-| `qrtr` | aports (community) | 1.2 | BSD-3-Clause | qrtr-ns (node registrar) + libs | linux-msm/qrtr |
+| `qrtr` | aports (community) | 1.2 | BSD-3-Clause | `qrtr-cfg`, `qrtr-lookup` + libs (sin qrtr-ns; NS en kernel) | linux-msm/qrtr |
 | `pd-mapper` | aports (testing) | 1.1 | BSD-3-Clause | proteccion-domain mapper | linux-msm/pd-mapper |
 | `tqftpserv` | aports (community) | 1.2 | BSD-3-Clause | TFTP sobre AF_QIPCRTR | linux-msm/tqftpserv |
 | `msm-modem` | pmaports (community) | 13 | GPL-3.0-or-later | soporte modem (uim-selection, wwan-port) | postmarketOS/msm-modem |
@@ -46,16 +56,22 @@ rootfs instalado.
 
 ## Respuestas a las 12 preguntas clave de M5
 
-1. **¿qrtr-ns presente?** NO en el rootfs; disponible como paquete `qrtr`
-   de aports (1.2, BSD-3-Clause).
+> **Corregidas por M11** (ver sección "Corrección de la hipótesis M5" abajo):
+> el Name Service QRTR está en el kernel (net/qrtr/ns.c, built-in), por lo
+> que NO se necesita el daemon userspace `qrtr-ns`.
+
+1. **¿qrtr-ns daemon presente/necesario?** NO es necesario (NS en kernel);
+   el paquete `qrtr` de aports (1.2) no incluye el binario (compila con
+   `-Dqrtr-ns=disabled`); instala solo `qrtr-cfg` y `qrtr-lookup`.
 2. **¿pd-mapper presente?** NO en el rootfs; `pd-mapper` en aports/testing
    (1.1, BSD-3-Clause).
 3. **¿rmtfs presente?** NO en el rootfs; dependencia de
    `msm-modem-uim-selection` (rmtfs/libqmi/qmi-utils).
 4. **¿tqftpserv presente?** NO en el rootfs; en aports/community (1.2,
    BSD-3-Clause); depende de `qrtr-dev` para compilar.
-5. **¿el kernel ya crea el nodo QRTR?** El módulo QRTR_SMD=m y QRTR=m están
-   en la config 6.1; pero sin MPSS up no hay endpoint IPCRTR → no hay nodo.
+5. **¿el kernel ya crea el nodo QRTR?** `CONFIG_QRTR=y` y `CONFIG_QRTR_SMD=y`
+   están en la config 6.1 (built-in, no =m); pero sin MPSS up no hay
+   endpoint IPCRTR → no hay nodo.
 6. **¿quién sube la MPSS?** El kernel vía remoteproc PAS; en la v2 el DT
    debe declarar el nodo. Sin autorización no se inicia (`rproc start`).
 7. **¿el SSCTL service (43) se registra solo?** Sí, el sysmon del kernel lo
@@ -67,8 +83,8 @@ rootfs instalado.
 10. **¿firmware ath10k WCN3990 instalado?** NO; solo stub de 60 B y
     board-2.bin sin instalar (ver M4).
 11. **¿orden de servicios manejado por OpenRC/systemd?** postmarketOS usa
-    OpenRC; los paquetes traen `.initd`/`-openrc`. El orden rmtfs→pd-mapper
-    →qrtr-ns es responsabilidad del init.
+     OpenRC; los paquetes traen `.initd`/`-openrc`. El orden rmtfs→pd-mapper
+     (con dependencias débiles `want`/`use`) es responsabilidad del init.
 12. **¿riesgo de romper servicios actuales?** No aplicar nada en esta
     misión; la v2 define la instrumentación y los gates.
 
@@ -93,6 +109,35 @@ instalado** en el rootfs actual y **el firmware modem.mdt falta**. La v2
 requeriría: instalar `soc-qcom` (o paquetes individuales), colocar
 firmware, y definir el orden de servicios — todo pendiente de autorización
 de prueba física.
+
+## Corrección de la hipótesis M5
+
+**Fecha: 2026-08-13 (revisión M11).** Este reporte original de la fase M5
+afirmaba que `qrtr-ns` (daemon userspace) debía arrancar ANTES del endpoint
+QRTR. La revisión M11 corrige esa hipótesis con evidencia de código.
+
+- **Hipótesis anterior**: qrtr-ns userspace como paso 1 de la secuencia.
+- **Evidencia nueva**:
+  - `CONFIG_QRTR=y` y `CONFIG_QRTR_SMD=y` en los .config autoritativos
+    (kernel-final / kernel-final2, SHA-256 `108d5914...`).
+  - `net/qrtr/Makefile`: `qrtr-y := af_qrtr.o ns.o` → ns.c se compila
+    siempre con QRTR; **no existe `CONFIG_QRTR_NS`** en el Kconfig del fork.
+  - `net/qrtr/ns.c`: el Name Service del kernel ocupa `QRTR_PORT_CTRL`,
+    procesa HELLO/NEW_SERVER/DEL_SERVER; `qrtr_ns_init()` se invoca desde
+    `postcore_initcall(qrtr_proto_init)` → built-in, no módulo.
+  - Upstream: commit `0c2204a4ad71` (kernel 5.7, feb 2020) migró el NS al
+    kernel para eliminar la dependencia del daemon userspace en WiFi.
+  - Paquete Alpine `qrtr` 1.2 compila con `-Dqrtr-ns=disabled`; los init.d
+    de pd-mapper/tqftpserv/rmtfs usan dependencias débiles `want`/`use`.
+- **Comportamiento correcto**: el NS del kernel + endpoint IPCRTR
+  (qrtr-smd) + MPSS up anuncian los servicios QMI; no hace falta qrtr-ns.
+- **Impacto en packaging**: no se crea paquete/overlay/init.d para
+  qrtr-ns; se instalan rmtfs, pd-mapper, tqftpserv (y msm-modem para UIM).
+- **Impacto en gate M11**: PASS con el NS del kernel; ver
+  `reports/linux61-sm6125-mpss-userspace-integration.md` (§7).
+
+Detalle completo en el reporte de integración M11 y en
+`local-private/diagnostics/wifi-priority/wcn3990-v2-build-ready/userspace-matrix.md`.
 
 ## Fuentes
 
