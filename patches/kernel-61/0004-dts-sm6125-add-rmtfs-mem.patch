@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmos-laurel-sprout <dev@laurel.invalid>
+Date: 2026-08-15
+Subject: [PATCH] arm64: dts: sm6125: add qcom,rmtfs-mem region
+
+Downstream-only patch for the frozen 6.1 fork at
+77de535b8dbd8f483b5802c8937cb714bab5b485.
+
+Adds the rmtfs (EFS) shared-memory region required by the qcom_rmtfs_mem
+driver so that rmtfs userspace can create /dev/qcom_rmtfs_mem1 and serve
+the modem EFS over QMI. Without this node rmtfs aborts in
+rmtfs_mem_open(), MPSS stays offline and WCN3990 QMI WLFW never arrives
+(verified in physical test v3, WIFI-V3-MPSS-RMTFS-BLOCKED).
+
+Addressing follows the vendor SM6125/trinket sources (android_kernel_
+xiaomi_sm6125, lineage-18.1 through lineage-23.2 /e/OS A16): the vendor
+laurel_sprout DT defines NO static rmtfs carve-out and allocates the
+region dynamically (qcom,sharedmem-uio with reg = <0x0 0x200000>, client
+id 1). Hence this node uses the mainline dynamic reserved-memory form
+(size + alloc-ranges, no reg), with the documented vendor size 0x200000
+(2 MiB) and qcom,client-id = <1> to match /dev/qcom_rmtfs_mem1.
+
+qcom,vmid is intentionally omitted: the 6.1 binding treats it as
+optional (triggers qcom_scm_assign_mem) and no downstream laurel_sprout
+source uses it for rmtfs. If a physical test shows the modem cannot reach
+the region, the guard-pages backport (9265bc6bce69) or a vmid should be
+re-evaluated.
+
+Signed-off-by: pmos-laurel-sprout <dev@laurel.invalid>
+---
+ arch/arm64/boot/dts/qcom/sm6125.dtsi | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+diff --git a/arch/arm64/boot/dts/qcom/sm6125.dtsi b/arch/arm64/boot/dts/qcom/sm6125.dtsi
+index b71b246..fa03a2e 100644
+--- a/arch/arm64/boot/dts/qcom/sm6125.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm6125.dtsi
+@@ -364,7 +364,16 @@
+ 		qseecom_ta_mem: memory@13fc00000 {
+ 			reg = <0x1 0x3fc00000 0x0 0x400000>;
+ 			no-map;
+ 		};
++
++		rmtfs_mem: rmtfs-mem {
++			compatible = "qcom,rmtfs-mem";
++			alloc-ranges = <0x0 0x0 0x1 0x0>;
++			size = <0x0 0x200000>;
++			no-map;
++
++			qcom,client-id = <1>;
++		};
+ 	};
+ 
+ 	smem: smem {
