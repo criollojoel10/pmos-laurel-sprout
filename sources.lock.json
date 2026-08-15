@@ -222,6 +222,19 @@
       "verification_status": "verified",
       "last_audited": "2026-08-07",
       "notes": "avbtool.py descargado en raw desde googlesource (?format=TEXT=base64), verificado por SHA-256 e5a664a38db623da00f080219bc0ee60a640a9dc4a872803616fae4938ac749b. AVB_VERSION 1.3.0 (mayor/minor/sub 1/3/0) coincide con la cadena 'avbtool 1.3.0' grabada en el vbmeta histórico. NO existe paquete 'avbtool' en PyPI ni en apt de Ubuntu 24.04 (pip install avbtool falla con 'from versions: none'). Categoría: TOOL."
+    },
+    {
+      "name": "android_kernel_xiaomi_sm6125",
+      "url": "https://github.com/LineageOS/android_kernel_xiaomi_sm6125",
+      "vcs": "git",
+      "branch_informational": "lineage-23.2",
+      "commit": "153f55afe47665bb95222e5a87b5b07509d49853",
+      "commit_date": "2026-08-11T00:30:24Z",
+      "license": "GPL-2.0-only",
+      "purpose": "Fuente downstream de referencia para el DT del SM6125/trinket (laurel_sprout) en la ROM más reciente: rama lineage-23.2 es la base de la build /e/OS A16 oficial para laurel_sprout (fork de LineageOS que usa este mismo kernel y device tree). Se verificó que en ESTA rama el rmtfs de trinket es qcom,sharedmem-uio con reg = <0x0 0x200000> y qcom,client-id = <0x1> (asignación DINÁMICA, sin dirección estática), y que laurel_sprout-trinket.dtsi solo hace /delete-property/ qcom,vm-nav-path; — confirmando que NO existe dirección estática de rmtfs downstream para laurel en ninguna rama (18.1/A11, 22.2 y 23.2/A16=/e/OS). Base de la decisión de usar reserva rmtfs-mem DINÁMICA (size + alloc-ranges, client-id 1) en el parche 0004.",
+      "verification_status": "verified",
+      "last_audited": "2026-08-15",
+      "notes": "HEAD de rama lineage-23.2 verificado por API de GitHub el 2026-08-15. Dtsi relevantes revisados en esa rama: arch/arm64/boot/dts/qcom/trinket.dtsi (rmtfs_sharedmem@0) y arch/arm64/boot/dts/xiaomi/laurel_sprout/laurel_sprout-trinket.dtsi (/delete-property/ qcom,vm-nav-path;) y laurel_sprout-trinket-memory.dtsi (sin nodo rmtfs). Categoría: REFERENCE-DT."
     }
   ]
 }
