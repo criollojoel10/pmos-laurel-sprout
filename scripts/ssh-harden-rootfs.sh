@@ -133,7 +133,7 @@ if grep -qE '^root:(!|\*|):' "$TMP/shadow"; then
 else
   echo "   root ya no estaba bloqueado ('!' no encontrado); sin cambios"
 fi
-grep -q "^root:\$6\$" "$TMP/shadow" \
+grep -q '^root:\$6\$' "$TMP/shadow" \
   || { echo "ERROR: no se pudo desbloquear root en /etc/shadow"; exit 1; }
 DBG "rm /etc/shadow"
 DBG "write $TMP/shadow /etc/shadow"
@@ -214,7 +214,7 @@ RO "cat /etc/ssh/sshd_config" | grep -qx 'PasswordAuthentication no' \
   || { echo "ERROR: PasswordAuthentication no aplicado"; exit 1; }
 RO "cat /etc/ssh/sshd_config" | grep -qx 'PubkeyAuthentication yes' \
   || { echo "ERROR: PubkeyAuthentication yes no aplicado"; exit 1; }
-RO "cat /etc/shadow" | grep -q "^root:\$6\$" \
+RO "cat /etc/shadow" | grep -q '^root:\$6\$' \
   || { echo "ERROR: cuenta root sigue bloqueada en /etc/shadow"; exit 1; }
 RO "stat /etc/runlevels/default/sshd" | grep -q 'Type: symlink' \
   || { echo "ERROR: sshd no habilitado en runlevel default"; exit 1; }
