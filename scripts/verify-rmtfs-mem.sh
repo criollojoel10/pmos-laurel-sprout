@@ -114,10 +114,10 @@ if [[ -n "$TREE" ]]; then
   if [[ -n "$RMTFS" ]]; then
     gate 'compatible = "qcom,rmtfs-mem"' grep -q 'compatible = "qcom,rmtfs-mem"' <<<"$RMTFS"
     gate_absent 'sin reg (forma dinámica)' grep -Eq '^[[:space:]]*reg[[:space:]]*=' <<<"$RMTFS"
-    gate 'size = <0x0 0x200000> (2 MiB)' grep -q 'size = <0x0 0x200000>' <<<"$RMTFS"
+    gate 'size = <0x0 0x200000> (2 MiB)' grep -Eq 'size = <0x0+ 0x0*200000>' <<<"$RMTFS"
     gate 'alloc-ranges presente (asignación dinámica)' grep -q 'alloc-ranges = ' <<<"$RMTFS"
     gate 'no-map presente' grep -q 'no-map' <<<"$RMTFS"
-    gate 'qcom,client-id = <1> (-> /dev/qcom_rmtfs_mem1)' grep -q 'qcom,client-id = <1>' <<<"$RMTFS"
+    gate 'qcom,client-id = <1> (-> /dev/qcom_rmtfs_mem1)' grep -Eq 'qcom,client-id = <(0x0*1|1)>' <<<"$RMTFS"
     gate_absent 'sin qcom,vmid (opcional, omitido por diseño)' grep -q 'qcom,vmid' <<<"$RMTFS"
   else
     for l in 'compatible = "qcom,rmtfs-mem"' 'sin reg (forma dinámica)' \
@@ -157,10 +157,10 @@ if [[ -n "$FINAL_DTS" ]]; then
   if [[ -n "$RMTFS" ]]; then
     gate 'compatible = "qcom,rmtfs-mem"' grep -q 'compatible = "qcom,rmtfs-mem"' <<<"$RMTFS"
     gate_absent 'sin reg (forma dinámica)' grep -Eq '^[[:space:]]*reg[[:space:]]*=' <<<"$RMTFS"
-    gate 'size = <0x0 0x200000> (2 MiB)' grep -q 'size = <0x0 0x200000>' <<<"$RMTFS"
+    gate 'size = <0x0 0x200000> (2 MiB)' grep -Eq 'size = <0x0+ 0x0*200000>' <<<"$RMTFS"
     gate 'alloc-ranges presente' grep -q 'alloc-ranges = ' <<<"$RMTFS"
     gate 'no-map presente' grep -q 'no-map' <<<"$RMTFS"
-    gate 'qcom,client-id = <1>' grep -q 'qcom,client-id = <1>' <<<"$RMTFS"
+    gate 'qcom,client-id = <1>' grep -Eq 'qcom,client-id = <(0x0*1|1)>' <<<"$RMTFS"
     gate_absent 'sin qcom,vmid' grep -q 'qcom,vmid' <<<"$RMTFS"
   else
     for l in 'compatible = "qcom,rmtfs-mem"' 'sin reg (forma dinámica)' \
