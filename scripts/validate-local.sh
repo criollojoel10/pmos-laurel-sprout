@@ -126,7 +126,6 @@ fi
 
 # ── 8. Referenced files exist ──
 echo "--- 8. Referenced files ---"
-MISSING=0
 for wf in .github/workflows/*.yml; do
   grep 'scripts/' "$wf" 2>/dev/null | grep -oE 'scripts/[a-zA-Z0-9._-]+\.(sh|py)' | sort -u | while read -r script; do
     sfile="${script#scripts/}"
