@@ -116,6 +116,12 @@ sudo tee "$ROOTFS_DIR/etc/pacman.d/mirrorlist" > /dev/null <<'MIRROR'
 Server = http://mirror.archlinuxarm.org/$arch/$repo
 MIRROR
 
+# pacman requires the cache dir to exist to determine its mount point at
+# transaction commit; the ALARM tarball may omit it, which makes the
+# emulated pacman fail with "could not determine cachedir mount point" and a
+# misleading "not enough free disk space" (both from the same failed stat).
+sudo mkdir -p "$ROOTFS_DIR/var/cache/pacman/pkg"
+
 # Mount necessary filesystems for chroot
 sudo mount --bind /dev "$ROOTFS_DIR/dev" 2>/dev/null || true
 sudo mount --bind /dev/pts "$ROOTFS_DIR/dev/pts" 2>/dev/null || true
@@ -150,6 +156,10 @@ sudo chroot "$ROOTFS_DIR" /usr/bin/qemu-aarch64-static /bin/bash -c "
   pacman --disable-sandbox -Syy --noconfirm
   pacman --disable-sandbox -Syu --noconfirm --needed $PACKAGES
 " 2>&1 | tail -60
+
+# Drop the package download cache to slim the final image and reduce disk
+# pressure (each matrix job runs on its own runner).
+sudo rm -rf "$ROOTFS_DIR/var/cache/pacman/pkg"/* 2>/dev/null || true
 
 # Step 5: Configure system
 info "configuring system..."
