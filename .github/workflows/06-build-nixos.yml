@@ -59,30 +59,25 @@ jobs:
           name: kernel-debug
           path: /tmp/kernel-artifact
 
+      # DeterminateSystems/nix-installer-action@v16.4.0
       - name: Install Nix
-        run: |
-          curl -L https://nixos.org/nix/install | sh -s -- --daemon --yes
-          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-          nix --version
+        uses: DeterminateSystems/nix-installer-action@78c7e5a4dd8fee6b9469a067c53a6632e20f0e6d
+        with:
+          daemon: true
+          extra-conf: |
+            experimental-features = nix-command flakes
 
       - name: Enable cross-compilation
         run: |
-          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
           # Enable aarch64 emulation via binfmt
           sudo apt-get update -qq
           sudo apt-get install -y -qq qemu-user-static binfmt-support
           sudo update-binfmts --enable qemu-aarch64 || true
-          echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf 2>/dev/null || true
-          mkdir -p ~/.config/nix
-          echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
 
       - name: Build NixOS closure
         run: |
-          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
           export NIX_PATH=nixpkgs=channel:nixos-unstable
-          
           CONFIG="laurel-${BUILD_VARIANT}"
-          
           echo "Building nixosConfigurations.${CONFIG}..."
           nix build \
             --impure \
@@ -91,7 +86,6 @@ jobs:
               echo "NOTE: NixOS cross-build for SM6125 is experimental."
               echo "The build produces a minimal NixOS closure with the shared kernel."
             }
-          
           # Create minimal output artifact
           mkdir -p /tmp/output/nixos
           cp /tmp/kernel-artifact/Image /tmp/output/nixos/ 2>/dev/null || true

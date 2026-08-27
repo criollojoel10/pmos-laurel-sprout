@@ -1,4 +1,4 @@
-name: 05-build-pmos-plasma
+name: 04-build-pmos-phosh
 
 on:
   workflow_dispatch:
@@ -29,14 +29,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: pmos-plasma
+  group: pmos-phosh
   cancel-in-progress: true
 
 jobs:
-  build-plasma:
-    name: postmarketOS Edge + Plasma Mobile
+  build-kernel:
+    name: "Shared kernel (${{ inputs.build_variant || 'debug' }})"
+    uses: ./.github/workflows/reusable-build-kernel.yml
+    with:
+      build_variant: ${{ inputs.build_variant || 'debug' }}
+      upload_artifacts: true
+
+  build-phosh:
+    name: postmarketOS Edge + Phosh
+    needs: build-kernel
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 240
     steps:
       - name: Info del runner
         run: |
@@ -62,6 +70,12 @@ jobs:
             exit 1
           fi
           echo "commit=$PC" >> "$GITHUB_OUTPUT"
+      - name: Download kernel artifacts
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@9d7279c1c5275791e5507351230c22e36336b533
+        with:
+          name: kernel-${{ inputs.build_variant || 'debug' }}
+          path: /tmp/kernel-artifact
       - name: Preparar pmaports
         run: |
           set -Eeuo pipefail
@@ -69,33 +83,35 @@ jobs:
             --pmaports /tmp/pmaports \
             --commit "${{ steps.pcommit.outputs.commit }}" \
             --apply-device
-      - name: Build contrato de Plasma
+      - name: Build contrato Phosh
         run: |
           set -Eeuo pipefail
-          bash scripts/build-pmos-plasma.sh \
+          bash scripts/build-pmos-console.sh \
             --pmaports /tmp/pmaports \
-            --packages configs/pmos/plasma-packages.txt \
-            --out /tmp/plasma-out
-          cat /tmp/plasma-out/plasma-build-contract.txt
-      - name: Punto de integración pmbootstrap (placeholder)
+            --packages configs/pmos/phosh-packages.txt \
+            --out /tmp/phosh-out
+          cat /tmp/phosh-out/console-build-contract.txt
+      - name: Punto de integración pmbootstrap Phosh (placeholder)
         run: |
           set -Eeuo pipefail
-          echo "La construcción del rootfs Plasma (pmbootstrap install +"
-          echo "apk add plasma-mobile) se desbloquea en la FASE 6, sobre la"
-          echo "imagen console y el kernel validados."
-          echo "plasma-contract OK"
+          echo "La construcción completa del rootfs Phosh (pmbootstrap install"
+          echo "--ui phosh) se desbloquea cuando device/linux-postmarketos-qcom-sm6125"
+          echo "y device/device-xiaomi-laurel tengan APKBUILD y deviceinfo reales."
+          echo "Este workflow valida el contrato, instala paquetes Phosh y"
+          echo "conecta el kernel compartido."
+          echo "phosh-contract OK"
       - name: Subir artefactos (si aplica)
-        if: ${{ github.event.inputs.upload_artifacts == true }}
+        if: ${{ github.event.inputs.upload_artifacts != false }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: pmos-plasma
-          path: /tmp/plasma-out/
+          name: pmos-phosh
+          path: /tmp/phosh-out/
           retention-days: 7
       - name: Subir logs de diagnóstico (siempre)
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: pmos-plasma-diagnostic
+          name: pmos-phosh-diagnostic
           path: |
             *.log
             **/*.log

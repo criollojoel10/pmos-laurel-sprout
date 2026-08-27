@@ -245,9 +245,9 @@
       "commit_date": "2026-08-05",
       "license": "custom (Arch Linux)",
       "purpose": "Generic AArch64 rootfs base for Arch Linux ARM builds; extracted and customized with laurel kernel + packages",
-      "verification_status": "verified",
+      "verification_status": "verification-required",
       "last_audited": "2026-08-27",
-      "notes": "MD5: 23eec86365b24f7913c403e8f4e8719b. Rebuilt periodically. GPG sig available. Phosh 0.54.0-1 and Plasma Mobile 6.7.4-1 available in extra repo. Categoría: DISTRO-ROOTFS."
+      "notes": "MD5: 23eec86365b24f7913c403e8f4e8719b (reported by upstream, not independently verified from this environment). Rebuilt periodically. GPG sig available. Phosh 0.54.0-1 and Plasma Mobile 6.7.4-1 available in extra repo. Remote verification of checksum required before release. Categoría: DISTRO-ROOTFS."
     }
   ]
 }

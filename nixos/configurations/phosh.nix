@@ -32,16 +32,13 @@
     phosh
     phosh-mobile-settings
     phoc
-    
     # GNOME integration
     adwaita-icon-theme
     gnome-control-center
     gnome-session
-    
     # Wayland
     wayland-utils
     qt6-wayland
-    
     # Diagnostics
     mesa-utils
     eglinfo
@@ -49,10 +46,8 @@
     libinput
     htop
     vim
-    
     # Network
     networkmanagerapplet
-    
     # Bluetooth
     bluez
     bluez-tools
