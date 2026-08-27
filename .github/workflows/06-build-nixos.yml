@@ -76,23 +76,29 @@ jobs:
 
       - name: Build NixOS closure
         run: |
-          export NIX_PATH=nixpkgs=channel:nixos-unstable
           CONFIG="laurel-${BUILD_VARIANT}"
           echo "Building nixosConfigurations.${CONFIG}..."
+          # Evaluate the flake to get the system closure
           nix build \
-            --impure \
-            --expr "(import <nixpkgs> {}).nixos { system = \"aarch64-linux\"; }" \
-            2>&1 | tail -20 || {
+            .#nixosConfigurations.${CONFIG}.config.system.build.toplevel \
+            --no-link --print-out-paths \
+            2>&1 | tee /tmp/nix-build.log | tail -30 || {
               echo "NOTE: NixOS cross-build for SM6125 is experimental."
-              echo "The build produces a minimal NixOS closure with the shared kernel."
+              echo "The full NixOS build requires aarch64 emulation or native runner."
+              echo "Creating minimal output from kernel artifacts + NixOS config."
             }
-          # Create minimal output artifact
+          # Create output artifact
           mkdir -p /tmp/output/nixos
           cp /tmp/kernel-artifact/Image /tmp/output/nixos/ 2>/dev/null || true
           cp /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb /tmp/output/nixos/ 2>/dev/null || true
-          cp -a /tmp/kernel-artifact/modules/* /tmp/output/nixos/ 2>/dev/null || true
+          if [[ -f /tmp/kernel-artifact/modules.tar.zst ]]; then
+            mkdir -p /tmp/output/nixos/modules
+            tar --zstd -xf /tmp/kernel-artifact/modules.tar.zst -C /tmp/output/nixos/modules/ 2>/dev/null || true
+          fi
           cp nixos/flake.nix /tmp/output/nixos/
           cp -a nixos/ /tmp/output/nixos/nixos-config/
+          # Record kernelrelease
+          strings /tmp/kernel-artifact/Image 2>/dev/null | grep -m1 'Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' > /tmp/output/nixos/kernelrelease 2>/dev/null || true
 
       - name: Create boot image
         run: |
@@ -116,6 +122,23 @@ jobs:
             /tmp/output/nixos/*
           retention-days: 7
           if-no-files-found: ignore
+
+      - name: Generate checksums and manifest
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/output/nixos
+          # SHA256 of all artifacts
+          find . -type f -not -name 'SHA256SUMS' -not -name 'manifest.json' \
+            -exec sha256sum {} + > SHA256SUMS 2>/dev/null || true
+          cat SHA256SUMS
+          # Read kernel version from Image
+          KERNELRELEASE="$(cat kernelrelease 2>/dev/null || strings Image 2>/dev/null | grep -m1 '^Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' || echo 'unknown')"
+          jq -n \
+            --arg variant "${{ inputs.build_variant || 'console' }}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg kernelrelease "$KERNELRELEASE" \
+            '{distro:"nixos", variant:$variant, kernelrelease:$kernelrelease, generated_at:$date}' > manifest.json
+          cat manifest.json
 
       - name: Upload diagnostic logs
         if: always()

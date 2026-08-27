@@ -94,3 +94,23 @@ jobs:
             /tmp/output/*.txt
           retention-days: 3
           if-no-files-found: ignore
+
+      - name: Verify artifacts
+        run: |
+          set -Eeuo pipefail
+          echo "::group::SHA256SUMS"
+          cd /tmp/output && cat SHA256SUMS
+          echo "::endgroup::"
+          echo "::group::Manifest"
+          cat /tmp/output/manifest.json
+          echo "::endgroup::"
+          echo "::group::File sizes"
+          ls -lh /tmp/output/*.img.xz 2>/dev/null || echo "No image found"
+          echo "::endgroup::"
+          # Verify kernelrelease
+          if [[ -f /tmp/kernel-artifact/kernelrelease ]]; then
+            echo "kernelrelease: $(cat /tmp/kernel-artifact/kernelrelease)"
+          else
+            echo "kernelrelease: (from Image)"
+            strings /tmp/kernel-artifact/Image 2>/dev/null | grep -m1 'Linux version' || true
+          fi

@@ -77,13 +77,19 @@ sudo update-binfmts --enable qemu-aarch64 || true
 # Step 3: Copy kernel artifacts into rootfs
 info "installing kernel into rootfs..."
 sudo mkdir -p "$ROOTFS_DIR/boot"
-sudo cp "$KERNEL_ARTIFACT/Image" "$ROOTFS_DIR/boot/Image.gz"
+sudo cp "$KERNEL_ARTIFACT/Image" "$ROOTFS_DIR/boot/Image"
+if [[ -f "$KERNEL_ARTIFACT/Image.gz" ]]; then
+  sudo cp "$KERNEL_ARTIFACT/Image.gz" "$ROOTFS_DIR/boot/Image.gz"
+fi
 if [[ -f "$KERNEL_ARTIFACT/sm6125-xiaomi-laurel-sprout.dtb" ]]; then
   sudo mkdir -p "$ROOTFS_DIR/boot/dtbs"
   sudo cp "$KERNEL_ARTIFACT/sm6125-xiaomi-laurel-sprout.dtb" "$ROOTFS_DIR/boot/dtbs/"
 fi
-if [[ -d "$KERNEL_ARTIFACT/modules" ]]; then
-  sudo cp -a "$KERNEL_ARTIFACT/modules/lib/modules/"* "$ROOTFS_DIR/lib/modules/" 2>/dev/null || true
+# Extract modules from tar.zst if available
+if [[ -f "$KERNEL_ARTIFACT/modules.tar.zst" ]]; then
+  info "extracting kernel modules..."
+  sudo mkdir -p "$ROOTFS_DIR/lib/modules"
+  tar --zstd -xf "$KERNEL_ARTIFACT/modules.tar.zst" -C "$ROOTFS_DIR/lib/modules/" 2>/dev/null || true
 fi
 
 # Step 4: Install packages via pacman in QEMU chroot
@@ -108,11 +114,10 @@ sudo mount -t sysfs sysfs "$ROOTFS_DIR/sys" 2>/dev/null || true
 # Copy QEMU binary for cross-arch
 sudo cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/" 2>/dev/null || true
 
-# Install packages
+# Install packages (skip linux-aarch64: we use our custom kernel)
 sudo chroot "$ROOTFS_DIR" /usr/bin/qemu-aarch64-static /bin/bash -c "
   set -Eeuo pipefail
-  pacman -Syu --noconfirm $PACKAGES || true
-  pacman -S --noconfirm linux-aarch64 || true
+  pacman -Syu --noconfirm --needed $PACKAGES || true
 " 2>&1 | tail -20 || {
   info "WARNING: pacman chroot install had issues, continuing with available packages"
 }
@@ -125,7 +130,7 @@ EOF
 
 sudo tee "$ROOTFS_DIR/etc/fstab" > /dev/null <<'FSTAB'
 # <file system>  <mount point>  <type>  <options>  <dump>  <pass>
-/dev/disk/by-label/NIXOS_ROOT  /  ext4  errors=remount-ro  0  1
+/dev/disk/by-label/ARCHLINUX_ROOT  /  ext4  errors=remount-ro  0  1
 FSTAB
 
 # Enable systemd services
@@ -148,7 +153,7 @@ ROOTFS_SIZE=$(sudo du -sm "$ROOTFS_DIR" | awk '{print int($1 * 1.2 + 200)}')
 qemu-img create -f raw "$ROOTFS_IMAGE" "${ROOTFS_SIZE}M"
 
 # Create filesystem and copy
-sudo mkfs.ext4 -F -L NIXOS_ROOT "$ROOTFS_IMAGE"
+sudo mkfs.ext4 -F -L ARCHLINUX_ROOT "$ROOTFS_IMAGE"
 MOUNT_DIR="/tmp/archlinux-mount"
 sudo mkdir -p "$MOUNT_DIR"
 sudo mount -o loop "$ROOTFS_IMAGE" "$MOUNT_DIR"
@@ -165,11 +170,13 @@ sha256sum ./*.img.xz > SHA256SUMS 2>/dev/null || true
 cat SHA256SUMS
 
 # Generate manifest
+KERNELRELEASE="$(strings "$ROOTFS_DIR/boot/Image" 2>/dev/null | grep -m1 '^Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' || echo 'unknown')"
 jq -n \
   --arg variant "$VARIANT" \
   --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --arg rootfs_url "$ROOTFS_URL" \
-  '{distro:"archlinux", variant:$variant, rootfs_url:$rootfs_url, generated_at:$date}' > manifest.json
+  --arg kernelrelease "$KERNELRELEASE" \
+  '{distro:"archlinux", variant:$variant, rootfs_url:$rootfs_url, kernelrelease:$kernelrelease, generated_at:$date}' > manifest.json
 cat manifest.json
 
 info "Arch Linux ARM $VARIANT rootfs build completed"
