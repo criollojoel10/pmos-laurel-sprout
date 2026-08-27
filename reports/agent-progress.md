@@ -29,12 +29,20 @@ Actualizado: 2026-08-27 (matrix console/gnome/kde).
    `extra-platforms = aarch64-linux` en `extra-conf` del `nix-installer-action`
    (06 y 07). Se mantiene binfmt/qemu de apt (`qemu-user-static binfmt-support
    crossbuild-essential-arm64`) y `update-binfmts --enable qemu-aarch64`.
-3. **NixOS closure completa**: todavía no confirmada; flake presenta 54 derivaciones
-   a construir. Si vuelve a fallar, revisar `nixos-diagnostic` (log completo ya sin tail).
+3. **NixOS closure completa**: root cause encontrado y corregido. El device module usaba
+   `linux_6_12.override { structuredExtraConfig = {...} }` (derivación NO cacheada que nix
+   compila emulada); su `generate-config.pl` fallaba con `Error in reading or end of file.`
+   (exit 255, `linux-config-6.12.104.drv`, nixpkgs#59914/#521048). Fix (8bca017): usar
+   `pkgs.linuxPackages_6_12` stock (LTS, en caché para aarch64). El kernel real de arranque
+   sigue siendo el compartido 7.1.0 (artefacto `kernel-debug` → boot.img).
 4. **pmOS rootfs**: bloqueado por falta de `device-xiaomi-laurel` y
    `linux-postmarketos-qcom-sm6125` en pmaports upstream. Plantillas en
    `pmaports-template/` listas para contribuir.
 5. **flake.lock**: commiteado como `nixos/flake.lock` (nixpkgs `56c02bc`, nixos-unstable).
+6. **Arch packages inexistentes (027123a)**: `networkmanager-wifi`, `dmesg`,
+   `usb-modeswitch` y `firmware-ath10k` no existen en ALARM aarch64/extra (verificado
+   contra `extra.db`/`core.db` del mirror); `ath10k` va en `linux-firmware` (ya listado).
+   Eliminados del `console-packages.txt`; ahora `pacman -S` no falla con "target not found".
 
 ## Decisiones de arquitectura
 - Kernel compartido: reusable-build-kernel + artefacto `kernel-debug`; los rootfs/builds
@@ -51,8 +59,10 @@ Actualizado: 2026-08-27 (matrix console/gnome/kde).
   closure completa falla.
 
 ## Pendiente
-- Confirmar green real de Arch (paquetes base instalados) y NixOS (closure completa).
-- Validar variantes nuevas gnome y kde en CI (matrix 07 / dispatch console,gnome,kde).
-- Cablear `kernelPackages` del device NixOS al kernel 7.1.0 parcheado (hoy usa `linux_6_12`).
+- Confirmar green real de Arch (paquetes base instalados; runs `33093627504` console y
+  `33093698708` matrix 07 en curso) y NixOS (closure completa ya corregida en 8bca017).
+- Validar variantes nuevas gnome y kde en CI (matrix 07 `33093698708`, console/gnome/kde).
 - `reports/cross-distro-validation.md` + `reports/artifact-index.json`.
 - Prerelease con artefactos validados; instrucciones de prueba física.
+- Pendiente menor: el `pkgs` con `crossSystem` en `nixos/flake.nix` (líneas 11-14) es
+  código muerto (nixosSystem usa su propio pkgs vía `system`); limpiar.
