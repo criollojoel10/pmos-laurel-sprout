@@ -16,7 +16,7 @@
 # Uso:
 #   scripts/build-nixos-rootfs.sh \
 #     --kernel-artifact /tmp/kernel-artifact \
-#     --variant <console|phosh> \
+#     --variant <console|gnome|kde> \
 #     --out /tmp/output
 
 set -Eeuo pipefail
@@ -26,7 +26,7 @@ VARIANT="console"
 OUT=""
 
 usage() {
-  echo "uso: $0 --kernel-artifact <dir> [--variant console|phosh] [--out <dir>]" >&2
+  echo "uso: $0 --kernel-artifact <dir> [--variant console|gnome|kde] [--out <dir>]" >&2
   exit 2
 }
 

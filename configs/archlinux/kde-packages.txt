@@ -1,0 +1,52 @@
+# Paquetes de la imagen KDE (Plasma Mobile) Arch Linux ARM / systemd
+# Objetivo: interfaz móvil Plasma Mobile para laurel_sprout
+# Verificado en repositorio extra (aarch64) 2026-08: plasma-mobile 6.7.4-1,
+# plasma-settings 26.08.0-1, plasma-nm 6.7.4-1, bluedevil 6.7.4-1,
+# powerdevil 6.7.4-3, xdg-desktop-portal-kde 6.7.4-2, plasma-workspace 6.7.4-3
+
+# Incluir paquetes base de consola
+# (se instalan en una etapa separada del build)
+
+# Plasma Mobile (pulls kwin_wayland, plasma-workspace, kirigami, layer-shell-qt)
+plasma-mobile
+
+# Ajustes específicos del móvil
+plasma-settings
+
+# Red (applet NetworkManager del shell)
+plasma-nm
+
+# Bluetooth (applet del shell)
+bluedevil
+
+# Gestión de energía
+powerdevil
+
+# Portales xdg
+xdg-desktop-portal-kde
+xdg-desktop-portal-gtk
+
+# Red
+networkmanager
+
+# Bluetooth
+bluez
+bluez-utils
+
+# Audio
+pipewire
+pipewire-pulse
+wireplumber
+
+# Teclado virtual (plasma-keyboard 6.7.4-1)
+plasma-keyboard
+
+# Herramientas de diagnóstico
+mesa-utils
+eglinfo
+glmark2-es2-wayland
+libinput
+
+# Wayland
+wayland-utils
+qt6-wayland

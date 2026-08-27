@@ -54,6 +54,7 @@ dist/
 *.tar.gz
 *.tar.zst
 modules/
+!nixos/modules/
 rootfs*/
 
 # Logs with potentially identifying content

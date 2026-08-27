@@ -12,12 +12,12 @@ on:
       archlinux_variants:
         description: 'Arch Linux ARM variants (comma separated)'
         required: false
-        default: 'console,phosh'
+        default: 'console,gnome,kde'
         type: string
       nixos_variants:
         description: 'NixOS variants (comma separated)'
         required: false
-        default: 'console,phosh'
+        default: 'console,gnome,kde'
         type: string
       pmos_ui:
         description: 'postmarketOS UIs (comma separated)'
@@ -55,7 +55,7 @@ jobs:
       fail-fast: false
       matrix:
         distro: [archlinux, nixos]
-        variant: [console, phosh]
+        variant: [console, gnome, kde]
     env:
       DISTRO: ${{ matrix.distro }}
       VARIANT: ${{ matrix.variant }}

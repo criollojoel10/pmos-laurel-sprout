@@ -1,5 +1,5 @@
-# Paquetes de la imagen PHOSH Arch Linux ARM / systemd
-# Objetivo: interfaz móvil Phosh para laurel_sprout
+# Paquetes de la imagen GNOME (Phosh) Arch Linux ARM / systemd
+# Objetivo: interfaz móvil GNOME (Phosh) para laurel_sprout
 
 # Incluir paquetes base de consola
 # (se instalan en una etapa separada del build)

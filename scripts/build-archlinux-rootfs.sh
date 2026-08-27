@@ -10,7 +10,7 @@
 # Usage:
 #   scripts/build-archlinux-rootfs.sh \
 #     --kernel-artifact <dir> \
-#     --variant console|phosh \
+#     --variant console|gnome|kde \
 #     --out <dir>
 
 set -Eeuo pipefail
@@ -22,7 +22,7 @@ VARIANT="console"
 OUT=""
 
 usage() {
-  echo "usage: $0 --kernel-artifact <dir> --variant console|phosh --out <dir>" >&2
+  echo "usage: $0 --kernel-artifact <dir> --variant console|gnome|kde --out <dir>" >&2
   exit 2
 }
 
@@ -36,7 +36,7 @@ while (( $# > 0 )); do
 done
 
 [[ -n "$KERNEL_ARTIFACT" && -n "$OUT" ]] || usage
-[[ "$VARIANT" == "console" || "$VARIANT" == "phosh" ]] || usage
+[[ "$VARIANT" == "console" || "$VARIANT" == "gnome" || "$VARIANT" == "kde" ]] || usage
 [[ -d "$KERNEL_ARTIFACT" ]] || { echo "ERROR: kernel artifact dir not found: $KERNEL_ARTIFACT" >&2; exit 1; }
 
 info() { printf '[archlinux] %s\n' "$*" >&2; }
@@ -44,7 +44,8 @@ mkdir -p "$OUT"
 
 # Package lists
 CONSOLE_PKGS="$REPO_ROOT/configs/archlinux/console-packages.txt"
-PHOSH_PKGS="$REPO_ROOT/configs/archlinux/phosh-packages.txt"
+GNOME_PKGS="$REPO_ROOT/configs/archlinux/gnome-packages.txt"
+KDE_PKGS="$REPO_ROOT/configs/archlinux/kde-packages.txt"
 
 info "variant: $VARIANT"
 info "kernel artifact: $KERNEL_ARTIFACT"
@@ -102,9 +103,12 @@ fi
 # Step 4: Install packages via pacman in QEMU chroot
 info "installing base packages..."
 PACKAGES=$(grep -v '^#' "$CONSOLE_PKGS" | tr '\n' ' ')
-if [[ "$VARIANT" == "phosh" ]]; then
-  PHOSH_PACKAGES=$(grep -v '^#' "$PHOSH_PKGS" | tr '\n' ' ')
-  PACKAGES="$PACKAGES $PHOSH_PACKAGES"
+if [[ "$VARIANT" == "gnome" ]]; then
+  GNOME_PACKAGES=$(grep -v '^#' "$GNOME_PKGS" | tr '\n' ' ')
+  PACKAGES="$PACKAGES $GNOME_PACKAGES"
+elif [[ "$VARIANT" == "kde" ]]; then
+  KDE_PACKAGES=$(grep -v '^#' "$KDE_PKGS" | tr '\n' ' ')
+  PACKAGES="$PACKAGES $KDE_PACKAGES"
 fi
 
 # Configure pacman mirror

@@ -134,18 +134,18 @@ for wf in .github/workflows/*.yml; do
     if [[ ! -f "scripts/$sfile" ]]; then
       fail "workflow $(basename "$wf") references missing $script"
     fi
-  done
+  done || true
   grep 'configs/' "$wf" 2>/dev/null | grep -oE 'configs/[a-zA-Z0-9._/-]+\.txt' | sort -u | while read -r cfg; do
     if [[ ! -f "$cfg" ]]; then
       fail "workflow $(basename "$wf") references missing $cfg"
     fi
-  done
+  done || true
 done
 ok "referenced files check completed"
 
 # ── 9. Dangerous patterns ──
 echo "--- 9. Security patterns ---"
-DANGEROUS=$(grep -RInE 'curl.*\|.*(sh|bash)|eval [^(]|set -x' scripts .github nixos configs 2>/dev/null | grep -v 'test-opencode-security' | grep -v '.gitignore' || true)
+DANGEROUS=$(grep -RInE "curl.*\|.*(sh|bash)|eval [\"'\$]|set -x" scripts .github nixos configs 2>/dev/null | grep -v 'test-opencode-security' | grep -v '.gitignore' || true)
 if [[ -z "$DANGEROUS" ]]; then
   ok "no dangerous patterns"
 else

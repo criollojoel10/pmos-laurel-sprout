@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       build_variant:
-        description: 'console or phosh'
+        description: 'console, gnome or kde'
         required: false
         default: 'console'
         type: choice
-        options: [console, phosh]
+        options: [console, gnome, kde]
   workflow_call:
     inputs:
       build_variant:

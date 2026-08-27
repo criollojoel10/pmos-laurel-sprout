@@ -63,7 +63,7 @@ if [[ -n "$ARTIFACTS_DIR" ]]; then
   done
 
   # Arch Linux ARM
-  for variant in console phosh; do
+  for variant in console gnome kde; do
     artifact=$(find "$ARTIFACTS_DIR" -name "*archlinux*${variant}*" -type f 2>/dev/null | head -1)
     if [[ -n "$artifact" ]]; then
       sha=$(sha256sum "$artifact" | cut -d' ' -f1)
@@ -73,7 +73,7 @@ if [[ -n "$ARTIFACTS_DIR" ]]; then
   done
 
   # NixOS
-  for variant in console phosh; do
+  for variant in console gnome kde; do
     artifact=$(find "$ARTIFACTS_DIR" -name "*nixos*${variant}*" -type f 2>/dev/null | head -1)
     if [[ -n "$artifact" ]]; then
       sha=$(sha256sum "$artifact" | cut -d' ' -f1)

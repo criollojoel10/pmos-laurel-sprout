@@ -31,16 +31,29 @@
           ];
         };
 
-        laurel-phosh = nixpkgs.lib.nixosSystem {
+        laurel-gnome = nixpkgs.lib.nixosSystem {
           inherit system;
           specialArgs = {
             inherit kernelCommit kernelVersion;
             deviceName = "laurel_sprout";
-            deviceProfile = "phosh";
+            deviceProfile = "gnome";
           };
           modules = [
             ./devices/laurel-sprout
-            ./configurations/phosh.nix
+            ./configurations/gnome.nix
+          ];
+        };
+
+        laurel-kde = nixpkgs.lib.nixosSystem {
+          inherit system;
+          specialArgs = {
+            inherit kernelCommit kernelVersion;
+            deviceName = "laurel_sprout";
+            deviceProfile = "kde";
+          };
+          modules = [
+            ./devices/laurel-sprout
+            ./configurations/kde.nix
           ];
         };
       };

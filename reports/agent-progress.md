@@ -1,7 +1,7 @@
 # Agent Progress Report
 
 Estado operativo del pipeline multi-distro para Xiaomi Mi A3 (laurel_sprout / SM6125).
-Actualizado: 2026-08-27 (tras run 33088213880 / 33088227815).
+Actualizado: 2026-08-27 (matrix console/gnome/kde).
 
 ## Kernel (base compartida)
 - Linux mainline `v7.1` = `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`, 4 parches (`patches/kernel/0001..0004`).
@@ -13,9 +13,9 @@ Actualizado: 2026-08-27 (tras run 33088213880 / 33088227815).
 | Workflow | Estado | Notas |
 |---|---|---|
 | 00-quality | green en push | automático |
-| 05 Arch Linux ARM | corriendo fix DNS | ver bloqueada "Arch DNS" |
-| 06 NixOS | corriendo fix emulación | ver bloqueada "NixOS platform mismatch" |
-| 07 matrix | con `extra-platforms` | ver mejoras |
+| 05 Arch Linux ARM | variantes console/gnome/kde | fix DNS commiteado, validando |
+| 06 NixOS | variantes console/gnome/kde | fix emulación commiteado, validando |
+| 07 matrix | `[archlinux,nixos] x [console,gnome,kde]` | kernel compartido + `extra-platforms` |
 | 04 pmOS (console/phosh) | placeholder informativo | pmOS bloqueado por pmaports |
 
 ## Bloqueadas / fixes recientes
@@ -39,14 +39,20 @@ Actualizado: 2026-08-27 (tras run 33088213880 / 33088227815).
 ## Decisiones de arquitectura
 - Kernel compartido: reusable-build-kernel + artefacto `kernel-debug`; los rootfs/builds
   de distros consumen el mismo artefacto (sin rebuilds redundantes).
-- 07 build-distros: matrix `[archlinux, nixos] x [console, phosh]` + job `pmos-console`
+- 07 build-distros: matrix `[archlinux, nixos] x [console, gnome, kde]` + job `pmos-console`
   informativo + job `collect`.
+- Variantes: **console** (mínimo/SSH), **gnome** (Phosh, GNOME móvil) y **kde**
+  (Plasma Mobile). Arch usa listas de paquetes en `configs/archlinux/*-packages.txt`;
+  NixOS usa configs en `nixos/configurations/*.nix` y el módulo casero
+  `nixos/modules/plasma-mobile.nix` (plasma6 + `kdePackages.plasma-mobile` +
+  plasma-login-manager; nixpkgs aún no tiene módulo oficial, nixpkgs#432702).
 - NixOS: flake en `nixos/` (cd nixos), `users.allowNoPasswordLogin = true` (evita
   aserción de lock-out), fallback a salida mínima (kernel + initramfs + boot.img) si la
   closure completa falla.
 
 ## Pendiente
 - Confirmar green real de Arch (paquetes base instalados) y NixOS (closure completa).
+- Validar variantes nuevas gnome y kde en CI (matrix 07 / dispatch console,gnome,kde).
 - Cablear `kernelPackages` del device NixOS al kernel 7.1.0 parcheado (hoy usa `linux_6_12`).
-- Variantes phosh; `reports/cross-distro-validation.md` + `reports/artifact-index.json`.
+- `reports/cross-distro-validation.md` + `reports/artifact-index.json`.
 - Prerelease con artefactos validados; instrucciones de prueba física.

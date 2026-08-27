@@ -1,5 +1,5 @@
-# Phosh configuration for laurel_sprout
-# GNOME-based mobile shell with Wayland
+# GNOME configuration for laurel_sprout
+# Phosh: GNOME-based mobile shell with Wayland
 
 { config, lib, pkgs, ... }:
 
@@ -74,5 +74,5 @@
   };
 
   # Disable gdm (Phosh has its own greeter)
-  services.xserver.displayManager.gdm.enable = false;
+  services.displayManager.gdm.enable = false;
 }
