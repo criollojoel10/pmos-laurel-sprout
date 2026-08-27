@@ -121,10 +121,12 @@ sudo mount -t sysfs sysfs "$ROOTFS_DIR/sys" 2>/dev/null || true
 # Copy QEMU binary for cross-arch
 sudo cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/" 2>/dev/null || true
 
-# Install packages (skip linux-aarch64: we use our custom kernel)
+# Install packages (skip linux-aarch64: we use our custom kernel).
+# --disable-sandbox: GitHub Actions kernels lack Landlock support, and pacman
+# cannot switch to the 'alpm' sandbox user inside an emulated chroot.
 sudo chroot "$ROOTFS_DIR" /usr/bin/qemu-aarch64-static /bin/bash -c "
   set -Eeuo pipefail
-  pacman -Syu --noconfirm --needed $PACKAGES || true
+  pacman --disable-sandbox -Syu --noconfirm --needed $PACKAGES || true
 " 2>&1 | tail -20 || {
   info "WARNING: pacman chroot install had issues, continuing with available packages"
 }

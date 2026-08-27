@@ -68,7 +68,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libarchive-tools
+          sudo apt-get install -y -qq libarchive-tools qemu-user-static binfmt-support qemu-utils
 
       - name: Build Arch Linux ARM rootfs
         run: |
