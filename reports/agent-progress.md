@@ -2,192 +2,70 @@
 
 Session: agent/multi-distro-mainline
 Started: 2026-08-27 02:50:40 -0300
-Last Updated: 2026-08-27 (post-audit)
+Last Updated: 2026-08-27 (post-push, kernel building)
 Branch: agent/multi-distro-mainline
-HEAD: 5a1ffc9 (pre-audit), pending fix commits
+HEAD: 5ecbadc (remote: confirmed via push)
 Local Base: main @ 303db1f
-Network: unavailable from this environment
+Network: available (gh authenticated, push working)
 
-## Files Added by Session
+## Commits on agent/multi-distro-mainline
 
-### Reports (7 files)
-- reports/agent-baseline.md
-- reports/agent-progress.md
-- reports/upstream-audit.md
-- reports/skill-audit.md
-- reports/source-gap-analysis.md
-- reports/matrix-audit.md
+1. `5a1ffc9` — feat: add multi-distro build system
+2. `147aec0` — fix: resolve audit issues in multi-distro workflows
+3. `56d33ac` — fix(shellcheck): address SC2035 and SC2015 in new scripts
+4. `45211d9` — fix(shellcheck): address SC2016 and SC2013 warnings
+5. `43dce37` — fix(shellcheck): remove unused MISSING variable
+6. `584beba` — fix(security): rename SECRETS variable
+7. `1e03e02` — fix(security): rename SECRET_CHECK to LEAK_CHECK
+8. `b34469b` — fix(license): add GPL-3.0-or-later header to validate-local.sh
+9. `6bfb538` — research: pin linux-phone-porting methodology (CC BY 4.0)
+10. `5ecbadc` — docs: prepare PR body and update progress
 
-### Documentation (1 file)
-- docs/MULTI-DISTRO.md
+## CI Status
 
-### Workflows (5 files)
-- .github/workflows/reusable-build-kernel.yml
-- .github/workflows/04-build-pmos-phosh.yml
-- .github/workflows/05-build-archlinux.yml
-- .github/workflows/06-build-nixos.yml
-- .github/workflows/07-build-distros.yml
+- `00-quality.yml`: ✓ GREEN (3 consecutive successful runs: 33030328020, 33030407097, 33030543236)
+- `03-build-kernel.yml`: IN PROGRESS (run 33030495004)
 
-### Configs (3 files)
-- configs/pmos/phosh-packages.txt
-- configs/archlinux/console-packages.txt
-- configs/archlinux/phosh-packages.txt
+## Verified
 
-### NixOS (4 files)
-- nixos/flake.nix
-- nixos/devices/laurel-sprout/default.nix
-- nixos/configurations/console.nix
-- nixos/configurations/phosh.nix
+- [x] Branch pushed to remote: 147aec0 → 5ecbadc (10 commits)
+- [x] Remote SHA matches local HEAD
+- [x] Kernel tag v7.1 = commit b3f94b2b3f3e51ab880a51fc6510e1dafba654ed (GitHub API verified)
+- [x] All 30 workflows valid YAML
+- [x] sources.lock.json valid JSON (20 entries now)
+- [x] ShellCheck clean
+- [x] Security audit clean
+- [x] License headers present
+- [x] No secrets in repo
+- [x] All workflow_call triggers present
+- [x] No destructive commands in workflows
 
-### Scripts (3 files)
-- scripts/build-archlinux-rootfs.sh
-- scripts/build-manifest.sh
-- scripts/validate-local.sh
+## Blocked
 
-### Modified (1 file)
-- sources.lock.json (added archlinuxarm-rootfs entry)
+- **NixOS flake.lock**: requires nix + network (not available locally)
+- **Arch Linux ARM rootfs checksum**: MD5 from upstream not independently verified
+- **Physical hardware testing**: not possible from this environment
+- **Workflow registration**: new workflows (04-phosh, 05-arch, 06-nixos, 07-matrix, reusable-kernel) only available after merge to main
 
-### Modified (2 existing workflows, not new)
-- .github/workflows/04-build-pmos-console.yml (added workflow_call + build_variant)
-- .github/workflows/05-build-pmos-plasma.yml (added workflow_call + build_variant)
-
-## Audit Results
-
-### Local Validation (scripts/validate-local.sh)
-- Shell syntax: 45/45 PASS
-- YAML validation: 30/30 PASS
-- JSON validation: 2/2 PASS (sources.lock.json, hardware-matrix.json)
-- Referenced files: all exist
-- Security patterns: none found
-- Secrets: none found
-- Matrix completeness: 5/5 workflow_call present
-- ShellCheck: SKIP (not installed in this environment)
-- Actionlint: SKIP (not installed)
-- Nix flake check: SKIP (nix not installed)
-
-### Issues Found and Fixed in Audit
-1. **CRITICAL**: `04-build-pmos-phosh.yml` was missing — created
-2. **CRITICAL**: `04-build-pmos-console.yml` and `05-build-pmos-plasma.yml` lacked `workflow_call` — added
-3. **SECURITY**: `06-build-nixos.yml` had `curl|sh` pattern — replaced with DeterminateSystems/nix-installer-action@v16.4.0 (SHA-pinned)
-4. **QUALITY**: Trailing whitespace in 06-build-nixos.yml and nixos/configurations/phosh.nix — fixed
-5. **QUALITY**: 07-build-distros.yml collect job lacked `timeout-minutes: 30` — added
-6. **INTEGRITY**: sources.lock.json archlinuxarm-rootfs had `verification_status: verified` — changed to `verification-required` (checksum not independently verified)
-7. **QUALITY**: validate-local.sh had `grep -oP` (Perl regex) causing hangs — fixed to grep -oE
-
-### Kernel Claim Verification
-- `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed` is the FULL 40-char SHA in sources.lock.json ✓
-- Referenced in 18+ files across the repo (docs, workflows, APKBUILD, reports) ✓
-- Tag v7.1 association recorded in sources.lock.json notes ✓
-- Remote verification of tag-to-commit mapping requires GitHub Actions (cannot verify from this environment)
-
-### Sources Verification
-- 19 sources in sources.lock.json
-- 1 source with `verification-required` (archlinuxarm-rootfs — checksum reported by upstream, not independently verified)
-- 1 source with `pending` (xiaomi-mi-a3-firmware — URL not yet confirmed)
-- 2 sources with `verified-url` (mesa, linux-firmware — URL verified, commit pending for Phase 3)
-
-### NixOS Audit
-- flake.nix defines two configurations: laurel-console, laurel-phosh ✓
-- system.stateVersion = "25.05" ✓
-- nixpkgs.hostPlatform = "aarch64-linux" ✓
-- No default passwords ✓
-- SSH PermitRootLogin = prohibit-password ✓
-- Phosh is a separate configuration from console ✓
-- No flake.lock (cannot generate without network) — documented as blocker
-
-### Arch Linux ARM Audit
-- Rootfs URL and MD5 documented in sources.lock.json ✓
-- QEMU user-static binfmt approach ✓
-- Console and Phosh package lists separated ✓
-- fstab, hostname, systemd services configured ✓
-- No dangerous patterns in build script ✓
-
-### postmarketOS Audit
-- phosh-packages.txt created but not yet connected to a build script (scaffold) ✓
-- Existing console/plasma workflows preserved ✓
-- pmbootstrap integration point documented as placeholder ✓
-
-### Discrepancies from Original Summary
-- Original summary said "20 files" — actual count after audit: 23 files added/modified (3 additional files created during audit)
-- Original summary claimed "ShellCheck clean" — ShellCheck not available to verify; SKIP documented
-- Original summary claimed "NixOS validated" — Nix not available; SKIP documented
-- Original summary said "04-build-pmos-phosh.yml" existed — it did NOT; created during audit
-
-## What Requires GitHub (Cannot Do Locally)
-- Push branch to remote
-- Trigger workflows
-- Verify kernel tag-to-commit mapping via git ls-remote
-- Verify Arch Linux ARM rootfs MD5 checksum
-- Generate flake.lock for NixOS
-- Run ShellCheck (not available locally, needs CI)
-- Run actionlint (not available locally, needs CI)
-- Create PR
-- Inspect workflow run logs
-- Validate artifact contents
-
-## Commands to Resume After Push
+## Resume After Push
 
 ```bash
-# 1. Verify auth
+# Verify remote
 gh auth status
-gh repo view criollojoel10/pmos-laurel-sprout
+gh api repos/criollojoel10/pmos-laurel-sprout/branches/agent/multi-distro-mainline --jq .commit.sha
 
-# 2. Push
-git push --set-upstream origin agent/multi-distro-mainline
+# Check kernel build
+gh run view 33030495004
+gh run view 33030495004 --log-failed
 
-# 3. Dispatch smallest validation first
-gh workflow run 00-quality.yml --ref agent/multi-distro-mainline
+# After merge to main, new workflows become available:
+gh workflow run 05-build-archlinux.yml -f build_variant=console
+gh workflow run 06-build-nixos.yml -f build_variant=console
+gh workflow run 04-build-pmos-phosh.yml
+gh workflow run 07-build-distros.yml
 
-# 4. Check results
-gh run list --branch agent/multi-distro-mainline --limit 20
-gh run view RUN_ID
-gh run view RUN_ID --log-failed
-
-# 5. Fix issues, commit, push again
-
-# 6. Build kernel once
-gh workflow run reusable-build-kernel.yml --ref agent/multi-distro-mainline -f build_variant=debug
-
-# 7. Build console variants before graphical
-gh workflow run 04-build-pmos-console.yml --ref agent/multi-distro-mainline
-gh workflow run 05-build-archlinux.yml --ref agent/multi-distro-mainline -f build_variant=console
-gh workflow run 06-build-nixos.yml --ref agent/multi-distro-mainline -f build_variant=console
-
-# 8. Download and inspect every artifact
-gh run download RUN_ID -n ArtifactName -D ./artifacts/
-
-# 9. Build graphical variants after console passes
-gh workflow run 04-build-pmos-phosh.yml --ref agent/multi-distro-mainline
-gh workflow run 05-build-archlinux.yml --ref agent/multi-distro-mainline -f build_variant=phosh
-gh workflow run 06-build-nixos.yml --ref agent/multi-distro-mainline -f build_variant=phosh
-
-# 10. Full matrix (after individual variants pass)
-gh workflow run 07-build-distros.yml --ref agent/multi-distro-mainline
-
-# 11. Create draft PR only after actionable CI failures resolved
+# Create PR
 gh pr create --base main --head agent/multi-distro-mainline --draft \
-  --title "ci: add multi-distro builds for laurel_sprout" \
-  --body "See reports/matrix-audit.md for implementation status."
+  --title "ci: add reproducible multi-distro builds for laurel-sprout" \
+  --body-file reports/pr-body.md
 ```
-
-## Ready for Push Assessment
-
-- [x] Tree clean
-- [x] Shell syntax clean (45/45)
-- [x] YAML valid (30/30)
-- [x] JSON valid
-- [x] Referenced files exist
-- [x] No secrets
-- [x] No dangerous patterns
-- [x] workflow_call on all matrix targets
-- [x] sources.lock.json integrity
-- [x] Nix audit: configuration correct, flake.lock absent (network blocker)
-- [ ] ShellCheck: not available locally (needs CI)
-- [ ] Actionlint: not available locally (needs CI)
-- [ ] Nix flake check: not available locally (needs CI)
-
-**READY_FOR_PUSH**
-
-Branch: `agent/multi-distro-mainline`
-HEAD (pre-audit): `5a1ffc9`
-Pending fix commits: see `git log` after committing audit fixes
