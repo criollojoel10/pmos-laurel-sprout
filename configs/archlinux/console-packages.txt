@@ -1,0 +1,46 @@
+# Paquetes de la imagen CONSOLA Arch Linux ARM / systemd
+# Objetivo: acceso mínimo de recuperación para laurel_sprout
+
+# Base system
+base
+systemd
+systemd-sysvcompat
+
+# Red
+networkmanager
+networkmanager-wifi
+openssh
+wget
+curl
+iproute2
+iputils
+
+# Herramientas de diagnóstico
+linux-firmware
+dmesg
+util-linux
+e2fsprogs
+parted
+file
+htop
+tree
+git
+base-devel
+
+# Shell
+bash-completion
+vim
+nano
+
+# USB
+usbutils
+usb-modeswitch
+
+# UFS / storage
+mdadm
+
+# Herramientas del kernel compartido
+kmod
+
+# Firmware Qualcomm
+firmware-ath10k

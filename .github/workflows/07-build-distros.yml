@@ -1,0 +1,155 @@
+name: Build All Distributions
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_variant:
+        description: 'debug or release'
+        required: false
+        default: 'debug'
+        type: choice
+        options: [debug, release]
+      pmos_ui:
+        description: 'postmarketOS UI'
+        required: false
+        default: 'console,phosh,plasma'
+        type: string
+      archlinux_variants:
+        description: 'Arch Linux ARM variants'
+        required: false
+        default: 'console,phosh'
+        type: string
+      nixos_variants:
+        description: 'NixOS variants'
+        required: false
+        default: 'console,phosh'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: distro-all-${{ github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  # ────────────────────────────────────────────────
+  # SHARED KERNEL BUILD
+  # ────────────────────────────────────────────────
+  build-kernel:
+    name: "Shared kernel (${{ inputs.kernel_variant || 'debug' }})"
+    uses: ./.github/workflows/reusable-build-kernel.yml
+    with:
+      build_variant: ${{ inputs.kernel_variant || 'debug' }}
+      upload_artifacts: true
+
+  # ────────────────────────────────────────────────
+  # POSTMARKETOS
+  # ────────────────────────────────────────────────
+  pmos-console:
+    name: "pmOS Console"
+    needs: build-kernel
+    uses: ./.github/workflows/04-build-pmos-console.yml
+    with:
+      build_variant: ${{ inputs.kernel_variant || 'debug' }}
+
+  pmos-phosh:
+    name: "pmOS Phosh"
+    needs: build-kernel
+    uses: ./.github/workflows/04-build-pmos-phosh.yml
+    with:
+      build_variant: ${{ inputs.kernel_variant || 'debug' }}
+    if: contains(inputs.pmos_ui || 'console,phosh,plasma', 'phosh')
+
+  pmos-plasma:
+    name: "pmOS Plasma"
+    needs: build-kernel
+    uses: ./.github/workflows/05-build-pmos-plasma.yml
+    with:
+      build_variant: ${{ inputs.kernel_variant || 'debug' }}
+    if: contains(inputs.pmos_ui || 'console,phosh,plasma', 'plasma')
+
+  # ────────────────────────────────────────────────
+  # ARCH LINUX ARM
+  # ────────────────────────────────────────────────
+  archlinux-console:
+    name: "Arch ARM Console"
+    needs: build-kernel
+    uses: ./.github/workflows/05-build-archlinux.yml
+    with:
+      build_variant: console
+
+  archlinux-phosh:
+    name: "Arch ARM Phosh"
+    needs: build-kernel
+    uses: ./.github/workflows/05-build-archlinux.yml
+    with:
+      build_variant: phosh
+    if: contains(inputs.archlinux_variants || 'console,phosh', 'phosh')
+
+  # ────────────────────────────────────────────────
+  # NIXOS
+  # ────────────────────────────────────────────────
+  nixos-console:
+    name: "NixOS Console"
+    needs: build-kernel
+    uses: ./.github/workflows/06-build-nixos.yml
+    with:
+      build_variant: console
+
+  nixos-phosh:
+    name: "NixOS Phosh"
+    needs: build-kernel
+    uses: ./.github/workflows/06-build-nixos.yml
+    with:
+      build_variant: phosh
+    if: contains(inputs.nixos_variants || 'console,phosh', 'phosh')
+
+  # ────────────────────────────────────────────────
+  # INTEGRATION: Collect and validate all artifacts
+  # ────────────────────────────────────────────────
+  collect:
+    name: "Collect all artifacts"
+    needs:
+      - build-kernel
+      - pmos-console
+      - archlinux-console
+      - nixos-console
+    runs-on: ubuntu-latest
+    if: always() && needs.build-kernel.result == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download all artifacts
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@9d7279c1c5275791e5507351230c22e36336b533
+        with:
+          path: all-artifacts
+
+      - name: Inventory artifacts
+        run: |
+          echo "## Collected artifacts" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          find all-artifacts -type f | sort >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Generate SHA256SUMS
+        run: |
+          cd all-artifacts
+          find . -type f \( -name "*.img*" -o -name "*.tar.zst" -o -name "*.xz" -o -name "SHA256SUMS" \) \
+            -exec sha256sum {} \; > ../collected-sha256sums 2>/dev/null || true
+          cd ..
+          cat collected-sha256sums
+
+      - name: Upload collected bundle
+        # actions/upload-artifact@v4.9.5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: distro-all-artifacts
+          path: |
+            all-artifacts/**/*
+            collected-sha256sums
+          retention-days: 7
+          if-no-files-found: warn

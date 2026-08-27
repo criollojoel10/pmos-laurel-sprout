@@ -1,0 +1,52 @@
+# Paquetes de la imagen PHOSH postmarketOS Edge / systemd
+# Objetivo: interfaz móvil Phosh para laurel_sprout
+
+# UI Phosh (metapaquete)
+postmarketos-ui-phosh
+
+# Phosh core (provistos por postmarketos-ui-phosh, listados por claridad)
+phosh
+phosh-mobile-settings
+stevia
+xdg-desktop-portal-phosh
+xdg-desktop-portal-wlr
+greetd-phrog
+
+# GNOME base (requisitos de Phosh)
+adwaita-icon-theme
+gnome-control-center
+gnome-settings-daemon
+gnome-session
+
+# Red
+networkmanager
+networkmanager-wifi
+usb-modeswitch
+openssh-server
+
+# Bluetooth
+bluez
+bluez-utils
+
+# Audio
+pipewire
+wireplumber
+
+# Teclado virtual
+squeekboard
+
+# Herramientas de diagnóstico
+mesa-utils
+eglinfo
+glmark2-es2-wayland
+libinput
+libinput-tools
+htop
+
+# Wayland
+wayland-utils
+qt6-qtwayland
+
+# Shell
+vim
+bash

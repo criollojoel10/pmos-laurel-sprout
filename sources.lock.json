@@ -235,6 +235,19 @@
       "verification_status": "verified",
       "last_audited": "2026-08-15",
       "notes": "HEAD de rama lineage-23.2 verificado por API de GitHub el 2026-08-15. Dtsi relevantes revisados en esa rama: arch/arm64/boot/dts/qcom/trinket.dtsi (rmtfs_sharedmem@0) y arch/arm64/boot/dts/xiaomi/laurel_sprout/laurel_sprout-trinket.dtsi (/delete-property/ qcom,vm-nav-path;) y laurel_sprout-trinket-memory.dtsi (sin nodo rmtfs). Categoría: REFERENCE-DT."
+    },
+    {
+      "name": "archlinuxarm-rootfs",
+      "url": "http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz",
+      "vcs": "tarball",
+      "branch_informational": "latest (2026-08-05)",
+      "commit": null,
+      "commit_date": "2026-08-05",
+      "license": "custom (Arch Linux)",
+      "purpose": "Generic AArch64 rootfs base for Arch Linux ARM builds; extracted and customized with laurel kernel + packages",
+      "verification_status": "verified",
+      "last_audited": "2026-08-27",
+      "notes": "MD5: 23eec86365b24f7913c403e8f4e8719b. Rebuilt periodically. GPG sig available. Phosh 0.54.0-1 and Plasma Mobile 6.7.4-1 available in extra repo. Categoría: DISTRO-ROOTFS."
     }
   ]
 }

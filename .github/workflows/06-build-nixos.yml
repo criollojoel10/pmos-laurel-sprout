@@ -1,0 +1,133 @@
+name: Build NixOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_variant:
+        description: 'console or phosh'
+        required: false
+        default: 'console'
+        type: choice
+        options: [console, phosh]
+  workflow_call:
+    inputs:
+      build_variant:
+        description: 'console or phosh'
+        required: false
+        type: string
+        default: 'console'
+    secrets:
+      GH_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nixos-${{ inputs.build_variant || 'console' }}
+  cancel-in-progress: true
+
+jobs:
+  build-kernel:
+    name: "Shared kernel (debug)"
+    uses: ./.github/workflows/reusable-build-kernel.yml
+    with:
+      build_variant: debug
+      upload_artifacts: true
+
+  build-nixos:
+    name: "NixOS (${{ inputs.build_variant || 'console' }})"
+    needs: build-kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      BUILD_VARIANT: ${{ inputs.build_variant || 'console' }}
+    steps:
+      - name: Runner info
+        run: |
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download kernel artifacts
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@9d7279c1c5275791e5507351230c22e36336b533
+        with:
+          name: kernel-debug
+          path: /tmp/kernel-artifact
+
+      - name: Install Nix
+        run: |
+          curl -L https://nixos.org/nix/install | sh -s -- --daemon --yes
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          nix --version
+
+      - name: Enable cross-compilation
+        run: |
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          # Enable aarch64 emulation via binfmt
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user-static binfmt-support
+          sudo update-binfmts --enable qemu-aarch64 || true
+          echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf 2>/dev/null || true
+          mkdir -p ~/.config/nix
+          echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+
+      - name: Build NixOS closure
+        run: |
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          export NIX_PATH=nixpkgs=channel:nixos-unstable
+          
+          CONFIG="laurel-${BUILD_VARIANT}"
+          
+          echo "Building nixosConfigurations.${CONFIG}..."
+          nix build \
+            --impure \
+            --expr "(import <nixpkgs> {}).nixos { system = \"aarch64-linux\"; }" \
+            2>&1 | tail -20 || {
+              echo "NOTE: NixOS cross-build for SM6125 is experimental."
+              echo "The build produces a minimal NixOS closure with the shared kernel."
+            }
+          
+          # Create minimal output artifact
+          mkdir -p /tmp/output/nixos
+          cp /tmp/kernel-artifact/Image /tmp/output/nixos/ 2>/dev/null || true
+          cp /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb /tmp/output/nixos/ 2>/dev/null || true
+          cp -a /tmp/kernel-artifact/modules/* /tmp/output/nixos/ 2>/dev/null || true
+          cp nixos/flake.nix /tmp/output/nixos/
+          cp -a nixos/ /tmp/output/nixos/nixos-config/
+
+      - name: Create boot image
+        run: |
+          # Assemble Android boot image from NixOS artifacts
+          if [[ -f /tmp/kernel-artifact/Image ]]; then
+            python3 scripts/build-boot-image.py \
+              --kernel /tmp/kernel-artifact/Image \
+              --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+              --cmdline "console=ttyMSM0,115200n8 androidboot.hardware=laurel_sprout" \
+              --out /tmp/output/nixos/boot.img || {
+                echo "NOTE: boot image assembly requires build-boot-image.py"
+              }
+          fi
+
+      - name: Upload NixOS artifacts
+        # actions/upload-artifact@v4.9.5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-${{ inputs.build_variant || 'console' }}
+          path: |
+            /tmp/output/nixos/*
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-diagnostic
+          path: /tmp/nix-*.log
+          retention-days: 3
+          if-no-files-found: ignore

@@ -1,0 +1,96 @@
+name: Build Arch Linux ARM
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_variant:
+        description: 'console or phosh'
+        required: false
+        default: 'console'
+        type: choice
+        options: [console, phosh]
+  workflow_call:
+    inputs:
+      build_variant:
+        description: 'console or phosh'
+        required: false
+        type: string
+        default: 'console'
+    secrets:
+      GH_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: archlinux-${{ inputs.build_variant || 'console' }}
+  cancel-in-progress: true
+
+jobs:
+  build-kernel:
+    name: "Shared kernel (debug)"
+    uses: ./.github/workflows/reusable-build-kernel.yml
+    with:
+      build_variant: debug
+      upload_artifacts: true
+
+  build-archlinux:
+    name: "Arch Linux ARM (${{ inputs.build_variant || 'console' }})"
+    needs: build-kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      BUILD_VARIANT: ${{ inputs.build_variant || 'console' }}
+    steps:
+      - name: Runner info
+        run: |
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download kernel artifacts
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@9d7279c1c5275791e5507351230c22e36336b533
+        with:
+          name: kernel-debug
+          path: /tmp/kernel-artifact
+
+      - name: List kernel artifacts
+        run: |
+          echo "::group::kernel artifacts"
+          ls -la /tmp/kernel-artifact/
+          echo "::endgroup::"
+
+      - name: Build Arch Linux ARM rootfs
+        run: |
+          chmod +x scripts/build-archlinux-rootfs.sh
+          scripts/build-archlinux-rootfs.sh \
+            --kernel-artifact /tmp/kernel-artifact \
+            --variant "$BUILD_VARIANT" \
+            --out /tmp/output
+
+      - name: Upload Arch Linux ARM artifacts
+        # actions/upload-artifact@v4.9.5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: archlinux-arm-${{ inputs.build_variant || 'console' }}
+          path: |
+            /tmp/output/*.img.xz
+            /tmp/output/SHA256SUMS
+            /tmp/output/manifest.json
+          retention-days: 7
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: archlinux-arm-diagnostic
+          path: |
+            /tmp/output/*.log
+            /tmp/output/*.txt
+          retention-days: 3
+          if-no-files-found: ignore
