@@ -66,6 +66,10 @@ jobs:
           daemon: true
           extra-conf: |
             experimental-features = nix-command flakes
+            # Permitir al nix-daemon construir derivaciones aarch64-linux
+            # en el runner x86_64 mediante binfmt/qemu (sin esto:
+            # "platform mismatch, Required system aarch64-linux").
+            extra-platforms = aarch64-linux
 
       - name: Generate flake.lock
         run: |

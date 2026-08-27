@@ -95,7 +95,9 @@ jobs:
         if: matrix.distro == 'nixos'
         uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
         with:
-          extra-conf: experimental-features = nix-command flakes
+          extra-conf: |
+            experimental-features = nix-command flakes
+            extra-platforms = aarch64-linux
 
       - name: Build Arch Linux ARM rootfs
         if: matrix.distro == 'archlinux'

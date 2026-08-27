@@ -123,9 +123,20 @@ sudo cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/" 2>/dev/null || true
 
 # DNS for chroot: the runner's /etc/resolv.conf usually points to the
 # systemd-resolved stub (127.0.0.53) which is unreachable from inside the
-# qemu-emulated chroot. Always seed public resolvers so pacman can sync.
-mkdir -p "$ROOTFS_DIR/etc"
+# qemu-emulated chroot. The Arch Linux ARM rootfs ships /etc/resolv.conf as a
+# symlink to /run/systemd/resolve/stub-resolv.conf (nonexistent in chroot);
+# a plain file is REQUIRED for glibc to read it inside the emulated chroot.
+sudo rm -f "$ROOTFS_DIR/etc/resolv.conf"
 printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' | sudo tee "$ROOTFS_DIR/etc/resolv.conf" > /dev/null
+
+# Diagnostic: confirm the plain resolv.conf landed inside the chroot (the
+# tarball ships a symlink into /run/systemd/resolve which does not exist in
+# the chroot; glibc/pacman will silently fail DNS otherwise).
+echo "::group::chroot /etc/resolv.conf"
+sudo chroot "$ROOTFS_DIR" /usr/bin/qemu-aarch64-static /bin/bash -c \
+  "test -f /etc/resolv.conf && ls -l /etc/resolv.conf && cat /etc/resolv.conf" \
+  2>/dev/null || echo "ERROR: no se pudo leer /etc/resolv.conf dentro del chroot"
+echo "::endgroup::"
 
 # Install packages (skip linux-aarch64: we use our custom kernel).
 # --disable-sandbox: GitHub Actions kernels lack Landlock support, and pacman
@@ -134,7 +145,7 @@ sudo chroot "$ROOTFS_DIR" /usr/bin/qemu-aarch64-static /bin/bash -c "
   set -Eeuo pipefail
   pacman --disable-sandbox -Syy --noconfirm
   pacman --disable-sandbox -Syu --noconfirm --needed $PACKAGES
-" 2>&1 | tail -40
+" 2>&1 | tail -60
 
 # Step 5: Configure system
 info "configuring system..."
