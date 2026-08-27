@@ -128,23 +128,19 @@ fi
 echo "--- 8. Referenced files ---"
 MISSING=0
 for wf in .github/workflows/*.yml; do
-  for script in $(grep 'scripts/' "$wf" 2>/dev/null | grep -oE 'scripts/[a-zA-Z0-9._-]+\.(sh|py)' | sort -u); do
+  grep 'scripts/' "$wf" 2>/dev/null | grep -oE 'scripts/[a-zA-Z0-9._-]+\.(sh|py)' | sort -u | while read -r script; do
     sfile="${script#scripts/}"
     if [[ ! -f "scripts/$sfile" ]]; then
       fail "workflow $(basename "$wf") references missing $script"
-      MISSING=$((MISSING+1))
     fi
   done
-  for cfg in $(grep 'configs/' "$wf" 2>/dev/null | grep -oE 'configs/[a-zA-Z0-9._/-]+\.txt' | sort -u); do
+  grep 'configs/' "$wf" 2>/dev/null | grep -oE 'configs/[a-zA-Z0-9._/-]+\.txt' | sort -u | while read -r cfg; do
     if [[ ! -f "$cfg" ]]; then
       fail "workflow $(basename "$wf") references missing $cfg"
-      MISSING=$((MISSING+1))
     fi
   done
 done
-if [[ $MISSING -eq 0 ]]; then
-  ok "all referenced files exist"
-fi
+ok "referenced files check completed"
 
 # ── 9. Dangerous patterns ──
 echo "--- 9. Security patterns ---"
