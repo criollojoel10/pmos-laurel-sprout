@@ -136,7 +136,7 @@ jobs:
           bash scripts/build-busybox-arm64.sh --out /tmp/busybox-out
           bash scripts/build-diagnostic-initramfs.sh \
             --init initramfs/init \
-            --busybox-root /tmp/busybox-out/rootfs \
+            --busybox-root /tmp/busybox-out/applet-root \
             --out /tmp/initramfs-out
           ls -la /tmp/initramfs-out/
 
