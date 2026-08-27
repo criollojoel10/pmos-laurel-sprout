@@ -8,7 +8,6 @@ systemd-sysvcompat
 
 # Red
 networkmanager
-networkmanager-wifi
 openssh
 wget
 curl
@@ -17,7 +16,6 @@ iputils
 
 # Herramientas de diagnóstico
 linux-firmware
-dmesg
 util-linux
 e2fsprogs
 parted
@@ -34,13 +32,9 @@ nano
 
 # USB
 usbutils
-usb-modeswitch
 
 # UFS / storage
 mdadm
 
 # Herramientas del kernel compartido
 kmod
-
-# Firmware Qualcomm
-firmware-ath10k
