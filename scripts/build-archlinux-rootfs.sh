@@ -135,6 +135,10 @@ sudo mount -t sysfs sysfs "$ROOTFS_DIR/sys" 2>/dev/null || true
 # the rootfs to itself gives it a real top-level mount point (canonical fix).
 sudo mount --bind "$ROOTFS_DIR" "$ROOTFS_DIR" 2>/dev/null || true
 
+# with a real mountpoint available pacman then reads /etc/mtab to enumerate
+# mount points; the ALARM tarball does not ship it (systemd uses /proc).
+sudo ln -sf /proc/self/mounts "$ROOTFS_DIR/etc/mtab"
+
 # Copy QEMU binary for cross-arch
 sudo cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/" 2>/dev/null || true
 
