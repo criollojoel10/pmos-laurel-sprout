@@ -53,7 +53,13 @@ WORK="$(mktemp -d /tmp/busybox-build.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 
 info "descargando $URL"
-curl -fsSL "$URL" -o "$WORK/$TARBALL"
+for attempt in 1 2 3; do
+  if curl -fsSL --retry 3 --retry-delay 5 "$URL" -o "$WORK/$TARBALL"; then
+    break
+  fi
+  info "intento $attempt fallido, reintentando..."
+  sleep 10
+done
 ( cd "$WORK" && printf '%s  %s\n' "$SHA256" "$TARBALL" > SHA256SUMS && sha256sum -c SHA256SUMS )
 
 info "extrayendo"
