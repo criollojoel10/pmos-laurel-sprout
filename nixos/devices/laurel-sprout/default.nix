@@ -9,41 +9,15 @@
 
   # Boot configuration
   boot = {
-    # Use mainline kernel with SM6125 DTS
-    kernelPackages = pkgs.linuxKernel.packagesFor (
-      pkgs.linuxKernel.kernels.linux_6_12.override {
-        structuredExtraConfig = with lib.kernel; {
-          # SM6125 essentials
-          ARM64 = yes;
-          ARCH_SM6125 = yes;
-          # UFS
-          SCSI_UFSHCD = yes;
-          SCSI_UFSHCD_PLATFORM = yes;
-          SCSI_UFS_QCOM = yes;
-          # Display
-          DRM = yes;
-          DRM_MSM = module;
-          FB_SIMPLE = yes;
-          DRM_FBDEV_EMULATION = yes;
-          FRAMEBUFFER_CONSOLE = yes;
-          DRM_PANEL_SAMSUNG_S6E8FC0 = module;
-          # USB
-          USB = yes;
-          USB_DWC3 = yes;
-          USB_DWC3_QCOM = yes;
-          USB_CONFIGFS_RNDIS = yes;
-          # Input
-          TOUCHSCREEN_EDT_FT5X06 = yes;
-          # WiFi/BT
-          ATH10K = yes;
-          ATH10K_SNOC = yes;
-          BT_QCOMSMD = yes;
-          # Power
-          CPUFREQ_DT = yes;
-          THERMAL = yes;
-        };
-      }
-    );
+    # El kernel real de arranque es el COMPARTIDO 7.1.0 (Image/DTB/modules
+    # parcheados para SM6125) que se inserta en boot.img a partir del artefacto
+    # `kernel-debug` (ver build-nixos-rootfs.sh). NixOS SOLO debe proveer el
+    # paquete de kernel de userspace: usamos el linuxPackages_6_12 stock
+    # (LTS, ya servido por cache.nixos.org para aarch64). NO usar
+    # `linux_6_12.override { structuredExtraConfig = {...} }`: esa derivación
+    # no está en caché, se recompila emulada vía QEMU y generate-config.pl
+    # falla con "Error in reading or end of file." (nixpkgs#59914/#521048).
+    kernelPackages = pkgs.linuxPackages_6_12;
 
     # DTB
     loader.grub.enable = false;
