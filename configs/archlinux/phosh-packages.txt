@@ -1,0 +1,46 @@
+# Paquetes de la imagen PHOSH Arch Linux ARM / systemd
+# Objetivo: interfaz móvil Phosh para laurel_sprout
+
+# Incluir paquetes base de consola
+# (se instalan en una etapa separada del build)
+
+# UI Phosh
+phosh
+phosh-mobile-settings
+
+# Compositor
+phoc
+
+# GNOME base (requisitos de Phosh)
+adwaita-icon-theme
+gnome-control-center
+gnome-session
+
+# Portals
+xdg-desktop-portal-phosh
+xdg-desktop-portal-gtk
+
+# Red
+networkmanager
+
+# Bluetooth
+bluez
+bluez-utils
+
+# Audio
+pipewire
+pipewire-pulse
+wireplumber
+
+# Teclado virtual
+squeekboard
+
+# Herramientas de diagnóstico
+mesa-utils
+eglinfo
+glmark2-es2-wayland
+libinput
+
+# Wayland
+wayland-utils
+qt6-wayland

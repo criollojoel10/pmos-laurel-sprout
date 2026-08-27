@@ -1,0 +1,323 @@
+name: Reusable Build Kernel
+
+on:
+  workflow_call:
+    inputs:
+      build_variant:
+        description: 'debug or release'
+        required: true
+        type: string
+      kernel_commit:
+        description: 'Kernel commit SHA (leave empty for sources.lock.json default)'
+        required: false
+        type: string
+        default: ''
+      kernel_source:
+        description: 'Kernel source (linux-mainline-v7.1 or sm6125-mainline-linux)'
+        required: false
+        type: string
+        default: 'linux-mainline-v7.1'
+      upload_artifacts:
+        description: 'Upload build artifacts'
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      kernel_commit:
+        description: 'The kernel commit that was built'
+        value: ${{ jobs.build.outputs.kernel_commit }}
+      patched_commit:
+        description: 'The commit after downstream patches are applied'
+        value: ${{ jobs.build.outputs.patched_commit }}
+      kernel_version:
+        description: 'The kernel version string'
+        value: ${{ jobs.build.outputs.kernel_version }}
+      dtb_name:
+        description: 'Name of the DTB file'
+        value: 'sm6125-xiaomi-laurel-sprout.dtb'
+    secrets:
+      GH_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kernel-reusable-${{ inputs.build_variant || 'debug' }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: "Kernel ${{ inputs.build_variant || 'debug' }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    outputs:
+      kernel_commit: ${{ steps.kcommit.outputs.commit }}
+      patched_commit: ${{ steps.patched.outputs.patched_commit }}
+      kernel_version: ${{ steps.kversion.outputs.version }}
+    steps:
+      - name: Runner info
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            crossbuild-essential-arm64 device-tree-compiler \
+            flex bison libssl-dev libelf-dev bc python3 \
+            cpio zstd xz-utils kmod
+
+      - name: Determine kernel commit
+        id: kcommit
+        run: |
+          set -Eeuo pipefail
+          KC="${{ inputs.kernel_commit || '' }}"
+          if [[ -z "$KC" ]]; then
+            KC="$(jq -r ".sources[] | select(.name==\"${{ inputs.kernel_source }}\") | .commit // empty" sources.lock.json || true)"
+          fi
+          if [[ -z "$KC" || "$KC" == "null" ]]; then
+            echo "ERROR: no kernel_commit and no pinned commit in sources.lock.json for ${{ inputs.kernel_source }}" >&2
+            exit 1
+          fi
+          echo "commit=$KC" >> "$GITHUB_OUTPUT"
+          echo "Using kernel commit: $KC"
+
+      - name: Clone kernel source (shallow at pinned commit)
+        run: |
+          set -Eeuo pipefail
+          KC="${{ steps.kcommit.outputs.commit }}"
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/torvalds/linux.git kernel
+          cd kernel
+          git fetch --depth 1 origin "$KC"
+          git checkout -q "$KC"
+          echo "Tree at: $(git rev-parse HEAD)"
+
+      - name: Apply downstream patches
+        run: |
+          set -Eeuo pipefail
+          bash scripts/apply-kernel-patches.sh kernel
+
+      - name: Capture patched tree state
+        id: patched
+        run: |
+          set -Eeuo pipefail
+          cd kernel
+          PATCHED_SHA="$(git rev-parse HEAD)"
+          DESCRIBE="$(git describe --always 2>/dev/null || echo "$PATCHED_SHA")"
+          DIRTY_FLAG="$(git describe --always --dirty 2>/dev/null | grep -c -- '-dirty' || true)"
+          GIT_STATUS="$(git status --short | head -5 || true)"
+          echo "patched_commit=$PATCHED_SHA" >> "$GITHUB_OUTPUT"
+          echo "git_describe=$DESCRIBE" >> "$GITHUB_OUTPUT"
+          echo "is_dirty=$DIRTY_FLAG" >> "$GITHUB_OUTPUT"
+          echo "::group::Patched tree state"
+          echo "HEAD: $PATCHED_SHA"
+          echo "git describe: $DESCRIBE"
+          echo "dirty: $DIRTY_FLAG"
+          if [[ -n "$GIT_STATUS" ]]; then
+            echo "Working tree changes:"
+            echo "$GIT_STATUS"
+          else
+            echo "Working tree: clean"
+          fi
+          echo "::endgroup::"
+          # Record patch SHA256 hashes for manifest
+          cd "$GITHUB_WORKSPACE"
+          sha256sum patches/kernel/*.patch > /tmp/patch-hashes.txt
+          echo "::group::Patch hashes"
+          cat /tmp/patch-hashes.txt
+          echo "::endgroup::"
+
+      - name: Prepare Kconfig fragments
+        run: |
+          set -Eeuo pipefail
+          VARIANT="${{ inputs.build_variant || 'debug' }}"
+          FRAGS="configs/kernel/laurel-base.fragment"
+          if [[ "$VARIANT" == "debug" ]]; then
+            FRAGS="$FRAGS configs/kernel/laurel-debug.fragment"
+          else
+            FRAGS="$FRAGS configs/kernel/laurel-release.fragment"
+          fi
+          echo "$FRAGS" > /tmp/frags.txt
+          cat /tmp/frags.txt
+
+      - name: Build kernel
+        run: |
+          set -Eeuo pipefail
+          VARIANT="${{ inputs.build_variant || 'debug' }}"
+          FRAGS=$(cat /tmp/frags.txt)
+          bash scripts/build-kernel.sh \
+            --tree kernel \
+            --variant "$VARIANT" \
+            --fragments $FRAGS \
+            --deny-list configs/kernel/laurel-deny.fragment \
+            --out /tmp/kernel-out
+
+      - name: Verify Kconfig
+        run: |
+          set -Eeuo pipefail
+          VARIANT="${{ inputs.build_variant || 'debug' }}"
+          FRAGS="configs/kernel/laurel-base.fragment"
+          if [[ "$VARIANT" == "debug" ]]; then
+            FRAGS="$FRAGS configs/kernel/laurel-debug.fragment"
+          else
+            FRAGS="$FRAGS configs/kernel/laurel-release.fragment"
+          fi
+          bash scripts/verify-kconfig.sh \
+            --config /tmp/kernel-out/kernel.config \
+            --tree kernel \
+            --fragments $FRAGS \
+            --deny-list configs/kernel/laurel-deny.fragment \
+            --fail-missing \
+            --fail-deny
+
+      - name: Verify DTB
+        run: |
+          set -Eeuo pipefail
+          if [[ -f /tmp/kernel-out/sm6125-xiaomi-laurel-sprout.dtb ]]; then
+            bash scripts/verify-dtb.sh \
+              --dtb /tmp/kernel-out/sm6125-xiaomi-laurel-sprout.dtb \
+              --out /tmp/dtb-report
+            cat /tmp/dtb-report/dtb-report.md
+          else
+            echo "WARNING: laurel DTB not generated"
+          fi
+
+      - name: Get kernel version
+        id: kversion
+        run: |
+          set -Eeuo pipefail
+          # Extract kernelrelease from Image (authoritative, no make needed)
+          VERSION="$(strings /tmp/kernel-out/Image 2>/dev/null | grep -m1 '^Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' || true)"
+          if [[ -z "$VERSION" || "$VERSION" == "" ]]; then
+            VERSION="$(cat /tmp/kernel-out/kernelrelease 2>/dev/null || echo "unknown")"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "::group::Kernel identity"
+          echo "kernelrelease: $VERSION"
+          echo "git describe: ${{ steps.patched.outputs.git_describe }}"
+          echo "is_dirty: ${{ steps.patched.outputs.is_dirty }}"
+          echo "patched_commit: ${{ steps.patched.outputs.patched_commit }}"
+          echo "upstream_commit: ${{ steps.kcommit.outputs.commit }}"
+          echo "::endgroup::"
+          # Persist kernelrelease for manifest
+          echo "$VERSION" > /tmp/kernel-out/kernelrelease
+          # Verify clean tree post-build (no make should have modified tracked files)
+          cd kernel
+          POST_BUILD_STATUS="$(git status --short | head -5 || true)"
+          echo "::group::Post-build tree state"
+          if [[ -n "$POST_BUILD_STATUS" ]]; then
+            echo "WARNING: tree changed during build:"
+            echo "$POST_BUILD_STATUS"
+          else
+            echo "Tree still clean after build"
+          fi
+          echo "::endgroup::"
+
+      - name: Compress modules and DTB
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/kernel-out
+          tar --zstd -cf modules.tar.zst -C modules/lib/modules . 2>/dev/null || tar -cJf modules.tar.zst -C modules/lib/modules . 2>/dev/null || true
+          if [[ -f sm6125-xiaomi-laurel-sprout.dtb ]]; then
+            tar --zstd -cf dtb.tar.zst sm6125-xiaomi-laurel-sprout.dtb
+          fi
+          ls -la
+
+      - name: Generate checksums and manifest
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/kernel-out
+          sha256sum Image Image.gz System.map kernel.config modules-manifest.txt build.log 2>/dev/null > SHA256SUMS || true
+          if [[ -f sm6125-xiaomi-laurel-sprout.dtb ]]; then
+            sha256sum sm6125-xiaomi-laurel-sprout.dtb >> SHA256SUMS
+          fi
+          sha256sum modules.tar.zst dtb.tar.zst 2>/dev/null >> SHA256SUMS || true
+          # Build patch hashes JSON array
+          PATCHES_JSON="[]"
+          if [[ -f /tmp/patch-hashes.txt ]]; then
+            PATCHES_JSON=$(python3 -c "
+          import json, sys
+          entries = []
+          with open('/tmp/patch-hashes.txt') as f:
+              for line in f:
+                  parts = line.strip().split('  ', 1)
+                  if len(parts) == 2:
+                      entries.append({'name': parts[1], 'sha256': parts[0]})
+          print(json.dumps(entries))
+          " 2>/dev/null || echo "[]")
+          fi
+          jq -n \
+            --arg variant "${{ inputs.build_variant || 'debug' }}" \
+            --arg commit "${{ steps.kcommit.outputs.commit }}" \
+            --arg patched "${{ steps.patched.outputs.patched_commit }}" \
+            --arg version "${{ steps.kversion.outputs.version }}" \
+            --arg source "${{ inputs.kernel_source }}" \
+            --arg tag "v7.1" \
+            --arg describe "${{ steps.patched.outputs.git_describe }}" \
+            --argjson dirty "${{ steps.patched.outputs.is_dirty }}" \
+            --argjson patches "$PATCHES_JSON" \
+            '{
+              artifact: "kernel",
+              variant: $variant,
+              upstream_repo: "https://github.com/torvalds/linux",
+              upstream_tag: $tag,
+              upstream_commit: $commit,
+              patched_commit: $patched,
+              git_describe: $describe,
+              dirty: ($dirty > 0),
+              kernel_version: $version,
+              source: $source,
+              patches: $patches,
+              generated_at: "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+            }' > manifest.json
+          echo "::group::Manifest"
+          cat manifest.json
+          echo "::endgroup::"
+          echo "::group::SHA256SUMS"
+          cat SHA256SUMS
+          echo "::endgroup::"
+
+      - name: Upload kernel artifacts
+        if: ${{ inputs.upload_artifacts != false }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: kernel-${{ inputs.build_variant || 'debug' }}
+          path: |
+            /tmp/kernel-out/Image
+            /tmp/kernel-out/Image.gz
+            /tmp/kernel-out/System.map
+            /tmp/kernel-out/kernel.config
+            /tmp/kernel-out/kernelrelease
+            /tmp/kernel-out/modules-manifest.txt
+            /tmp/kernel-out/sm6125-xiaomi-laurel-sprout.dtb
+            /tmp/kernel-out/modules.tar.zst
+            /tmp/kernel-out/dtb.tar.zst
+            /tmp/kernel-out/build.log
+            /tmp/kernel-out/SHA256SUMS
+            /tmp/kernel-out/manifest.json
+            /tmp/kernel-out/kconfig-setup.log
+            /tmp/kernel-out/kconfig-merge.log
+          retention-days: 7
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: kernel-reusable-diagnostic
+          path: |
+            /tmp/kernel-out/*.log
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore

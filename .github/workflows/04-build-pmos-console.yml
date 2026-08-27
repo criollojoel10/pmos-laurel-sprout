@@ -7,10 +7,23 @@ on:
         description: Commit de pmaports
         type: string
         default: ""
+      build_variant:
+        description: 'debug or release'
+        type: string
+        default: 'debug'
       upload_artifacts:
         description: Subir artefactos
         type: boolean
         default: true
+  workflow_call:
+    inputs:
+      build_variant:
+        description: 'debug or release'
+        type: string
+        default: 'debug'
+    secrets:
+      GH_TOKEN:
+        required: false
 
 permissions:
   contents: read
