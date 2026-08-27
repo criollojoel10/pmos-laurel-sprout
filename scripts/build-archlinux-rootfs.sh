@@ -121,21 +121,40 @@ sudo mount -t sysfs sysfs "$ROOTFS_DIR/sys" 2>/dev/null || true
 # Copy QEMU binary for cross-arch
 sudo cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/" 2>/dev/null || true
 
+# DNS for chroot: the extracted rootfs has no resolv.conf, so pacman cannot
+# resolve mirror hosts. Drop in the runner's resolv.conf (or a public DNS).
+mkdir -p "$ROOTFS_DIR/etc"
+if [[ -f /etc/resolv.conf ]]; then
+  sudo cp /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf"
+else
+  printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' | sudo tee "$ROOTFS_DIR/etc/resolv.conf" > /dev/null
+fi
+
 # Install packages (skip linux-aarch64: we use our custom kernel).
 # --disable-sandbox: GitHub Actions kernels lack Landlock support, and pacman
 # cannot switch to the 'alpm' sandbox user inside an emulated chroot.
 sudo chroot "$ROOTFS_DIR" /usr/bin/qemu-aarch64-static /bin/bash -c "
   set -Eeuo pipefail
-  pacman --disable-sandbox -Syu --noconfirm --needed $PACKAGES || true
-" 2>&1 | tail -20 || {
-  info "WARNING: pacman chroot install had issues, continuing with available packages"
-}
+  pacman -Syy --noconfirm
+  pacman --disable-sandbox -Syu --noconfirm --needed $PACKAGES
+" 2>&1 | tail -40
 
 # Step 5: Configure system
 info "configuring system..."
 sudo tee "$ROOTFS_DIR/etc/hostname" > /dev/null <<'EOF'
 laurel-pmos
 EOF
+
+# Verify the base system was actually installed (pacman may silently fail
+# without resolv.conf/DNS in the chroot, leaving an unusable rootfs).
+for BIN in "$ROOTFS_DIR/bin/bash" "$ROOTFS_DIR/usr/bin/pacman" "$ROOTFS_DIR/usr/bin/systemctl"; do
+  if [[ ! -e "$BIN" ]]; then
+    echo "ERROR: base system incomplete, missing $BIN" >&2
+    echo "HINT: check pacman sync output; DNS/resolv.conf or mirror may have failed." >&2
+    exit 1
+  fi
+done
+info "base system verified: bash, pacman, systemctl present"
 
 sudo tee "$ROOTFS_DIR/etc/fstab" > /dev/null <<'FSTAB'
 # <file system>  <mount point>  <type>  <options>  <dump>  <pass>
