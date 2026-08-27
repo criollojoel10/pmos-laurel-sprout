@@ -128,6 +128,13 @@ sudo mount --bind /dev/pts "$ROOTFS_DIR/dev/pts" 2>/dev/null || true
 sudo mount -t proc proc "$ROOTFS_DIR/proc" 2>/dev/null || true
 sudo mount -t sysfs sysfs "$ROOTFS_DIR/sys" 2>/dev/null || true
 
+# pacman's disk-space check resolves the cache dir's mountpoint via /proc;
+# when the chroot root is NOT itself a mount point, the emulated pacman fails
+# with "could not determine cachedir mount point /var/cache/pacman/pkg" +
+# "failed to commit transaction (not enough free disk space)". Bind-mounting
+# the rootfs to itself gives it a real top-level mount point (canonical fix).
+sudo mount --bind "$ROOTFS_DIR" "$ROOTFS_DIR" 2>/dev/null || true
+
 # Copy QEMU binary for cross-arch
 sudo cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/" 2>/dev/null || true
 
@@ -194,6 +201,7 @@ sudo umount "$ROOTFS_DIR/dev/pts" 2>/dev/null || true
 sudo umount "$ROOTFS_DIR/dev" 2>/dev/null || true
 sudo umount "$ROOTFS_DIR/proc" 2>/dev/null || true
 sudo umount "$ROOTFS_DIR/sys" 2>/dev/null || true
+sudo umount "$ROOTFS_DIR" 2>/dev/null || true
 
 # Step 7: Create rootfs image
 info "creating rootfs image..."

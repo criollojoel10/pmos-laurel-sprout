@@ -43,8 +43,7 @@ plasma-keyboard
 
 # Herramientas de diagnóstico
 mesa-utils
-eglinfo
-glmark2-es2-wayland
+glmark2
 libinput
 
 # Wayland
