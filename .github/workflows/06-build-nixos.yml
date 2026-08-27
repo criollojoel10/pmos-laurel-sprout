@@ -67,9 +67,34 @@ jobs:
           extra-conf: |
             experimental-features = nix-command flakes
 
+      - name: Generate flake.lock
+        run: |
+          cd nixos
+          if [[ ! -f flake.lock ]]; then
+            echo "Generating flake.lock..."
+            nix flake lock --update-input nixpkgs
+            echo "::group::flake.lock"
+            cat flake.lock
+            echo "::endgroup::"
+          else
+            echo "flake.lock already exists"
+            cat flake.lock
+          fi
+
+      - name: Validate flake
+        run: |
+          cd nixos
+          echo "::group::nix flake metadata"
+          nix flake metadata
+          echo "::endgroup::"
+          echo "::group::nix flake show"
+          nix flake show 2>&1 || echo "(show may fail without aarch64 emulation)"
+          echo "::endgroup::"
+          # Evaluate platform
+          nix eval .#nixosConfigurations.laurel-console.config.nixpkgs.hostPlatform.system 2>/dev/null || echo "eval skipped"
+
       - name: Enable cross-compilation
         run: |
-          # Enable aarch64 emulation via binfmt
           sudo apt-get update -qq
           sudo apt-get install -y -qq qemu-user-static binfmt-support
           sudo update-binfmts --enable qemu-aarch64 || true
@@ -99,6 +124,10 @@ jobs:
           cp -a nixos/ /tmp/output/nixos/nixos-config/
           # Record kernelrelease
           strings /tmp/kernel-artifact/Image 2>/dev/null | grep -m1 'Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' > /tmp/output/nixos/kernelrelease 2>/dev/null || true
+          # Include flake.lock if generated
+          if [[ -f nixos/flake.lock ]]; then
+            cp nixos/flake.lock /tmp/output/nixos/
+          fi
 
       - name: Create boot image
         run: |
@@ -122,6 +151,14 @@ jobs:
             /tmp/output/nixos/*
           retention-days: 7
           if-no-files-found: ignore
+
+      - name: Upload flake.lock
+        if: hashFiles('nixos/flake.lock') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-flake-lock
+          path: nixos/flake.lock
+          retention-days: 7
 
       - name: Generate checksums and manifest
         run: |
