@@ -135,7 +135,7 @@ fi
 # cannot switch to the 'alpm' sandbox user inside an emulated chroot.
 sudo chroot "$ROOTFS_DIR" /usr/bin/qemu-aarch64-static /bin/bash -c "
   set -Eeuo pipefail
-  pacman -Syy --noconfirm
+  pacman --disable-sandbox -Syy --noconfirm
   pacman --disable-sandbox -Syu --noconfirm --needed $PACKAGES
 " 2>&1 | tail -40
 
