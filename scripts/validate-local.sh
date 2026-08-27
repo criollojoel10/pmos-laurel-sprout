@@ -153,12 +153,12 @@ fi
 
 # ── 10. Secrets check ──
 echo "--- 10. Secrets check ---"
-SECRETS=$(grep -RInE 'ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+"|api_key\s*=\s*"[^"]+"' scripts .github nixos configs 2>/dev/null || true)
-if [[ -z "$SECRETS" ]]; then
+SECRET_CHECK=$(grep -RInE 'ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+"|api_key\s*=\s*"[^"]+"' scripts .github nixos configs 2>/dev/null || true)
+if [[ -z "$SECRET_CHECK" ]]; then
   ok "no secrets found"
 else
   fail "potential secrets found:"
-  echo "$SECRETS" | head -5
+  echo "$SECRET_CHECK" | head -5
 fi
 
 # ── 11. Matrix completeness ──
