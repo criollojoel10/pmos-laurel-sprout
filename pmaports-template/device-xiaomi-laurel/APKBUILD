@@ -1,0 +1,18 @@
+# Contributor: <you> <email>
+# Maintainer: <you> <email>
+pkgname=device-xiaomi-laurel-sprout
+pkgdesc="Xiaomi Mi A3 (laurel_sprout) - Qualcomm SM6125"
+url="https://gitlab.com/postmarketOS/pmaports"
+pkgver=1
+pkgrel=0
+license="GPL-2.0-or-later"
+depends="linux-postmarketos-qcom-sm6125"
+options="!check" deviceinfo
+arch="noarch"
+_noarch_build=yes
+source="deviceinfo"
+package() {
+	install -Dm644 "$srcdir"/deviceinfo \
+		"$pkgdir"/usr/share/deviceinfo/deviceinfo
+}
+sha256sums="<computed-at-merge>"

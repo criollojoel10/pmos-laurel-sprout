@@ -1,0 +1,40 @@
+# Device-info for Xiaomi Mi A3 (laurel_sprout)
+# Device: Xiaomi Mi A3
+# SoC: Qualcomm SM6125 (trinket)
+# Kernel: mainline v7.1 custom (repo pmos-laurel-sprout)
+#
+# File destined for pmaports: device/device-xiaomi-laurel/deviceinfo
+# (not yet in pmOS mainline - submit as a merge request to pmaports)
+
+deviceinfo_format_version="0"
+deviceinfo_name="Xiaomi Mi A3"
+deviceinfo_manufacturer="Xiaomi"
+deviceinfo_codename="xiaomi-laurel-sprout"
+deviceinfo_year="2019"
+deviceinfo_dtb="qcom/sm6125-xiaomi-laurel-sprout"
+deviceinfo_arch="aarch64"
+deviceinfo_chassis="handset"
+deviceinfo_keyboard="false"
+deviceinfo_external_storage="true"
+deviceinfo_screen_width="1080"
+deviceinfo_screen_height="2340"
+deviceinfo_gpu_accelerated="true"
+deviceinfo_gpu_mesa_driver="freedreno"
+deviceinfo_wayland="true"
+# Disabled until mainline display works (DRM_PANEL_SAMSUNG_S6E8FC0)
+deviceinfo_mesa_frame_buffer_compatible="true"
+# Android boot image layout for SM6125 (trinket)
+deviceinfo_kernel_cmdline="console=ttyMSM0,115200n8 androidboot.hardware=laurel_sprout PMOS_NOSPLASH"
+deviceinfo_append_dtb="true"
+deviceinfo_generate_bootimg="true"
+deviceinfo_bootimg_header_version="2"
+deviceinfo_flash_offset_base="0x00000000"
+deviceinfo_flash_offset_kernel="0x00008000"
+deviceinfo_flash_offset_ramdisk="0x01000000"
+deviceinfo_flash_offset_second="0x00f00000"
+deviceinfo_flash_offset_tags="0x00000100"
+deviceinfo_flash_offset_dtb="0x01f00000"
+deviceinfo_flash_pagesize="4096"
+# Storage (UFS)
+deviceinfo_ufs="true"
+deviceinfo_rootfs_uuid="44455a45-0000-4000-8000-000bca540b0a"

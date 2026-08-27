@@ -1,0 +1,70 @@
+# linux-postmarketos-qcom-sm6125: kernel package for Qualcomm SM6125 (trinket)
+# with the pmos-laurel-sprout mainline patches (v7.1 base).
+#
+# File destined for pmaports: device/linux-postmarketos-qcom-sm6125/APKBUILD
+# Placeholder template with deterministic patch signatures. The patches and
+# patches/kernel/*.patch in repo criollojoel10/pmos-laurel-sprout are keyed by
+# SHA256 in the build manifest (published as a GitHub prerelease artifact).
+
+# Contributor: <you> <email>
+# Maintainer: <you> <email>
+pkgname=linux-postmarketos-qcom-sm6125
+pkgdesc="Mainline kernel v7.1 patched for Qualcomm SM6125 (laurel_sprout)"
+url="https://github.com/torvalds/linux"
+pkgver=7.1
+pkgrel=0
+arch="aarch64"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps pmb:cross"
+makedepends="linux-headers bash rsync kmod devicepkg-dev"
+depends="linux-firmware-wcn3990"
+
+_flavor="postmarketos-qcom-sm6125"
+_kernver="7.1.0-postmarketos-sm6125-00001-g150df066f552"
+
+source="
+	https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-$pkgver.tar.xz
+	0001-dts-mdss-panel-s6e8fc0.patch
+	0002-dtsi-gpu-adreno610.patch
+	0003-dts-enable-gpu.patch
+	0004-dts-enable-wifi-wcn3990.patch
+	config-postmarketos-qcom-sm6125
+"
+sha256sums="
+	<kernel-tarball-sha256>
+	bec2c12f114b382b369b534751c2191c8a82318589c8b8b658fbd0835e80fdc9
+	01b3378378e54490cd7080fc6c6ad4281bc0ff6df0edcb2e39c8790e5e168a8a
+	7db0d696838f078d939b58346cd7a88b9c0155398affc98f1cac0aa474f443c0
+	5e9af131bfe6e149831699c247ad22b63cd19e92b7bcc403d51a1c2494ec6bf0
+	<config-sha256>
+"
+
+pkgver() {
+	src/cscripts/get_kernel_version "$srcdir/linux-$pkgver"
+}
+
+prepare() {
+	default_prepare
+	mkdir -p "$srcdir/linux-$pkgver"
+	cd "$srcdir/linux-$pkgver"
+	cp "$srcdir"/000*.patch .
+	for patch in 000*.patch; do
+		patch -Np1 < "$srcdir/$patch"
+	done
+	# Configurations are managed in the build Linux kernel during install
+}
+
+build() {
+	cd "$srcdir/linux-$pkgver"
+	cp "$srcdir/config-postmarketos-qcom-sm6125" .config
+	make olddefconfig ARCH=arm64 CC=clang LLVM=1
+	make -j$(nproc) ARCH=arm64 CC=clang LLVM=1 Image dtbs modules
+}
+
+package() {
+	cd "$srcdir/linux-$pkgver"
+	make -j$(nproc) ARCH=arm64 CC=clang LLVM=1 INSTALL_MOD_PATH="$pkgdir" modules_install
+	install -Dm644 arch/arm64/boot/Image "$pkgdir"/boot/vmlinuz-$_flavor
+	install -Dm644 arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dtb \
+		"$pkgdir"/boot/dtbs/mainline/sm6125-xiaomi-laurel-sprout.dtb
+}

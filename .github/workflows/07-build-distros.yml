@@ -9,18 +9,18 @@ on:
         default: 'debug'
         type: choice
         options: [debug, release]
-      pmos_ui:
-        description: 'postmarketOS UI'
-        required: false
-        default: 'console,phosh,plasma'
-        type: string
       archlinux_variants:
-        description: 'Arch Linux ARM variants'
+        description: 'Arch Linux ARM variants (comma separated)'
         required: false
         default: 'console,phosh'
         type: string
       nixos_variants:
-        description: 'NixOS variants'
+        description: 'NixOS variants (comma separated)'
+        required: false
+        default: 'console,phosh'
+        type: string
+      pmos_ui:
+        description: 'postmarketOS UIs (comma separated)'
         required: false
         default: 'console,phosh'
         type: string
@@ -30,11 +30,11 @@ permissions:
 
 concurrency:
   group: distro-all-${{ github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # ────────────────────────────────────────────────
-  # SHARED KERNEL BUILD
+  # UN SOLO kernel compartido (NO se recompila por distro)
   # ────────────────────────────────────────────────
   build-kernel:
     name: "Shared kernel (${{ inputs.kernel_variant || 'debug' }})"
@@ -44,77 +44,118 @@ jobs:
       upload_artifacts: true
 
   # ────────────────────────────────────────────────
-  # POSTMARKETOS
+  # MATRIX: distro × variant, todos consumen kernel-debug
+  # ────────────────────────────────────────────────
+  build-rootfs:
+    name: "${{ matrix.distro }} (${{ matrix.variant }})"
+    needs: build-kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [archlinux, nixos]
+        variant: [console, phosh]
+    env:
+      DISTRO: ${{ matrix.distro }}
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Descargar kernel compartido
+        # actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kernel-debug
+          path: /tmp/kernel-artifact
+
+      - name: Verificar kernel compartido (manifest)
+        run: |
+          cat /tmp/kernel-artifact/manifest.json
+          test -f /tmp/kernel-artifact/Image || { echo "ERROR: falta Image" >&2; exit 1; }
+          test -f /tmp/kernel-artifact/kernelrelease || { echo "ERROR: falta kernelrelease" >&2; exit 1; }
+          grep -q '"dirty": false' /tmp/kernel-artifact/manifest.json || { echo "WARN: kernel dirty" >&2; }
+
+      - name: Dependencias Arch Linux ARM
+        if: matrix.distro == 'archlinux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libarchive-tools qemu-user-static binfmt-support qemu-utils
+
+      - name: Dependencias NixOS
+        if: matrix.distro == 'nixos'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user-static binfmt-support crossbuild-essential-arm64
+          sudo update-binfmts --enable qemu-aarch64 || true
+
+      - name: Instalar Nix (NixOS)
+        if: matrix.distro == 'nixos'
+        uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
+        with:
+          extra-conf: experimental-features = nix-command flakes
+
+      - name: Build Arch Linux ARM rootfs
+        if: matrix.distro == 'archlinux'
+        run: |
+          chmod +x scripts/build-archlinux-rootfs.sh
+          scripts/build-archlinux-rootfs.sh \
+            --kernel-artifact /tmp/kernel-artifact \
+            --variant "$VARIANT" \
+            --out /tmp/output
+
+      - name: Build NixOS rootfs
+        if: matrix.distro == 'nixos'
+        run: |
+          chmod +x scripts/build-nixos-rootfs.sh
+          scripts/build-nixos-rootfs.sh \
+            --kernel-artifact /tmp/kernel-artifact \
+            --variant "$VARIANT" \
+            --out /tmp/output
+
+      - name: Generar SHA256SUMS
+        run: |
+          cd /tmp/output
+          find . -type f -not -name 'SHA256SUMS' -not -name 'manifest.json' \
+            -exec sha256sum {} + > SHA256SUMS 2>/dev/null || true
+          cat SHA256SUMS
+
+      - name: Subir artefacto ${{ matrix.distro }}
+        # actions/upload-artifact@v4.9.5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ matrix.distro }}-${{ matrix.variant }}
+          path: /tmp/output/**
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ────────────────────────────────────────────────
+  # POSTMARKETOS (placeholder de contrato: bloqueado por pmaports)
   # ────────────────────────────────────────────────
   pmos-console:
-    name: "pmOS Console"
-    needs: build-kernel
-    uses: ./.github/workflows/04-build-pmos-console.yml
-    with:
-      build_variant: ${{ inputs.kernel_variant || 'debug' }}
+    name: "pmOS Console (contrato)"
+    runs-on: ubuntu-latest
+    if: contains(inputs.pmos_ui || 'console,phosh', 'console')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-  pmos-phosh:
-    name: "pmOS Phosh"
-    needs: build-kernel
-    uses: ./.github/workflows/04-build-pmos-phosh.yml
-    with:
-      build_variant: ${{ inputs.kernel_variant || 'debug' }}
-    if: contains(inputs.pmos_ui || 'console,phosh,plasma', 'phosh')
+      - name: Build contrato de consola
+        run: |
+          echo "pmOS: bloqueado hasta que pmaports tenga device-xiaomi-laurel"
+          echo "+ linux-postmarketos-qcom-sm6125 (APKBUILD + deviceinfo)."
+          echo "La build real (pmbootstrap install) se ejecutará una vez existan."
+          echo "Inputs preparados en configs/pmos/ y scripts/build-pmos-console.sh"
+          ls -la configs/pmos/ 2>/dev/null || true
+          echo "pmos-contract-pending"
 
-  pmos-plasma:
-    name: "pmOS Plasma"
-    needs: build-kernel
-    uses: ./.github/workflows/05-build-pmos-plasma.yml
-    with:
-      build_variant: ${{ inputs.kernel_variant || 'debug' }}
-    if: contains(inputs.pmos_ui || 'console,phosh,plasma', 'plasma')
-
-  # ────────────────────────────────────────────────
-  # ARCH LINUX ARM
-  # ────────────────────────────────────────────────
-  archlinux-console:
-    name: "Arch ARM Console"
-    needs: build-kernel
-    uses: ./.github/workflows/05-build-archlinux.yml
-    with:
-      build_variant: console
-
-  archlinux-phosh:
-    name: "Arch ARM Phosh"
-    needs: build-kernel
-    uses: ./.github/workflows/05-build-archlinux.yml
-    with:
-      build_variant: phosh
-    if: contains(inputs.archlinux_variants || 'console,phosh', 'phosh')
-
-  # ────────────────────────────────────────────────
-  # NIXOS
-  # ────────────────────────────────────────────────
-  nixos-console:
-    name: "NixOS Console"
-    needs: build-kernel
-    uses: ./.github/workflows/06-build-nixos.yml
-    with:
-      build_variant: console
-
-  nixos-phosh:
-    name: "NixOS Phosh"
-    needs: build-kernel
-    uses: ./.github/workflows/06-build-nixos.yml
-    with:
-      build_variant: phosh
-    if: contains(inputs.nixos_variants || 'console,phosh', 'phosh')
-
-  # ────────────────────────────────────────────────
-  # INTEGRATION: Collect and validate all artifacts
-  # ────────────────────────────────────────────────
   collect:
     name: "Collect all artifacts"
     needs:
       - build-kernel
-      - pmos-console
-      - archlinux-console
-      - nixos-console
+      - build-rootfs
     runs-on: ubuntu-latest
     if: always() && needs.build-kernel.result == 'success'
     timeout-minutes: 30
@@ -122,35 +163,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: Download all artifacts
-        # actions/download-artifact@v4.3.3
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          path: all-artifacts
-
-      - name: Inventory artifacts
+      - name: Inventory summary
         run: |
-          echo "## Collected artifacts" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          find all-artifacts -type f | sort >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Generate SHA256SUMS
-        run: |
-          cd all-artifacts
-          find . -type f \( -name "*.img*" -o -name "*.tar.zst" -o -name "*.xz" -o -name "SHA256SUMS" \) \
-            -exec sha256sum {} \; > ../collected-sha256sums 2>/dev/null || true
-          cd ..
-          cat collected-sha256sums
-
-      - name: Upload collected bundle
-        # actions/upload-artifact@v4.9.5
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: distro-all-artifacts
-          path: |
-            all-artifacts/**/*
-            collected-sha256sums
-          retention-days: 7
-          if-no-files-found: warn
+          echo "## Build matrix" >> "$GITHUB_STEP_SUMMARY"
+          echo "Ran ${{ strategy.job-total }} distro/variant jobs sharing one kernel build." >> "$GITHUB_STEP_SUMMARY"
