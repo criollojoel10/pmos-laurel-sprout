@@ -59,9 +59,9 @@ jobs:
           name: kernel-debug
           path: /tmp/kernel-artifact
 
-      # DeterminateSystems/nix-installer-action@v16.4.0
+      # DeterminateSystems/nix-installer-action@v16
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@78c7e5a4dd8fee6b9469a067c53a6632e20f0e6d
+        uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
         with:
           daemon: true
           extra-conf: |
