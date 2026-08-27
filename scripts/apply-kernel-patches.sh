@@ -52,6 +52,10 @@ done
 
 # Commit the applied patches so git state is clean (avoids -dirty in kernelrelease).
 # The commit message is deterministic and includes the patch list.
+# Ephemeral identity for CI-only commit (shallow clones have no user configured).
+git config user.email "build@pmos-ci.local"
+git config user.name "pMOS CI"
+
 COMMIT_MSG="downstream: apply $(basename "$PATCH_DIR") patch stack
 
 Patches applied in order:"
