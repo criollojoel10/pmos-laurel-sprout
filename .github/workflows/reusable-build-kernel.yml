@@ -43,8 +43,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: kernel-reusable-${{ inputs.build_variant || 'debug' }}
-  cancel-in-progress: true
+  group: kernel-reusable-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   build:
