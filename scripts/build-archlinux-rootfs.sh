@@ -65,12 +65,14 @@ echo "${ROOTFS_MD5}  ${ROOTFS_ARCHIVE}" | md5sum -c - || {
 
 info "extracting rootfs..."
 ROOTFS_DIR="/tmp/archlinux-arm-rootfs"
-mkdir -p "$ROOTFS_DIR"
-# Use bsdtar (from libarchive-tools) or fall back to tar
+sudo mkdir -p "$ROOTFS_DIR"
+# Use bsdtar (from libarchive-tools) or fall back to tar.
+# --no-xattrs is required as non-root: bsdtar cannot restore security.capability
+# xattrs (EOPNOTSUPP) in the GitHub Actions environment.
 if command -v bsdtar >/dev/null 2>&1; then
-  bsdtar -xpf "$ROOTFS_ARCHIVE" -C "$ROOTFS_DIR"
+  sudo bsdtar -xpf "$ROOTFS_ARCHIVE" --no-xattrs -C "$ROOTFS_DIR"
 else
-  tar -xf "$ROOTFS_ARCHIVE" -C "$ROOTFS_DIR"
+  sudo tar -xf "$ROOTFS_ARCHIVE" --no-xattrs -C "$ROOTFS_DIR"
 fi
 
 # Step 2: Set up QEMU user-static for cross-arch chroot
