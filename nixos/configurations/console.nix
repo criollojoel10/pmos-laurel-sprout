@@ -43,6 +43,11 @@
     };
   };
 
+  # Dev/experimental build: allow root login via serial console on first
+  # boot. Satisfies the NixOS lock-out assertion for a headless device with
+  # no SSH key baked in. NOT for production use.
+  users.allowNoPasswordLogin = true;
+
   # Disable unnecessary services
   services.xserver.displayManager.gdm.enable = false;
   services.displayManager.sddm.enable = false;
