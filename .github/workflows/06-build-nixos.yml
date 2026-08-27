@@ -109,10 +109,14 @@ jobs:
           if ! nix build \
             .#nixosConfigurations.${CONFIG}.config.system.build.toplevel \
             --no-link --print-out-paths \
-            2>&1 | tee /tmp/nix-build.log | tail -30; then
+            > /tmp/nix-build.log 2>&1; then
             echo "NOTE: NixOS cross-build for SM6125 is experimental."
             echo "The full NixOS build requires aarch64 emulation or native runner."
+            echo "Full build log saved to /tmp/nix-build.log and uploaded as diagnostic."
             echo "Creating minimal output from kernel artifacts + NixOS config."
+          else
+            echo "NixOS closure built successfully:"
+            tail -3 /tmp/nix-build.log
           fi
           # Create output artifact
           mkdir -p /tmp/output/nixos

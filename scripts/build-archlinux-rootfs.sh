@@ -121,14 +121,11 @@ sudo mount -t sysfs sysfs "$ROOTFS_DIR/sys" 2>/dev/null || true
 # Copy QEMU binary for cross-arch
 sudo cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/" 2>/dev/null || true
 
-# DNS for chroot: the extracted rootfs has no resolv.conf, so pacman cannot
-# resolve mirror hosts. Drop in the runner's resolv.conf (or a public DNS).
+# DNS for chroot: the runner's /etc/resolv.conf usually points to the
+# systemd-resolved stub (127.0.0.53) which is unreachable from inside the
+# qemu-emulated chroot. Always seed public resolvers so pacman can sync.
 mkdir -p "$ROOTFS_DIR/etc"
-if [[ -f /etc/resolv.conf ]]; then
-  sudo cp /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf"
-else
-  printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' | sudo tee "$ROOTFS_DIR/etc/resolv.conf" > /dev/null
-fi
+printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' | sudo tee "$ROOTFS_DIR/etc/resolv.conf" > /dev/null
 
 # Install packages (skip linux-aarch64: we use our custom kernel).
 # --disable-sandbox: GitHub Actions kernels lack Landlock support, and pacman
