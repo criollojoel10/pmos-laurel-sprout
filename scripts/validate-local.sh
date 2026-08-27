@@ -77,7 +77,7 @@ fi
 # ── 5. YAML validation ──
 echo "--- 5. YAML validation ---"
 if command -v python3 >/dev/null 2>&1; then
-  python3 -c "
+  if python3 -c "
 import yaml, os, sys
 ok = 0; fail = 0
 for f in sorted(os.listdir('.github/workflows')):
@@ -91,7 +91,11 @@ for f in sorted(os.listdir('.github/workflows')):
         fail += 1
 print(f'YAML: {ok} OK, {fail} FAIL')
 sys.exit(1 if fail else 0)
-" 2>&1 && ok "all workflows valid YAML" || fail "YAML validation errors"
+" 2>&1; then
+  ok "all workflows valid YAML"
+else
+  fail "YAML validation errors"
+fi
 else
   skip "python3 not installed"
 fi

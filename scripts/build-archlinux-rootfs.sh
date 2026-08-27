@@ -161,7 +161,7 @@ info "rootfs image created: ${ROOTFS_IMAGE}.xz"
 
 # Generate checksums
 cd "$OUT"
-sha256sum *.img.xz > SHA256SUMS 2>/dev/null || true
+sha256sum ./*.img.xz > SHA256SUMS 2>/dev/null || true
 cat SHA256SUMS
 
 # Generate manifest
