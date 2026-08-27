@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# Licencia: GPL-3.0-or-later
+#
 # validate-local.sh — Local validation for pmos-laurel-sprout
 # Run without network, sudo, mounts, or hardware.
 # Exits non-zero on any CRITICAL failure.
