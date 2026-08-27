@@ -26,6 +26,9 @@ on:
       kernel_commit:
         description: 'The kernel commit that was built'
         value: ${{ jobs.build.outputs.kernel_commit }}
+      patched_commit:
+        description: 'The commit after downstream patches are applied'
+        value: ${{ jobs.build.outputs.patched_commit }}
       kernel_version:
         description: 'The kernel version string'
         value: ${{ jobs.build.outputs.kernel_version }}
@@ -50,6 +53,7 @@ jobs:
     timeout-minutes: 180
     outputs:
       kernel_commit: ${{ steps.kcommit.outputs.commit }}
+      patched_commit: ${{ steps.patched.outputs.patched_commit }}
       kernel_version: ${{ steps.kversion.outputs.version }}
     steps:
       - name: Runner info
@@ -104,6 +108,36 @@ jobs:
         run: |
           set -Eeuo pipefail
           bash scripts/apply-kernel-patches.sh kernel
+
+      - name: Capture patched tree state
+        id: patched
+        run: |
+          set -Eeuo pipefail
+          cd kernel
+          PATCHED_SHA="$(git rev-parse HEAD)"
+          DESCRIBE="$(git describe --always 2>/dev/null || echo "$PATCHED_SHA")"
+          DIRTY_FLAG="$(git describe --always --dirty 2>/dev/null | grep -c -- '-dirty' || true)"
+          GIT_STATUS="$(git status --short | head -5 || true)"
+          echo "patched_commit=$PATCHED_SHA" >> "$GITHUB_OUTPUT"
+          echo "git_describe=$DESCRIBE" >> "$GITHUB_OUTPUT"
+          echo "is_dirty=$DIRTY_FLAG" >> "$GITHUB_OUTPUT"
+          echo "::group::Patched tree state"
+          echo "HEAD: $PATCHED_SHA"
+          echo "git describe: $DESCRIBE"
+          echo "dirty: $DIRTY_FLAG"
+          if [[ -n "$GIT_STATUS" ]]; then
+            echo "Working tree changes:"
+            echo "$GIT_STATUS"
+          else
+            echo "Working tree: clean"
+          fi
+          echo "::endgroup::"
+          # Record patch SHA256 hashes for manifest
+          cd "$GITHUB_WORKSPACE"
+          sha256sum patches/kernel/*.patch > /tmp/patch-hashes.txt
+          echo "::group::Patch hashes"
+          cat /tmp/patch-hashes.txt
+          echo "::endgroup::"
 
       - name: Prepare Kconfig fragments
         run: |
@@ -164,9 +198,32 @@ jobs:
         id: kversion
         run: |
           set -Eeuo pipefail
-          VERSION=$(cat /tmp/kernel-out/kernelrelease 2>/dev/null || echo "unknown")
+          # Extract kernelrelease from Image (authoritative, no make needed)
+          VERSION="$(strings /tmp/kernel-out/Image 2>/dev/null | grep -m1 '^Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' || true)"
+          if [[ -z "$VERSION" || "$VERSION" == "" ]]; then
+            VERSION="$(cat /tmp/kernel-out/kernelrelease 2>/dev/null || echo "unknown")"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Kernel version: $VERSION"
+          echo "::group::Kernel identity"
+          echo "kernelrelease: $VERSION"
+          echo "git describe: ${{ steps.patched.outputs.git_describe }}"
+          echo "is_dirty: ${{ steps.patched.outputs.is_dirty }}"
+          echo "patched_commit: ${{ steps.patched.outputs.patched_commit }}"
+          echo "upstream_commit: ${{ steps.kcommit.outputs.commit }}"
+          echo "::endgroup::"
+          # Persist kernelrelease for manifest
+          echo "$VERSION" > /tmp/kernel-out/kernelrelease
+          # Verify clean tree post-build (no make should have modified tracked files)
+          cd kernel
+          POST_BUILD_STATUS="$(git status --short | head -5 || true)"
+          echo "::group::Post-build tree state"
+          if [[ -n "$POST_BUILD_STATUS" ]]; then
+            echo "WARNING: tree changed during build:"
+            echo "$POST_BUILD_STATUS"
+          else
+            echo "Tree still clean after build"
+          fi
+          echo "::endgroup::"
 
       - name: Compress modules and DTB
         run: |
@@ -187,14 +244,50 @@ jobs:
             sha256sum sm6125-xiaomi-laurel-sprout.dtb >> SHA256SUMS
           fi
           sha256sum modules.tar.zst dtb.tar.zst 2>/dev/null >> SHA256SUMS || true
+          # Build patch hashes JSON array
+          PATCHES_JSON="[]"
+          if [[ -f /tmp/patch-hashes.txt ]]; then
+            PATCHES_JSON=$(python3 -c "
+          import json, sys
+          entries = []
+          with open('/tmp/patch-hashes.txt') as f:
+              for line in f:
+                  parts = line.strip().split('  ', 1)
+                  if len(parts) == 2:
+                      entries.append({'name': parts[1], 'sha256': parts[0]})
+          print(json.dumps(entries))
+          " 2>/dev/null || echo "[]")
+          fi
           jq -n \
             --arg variant "${{ inputs.build_variant || 'debug' }}" \
             --arg commit "${{ steps.kcommit.outputs.commit }}" \
+            --arg patched "${{ steps.patched.outputs.patched_commit }}" \
             --arg version "${{ steps.kversion.outputs.version }}" \
             --arg source "${{ inputs.kernel_source }}" \
-            '{artifact:"kernel", variant:$variant, kernel_commit:$commit, kernel_version:$version, source:$source, generated_at:"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > manifest.json
-          cat SHA256SUMS
+            --arg tag "v7.1" \
+            --arg describe "${{ steps.patched.outputs.git_describe }}" \
+            --argjson dirty "${{ steps.patched.outputs.is_dirty }}" \
+            --argjson patches "$PATCHES_JSON" \
+            '{
+              artifact: "kernel",
+              variant: $variant,
+              upstream_repo: "https://github.com/torvalds/linux",
+              upstream_tag: $tag,
+              upstream_commit: $commit,
+              patched_commit: $patched,
+              git_describe: $describe,
+              dirty: ($dirty > 0),
+              kernel_version: $version,
+              source: $source,
+              patches: $patches,
+              generated_at: "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+            }' > manifest.json
+          echo "::group::Manifest"
           cat manifest.json
+          echo "::endgroup::"
+          echo "::group::SHA256SUMS"
+          cat SHA256SUMS
+          echo "::endgroup::"
 
       - name: Upload kernel artifacts
         if: ${{ inputs.upload_artifacts != false }}
