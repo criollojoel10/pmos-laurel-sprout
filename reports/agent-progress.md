@@ -2,70 +2,73 @@
 
 Session: agent/multi-distro-mainline
 Started: 2026-08-27 02:50:40 -0300
-Last Updated: 2026-08-27 (post-push, kernel building)
-Branch: agent/multi-distro-mainline
-HEAD: 5ecbadc (remote: confirmed via push)
-Local Base: main @ 303db1f
+Last Updated: 2026-08-27 07:35 UTC
+Branch: main (merged PR #15)
+HEAD: b99b8ff
+Base: 303db1f → 426154b (merge) → b99b8ff
 Network: available (gh authenticated, push working)
 
-## Commits on agent/multi-distro-mainline
+## PR #15 Status
 
-1. `5a1ffc9` — feat: add multi-distro build system
-2. `147aec0` — fix: resolve audit issues in multi-distro workflows
-3. `56d33ac` — fix(shellcheck): address SC2035 and SC2015 in new scripts
-4. `45211d9` — fix(shellcheck): address SC2016 and SC2013 warnings
-5. `43dce37` — fix(shellcheck): remove unused MISSING variable
-6. `584beba` — fix(security): rename SECRETS variable
-7. `1e03e02` — fix(security): rename SECRET_CHECK to LEAK_CHECK
-8. `b34469b` — fix(license): add GPL-3.0-or-later header to validate-local.sh
-9. `6bfb538` — research: pin linux-phone-porting methodology (CC BY 4.0)
-10. `5ecbadc` — docs: prepare PR body and update progress
+- MERGED at 426154b (2026-08-27T04:43:35Z)
+- All 16 commits from agent/multi-distro-mainline merged
 
-## CI Status
+## Post-Merge Commits on main
 
-- `00-quality.yml`: ✓ GREEN (3 consecutive successful runs: 33030328020, 33030407097, 33030543236)
-- `03-build-kernel.yml`: IN PROGRESS (run 33030495004)
+1. `8c6c04a` — fix(ci): prevent kernel concurrency conflicts between distro workflows
+2. `5bc30e9` — fix(ci): replace invalid download-artifact SHA with working version
+3. `57dd17f` — feat(nixos): add flake.lock generation and validation in CI
+4. `b99b8ff` — fix(ci): install bsdtar for Arch Linux, fix nix-installer SHA
 
-## Verified
+## Kernel Status (Phase 3+4: COMPLETED)
 
-- [x] Branch pushed to remote: 147aec0 → 5ecbadc (10 commits)
-- [x] Remote SHA matches local HEAD
-- [x] Kernel tag v7.1 = commit b3f94b2b3f3e51ab880a51fc6510e1dafba654ed (GitHub API verified)
-- [x] All 30 workflows valid YAML
-- [x] sources.lock.json valid JSON (20 entries now)
-- [x] ShellCheck clean
-- [x] Security audit clean
-- [x] License headers present
-- [x] No secrets in repo
-- [x] All workflow_call triggers present
-- [x] No destructive commands in workflows
+- **Kernel release**: `7.1.0-postmarketos-sm6125-00001-ga03731b6c81e`
+- **dirty**: false ✓
+- **Run**: 33038035387 (19/19 steps)
+- **Artifacts**: Image (72MB), DTB (37KB), modules (1519 .ko), SHA256 9/9 OK
+- **Manifest**: upstream_repo, upstream_tag, upstream_commit, patched_commit, patches with SHA256
+
+## CI Fixes Applied
+
+| Issue | Fix | Commit |
+|---|---|---|
+| Kernel -dirty suffix | git commit after patches | e080cb6 |
+| Empty git identity | git config user.email/name | b0716ff |
+| Reusable vs standalone | 03-build-kernel calls reusable | 6c632af |
+| download-artifact invalid SHA | d3f86a10 (v4.3.0) | 5bc30e9 |
+| Kernel concurrency conflict | github.run_id groups, cancel-in-progress:false | 8c6c04a |
+| bsdtar missing | install libarchive-tools | b99b8ff |
+| nix-installer SHA | e50d5f73 (v16 tag) | b99b8ff |
+
+## Active CI Runs
+
+- Arch Linux ARM console: 33049506197
+- NixOS console: 33049508786
 
 ## Blocked
 
-- **NixOS flake.lock**: requires nix + network (not available locally)
-- **Arch Linux ARM rootfs checksum**: MD5 from upstream not independently verified
+- **NixOS flake.lock**: generating via CI (nix flake lock in 06-build-nixos.yml)
+- **pmOS rootfs**: needs pmbootstrap with real device APKBUILD (placeholder)
 - **Physical hardware testing**: not possible from this environment
-- **Workflow registration**: new workflows (04-phosh, 05-arch, 06-nixos, 07-matrix, reusable-kernel) only available after merge to main
 
-## Resume After Push
+## Resume Commands
 
 ```bash
-# Verify remote
-gh auth status
-gh api repos/criollojoel10/pmos-laurel-sprout/branches/agent/multi-distro-mainline --jq .commit.sha
+# Check latest runs
+gh run list --limit 5
 
-# Check kernel build
-gh run view 33030495004
-gh run view 33030495004 --log-failed
+# Check Arch Linux build
+gh run view 33049506197
+gh run view 33049506197 --log-failed
 
-# After merge to main, new workflows become available:
-gh workflow run 05-build-archlinux.yml -f build_variant=console
-gh workflow run 06-build-nixos.yml -f build_variant=console
-gh workflow run 04-build-pmos-phosh.yml
-gh workflow run 07-build-distros.yml
+# Check NixOS build
+gh run view 33049508786
+gh run view 33049508786 --log-failed
 
-# Create PR
-gh pr create --base main --head agent/multi-distro-mainline --draft \
-  --title "ci: add reproducible multi-distro builds for laurel-sprout" \
-  --body-file reports/pr-body.md
+# Download kernel artifacts
+mkdir -p artifacts/kernel-final
+gh run download 33038035387 --name kernel-debug --dir artifacts/kernel-final
+
+# Validate locally
+bash scripts/validate-local.sh
 ```

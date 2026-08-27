@@ -96,22 +96,24 @@ jobs:
       - name: Enable cross-compilation
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-user-static binfmt-support
+          sudo apt-get install -y -qq qemu-user-static binfmt-support crossbuild-essential-arm64
           sudo update-binfmts --enable qemu-aarch64 || true
 
       - name: Build NixOS closure
         run: |
           CONFIG="laurel-${BUILD_VARIANT}"
           echo "Building nixosConfigurations.${CONFIG}..."
-          # Evaluate the flake to get the system closure
-          nix build \
+          # Evaluate the flake to get the system closure.
+          # flake.nix lives in nixos/; must run from that directory.
+          cd nixos
+          if ! nix build \
             .#nixosConfigurations.${CONFIG}.config.system.build.toplevel \
             --no-link --print-out-paths \
-            2>&1 | tee /tmp/nix-build.log | tail -30 || {
-              echo "NOTE: NixOS cross-build for SM6125 is experimental."
-              echo "The full NixOS build requires aarch64 emulation or native runner."
-              echo "Creating minimal output from kernel artifacts + NixOS config."
-            }
+            2>&1 | tee /tmp/nix-build.log | tail -30; then
+            echo "NOTE: NixOS cross-build for SM6125 is experimental."
+            echo "The full NixOS build requires aarch64 emulation or native runner."
+            echo "Creating minimal output from kernel artifacts + NixOS config."
+          fi
           # Create output artifact
           mkdir -p /tmp/output/nixos
           cp /tmp/kernel-artifact/Image /tmp/output/nixos/ 2>/dev/null || true
@@ -120,21 +122,31 @@ jobs:
             mkdir -p /tmp/output/nixos/modules
             tar --zstd -xf /tmp/kernel-artifact/modules.tar.zst -C /tmp/output/nixos/modules/ 2>/dev/null || true
           fi
-          cp nixos/flake.nix /tmp/output/nixos/
-          cp -a nixos/ /tmp/output/nixos/nixos-config/
+          cp "${GITHUB_WORKSPACE}/nixos/flake.nix" /tmp/output/nixos/
+          cp -a "${GITHUB_WORKSPACE}/nixos/" /tmp/output/nixos/nixos-config/
           # Record kernelrelease
           strings /tmp/kernel-artifact/Image 2>/dev/null | grep -m1 'Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' > /tmp/output/nixos/kernelrelease 2>/dev/null || true
           # Include flake.lock if generated
-          if [[ -f nixos/flake.lock ]]; then
-            cp nixos/flake.lock /tmp/output/nixos/
-          fi
+          ls -la /tmp/output/nixos/nixos-config/flake.lock 2>/dev/null || true
+
+      - name: Build ramdisk
+        run: |
+          # Minimal static BusyBox initramfs so boot.img has a valid ramdisk
+          chmod +x scripts/build-busybox-arm64.sh scripts/build-diagnostic-initramfs.sh
+          bash scripts/build-busybox-arm64.sh --out /tmp/busybox-out
+          bash scripts/build-diagnostic-initramfs.sh \
+            --init initramfs/init \
+            --busybox-root /tmp/busybox-out/rootfs \
+            --out /tmp/initramfs-out
+          ls -la /tmp/initramfs-out/
 
       - name: Create boot image
         run: |
           # Assemble Android boot image from NixOS artifacts
-          if [[ -f /tmp/kernel-artifact/Image ]]; then
+          if [[ -f /tmp/kernel-artifact/Image && -f /tmp/initramfs-out/initramfs.cpio.gz ]]; then
             python3 scripts/build-boot-image.py \
               --kernel /tmp/kernel-artifact/Image \
+              --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
               --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
               --cmdline "console=ttyMSM0,115200n8 androidboot.hardware=laurel_sprout" \
               --out /tmp/output/nixos/boot.img || {
