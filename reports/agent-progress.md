@@ -84,8 +84,14 @@ Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
     `ec5fcaa`, `13da40a` (phy_qcom_qmp*/ufs_qcom/dwc3).
   - 3A.6/3A.9 ✅ validación descargada e inspeccionada; `independently-imported=false`
     (documentado). 3A.7 ✅ secret scan limpio. Report: `nixos-closure-validation.md`.
-  - Pendiente: 3A.10 (pr-body + resolución PR #15 MERGED), 3A.11/3A.12 (criterios
-    de salida; datos para 3B).
+  - 3A.10 REVISADO: `gh pr edit 15 --body-file reports/pr-body.md` OK (body
+    documenta Fase 3A). PR #15 sigue MERGED — GitHub NO permite reabrir PRs
+    merged y, tras FF de `agent/multi-distro-mainline` → main (sin reescribir,
+    quedó == main), no hay commits diferenciales para una PR draft nueva.
+    Resolución: #15 queda como histórico documentado; el tracking de Fase 3 va
+    en `reports/` + commitis de `main`.
+  - 3A.11/3A.12: criterios de salida auditados en
+    `reports/nixos-closure-validation.md`; datos disponibles → 3B en curso.
 - Fase 3 (boot real 3B–3E): plan dividido y criterios de aceptación en el plan.
   Pendiente: investigación de arranque NixOS (requisito 3D) antes de implementar.
 - **Arch parkeado** (redacción oficial): *"Current builder fails because pacman
