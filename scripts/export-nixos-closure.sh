@@ -126,7 +126,7 @@ else
 fi
 {
   echo "flake inputs (nixos/flake.lock):"
-  jq -r '.locks.nodes | to_entries[] | "\(.key)=\(.value.locked.rev // .value.locked.type // "?")"' nixos/flake.lock
+  jq -r '.nodes | to_entries[] | "\(.key)=\((.value.locked.rev) // (.value.locked.type) // "?")"' nixos/flake.lock
   echo "nixpkgs rev: $(jq -r '.nodes.nixpkgs.locked.rev' nixos/flake.lock)"
   echo "nix version: $NIXVER"
 } > "$OUT/sources-manifest.txt"
