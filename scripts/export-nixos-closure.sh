@@ -202,7 +202,7 @@ jq -n \
 
 # ── SHA256SUMS ─────────────────────────────────────────────────────────────
 cd "$OUT"
-sha256sum * > SHA256SUMS
+sha256sum -- * > SHA256SUMS
 
 info "salida lista en $OUT"
 ls -la "$OUT"
