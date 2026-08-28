@@ -41,10 +41,9 @@
     phosh-mobile-settings
     # Wayland utilities and Qt Wayland runtime
     wayland-utils
-    qt6-wayland
+    qt6Packages.qtwayland
     # Diagnostics
-    eglinfo
-    glmark2-es2-wayland
+    glmark2
     libinput
     bluez-tools
   ];

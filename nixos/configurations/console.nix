@@ -49,6 +49,6 @@
   users.allowNoPasswordLogin = true;
 
   # Disable unnecessary services
-  services.xserver.displayManager.gdm.enable = false;
+  services.displayManager.gdm.enable = false;
   services.displayManager.sddm.enable = false;
 }
