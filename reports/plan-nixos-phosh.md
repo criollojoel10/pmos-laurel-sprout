@@ -47,31 +47,86 @@ parkeado (ver §5). Se elige Phosh porque:
   (`cat /sys/class/drm/card0-*/status`, probar DSI-1/DSI-2/Virtual-*).
 
 ### Fase 2 — Loop de validación barato (sin kernel → minutos)
-- Nuevo workflow `nixos-eval.yml` (workflow_dispatch, input `variant`):
-  instalar Nix + `nix flake check ./nixos` + `nix eval --raw
-  .#nixosConfigurations.laurel-<v>.config.system.build.toplevel.drvPath`.
-  ~3-5 min. Este es el loop de iteración; el build completo solo al cerrar.
+- `nixos-eval.yml` (workflow_dispatch + pull_request rutas Nix): instalar Nix +
+  verificar flake.lock versionado/pinned + `nix flake metadata/show/check
+  --no-build` + hostPlatform==aarch64-linux + `toplevel.drvPath` (console y
+  gnome) no vacíos y distintos + reporte MD/JSON. ~2-4 min. Sin builds ni kernel,
+  sin caché (reproducible por lockfile), contents: read.
+- **Fallo descubierto y corregido** (a9055c9): la eval reveló errores de
+  evaluación que el build pesado 06/07 enmascaraba — su paso `nix build` falla
+  "blando" (`if ! nix build; then ...`) y el job reportaba SUCCESS aunque la
+  closure jamás se construyera. Atributos inexistentes en 56c02bc:
+  `qt6-wayland` → `qt6Packages.qtwayland`; `eglinfo`, `glmark2-es2-wayland` → NO
+  existen → eliminado/`glmark2`. console.nix: opción gdm renombrada. Consecuencia:
+  **el cierre NixOS NUNCA ha sido realmente construido/validado en CI**; la
+  Fase 3 debe validar la closure completa desde cero.
 
 ### Fase 3 — Boot real del sistema NixOS (el cambio grueso)
-- `build-nixos-rootfs.sh`:
-  a. tras `nix build ... --no-link --print-out-paths`, guardar `OUT`.
-  b. si la closure existe: crear imagen ext4 `-L NIXOS_ROOT`, montaria en loop
-     y copiar la closure al `/nix/store` destino (`nix-store --dump`/`cp -a` de
-     los store paths + toplevel) + `/nix/var/nix/db` opcional; verificar
-     `<root>/nix/store/...-nixos-system-laurel-gnome/init`.
-     Si NO hay closure → NOTA explícita y seguir con salida mínima (no fakear).
-  c. cmdline de boot.img = `root=LABEL=NIXOS_ROOT init=<OUT>/init
-     console=... androidboot.hardware=...` (patrón NixOS `init=`; el stage-1
-     re-exec el init señalado tras montar /lib/modules; nuestro propio
-     initramfs monta root por label y pivota).
-  d. `initramfs/init`: modo arranque real (var `NIXOS_BOOT=1`): montar `/proc
-     /sys /dev`, `mount LABEL=NIXOS_ROOT /mnt` (+ `-o ro`?), bind `/mnt/nix`
-     o pivot_root a `/mnt`, y `exec <OUT>/init`. Mantener el modo diagnóstico
-     por defecto (sin NIXOS_BOOT no cambia).
-  e. artefacto extra: `nixos-gnome-ext4.img.xz` + SHA256SUMS + manifest ya
-     existentes. Verificación post: `bin/systemctl` y `init` presentes en el
-     img montado.
-- Nix test (stretch): nixos-test VM aarch64 TCG para smoke de phosh.service.
+
+Subfases incrementales en commits separados (implementar de forma independiente,
+validar tras cada una):
+
+#### 3A. Exportar la closure
+- En `build-nixos-rootfs.sh`, tras `nix build ... --no-link --print-out-paths`,
+  guardar `OUT`. Verificar existencia de `<OUT>/init` y `<OUT>/etc/systemd`.
+- Criterio: closure completa logueada; fallo → NOTA explícita (no salida mínima
+  silenciosa).
+
+#### 3B. Construir el árbol rootfs
+- Copiar la closure al árbol raíz objetivo: `/nix/store/*` + symlinks
+  (`/nix/store/...-nixos-system-*/` → toplevel). Incluir el conjunto completo de
+  store paths (referencias cerradas), `/nix/var/nix/db` NO requerido para boot;
+  `/etc` del sistema (no la del initramfs).
+- Criterio: `bin/systemctl` y `init` presentes; árbol ~ closure de aarch64.
+
+#### 3C. Crear y verificar ext4 NIXOS_ROOT
+- Crear imagen ext4 con `-L NIXOS_ROOT`, montaria en loop, copiar el árbol 3B,
+  desmontar, `e2fsck -f` y `blkid` (label + UUID).
+- Criterios: e2fsck limpio; label `NIXOS_ROOT` confirmada; imagen montable de
+  nuevo; contenido `/nix/store` íntegro.
+
+#### 3D. Integrar initramfs y stage-1
+- **ANTES de implementar**: investigar y confirmar el mecanismo real de arranque
+  NixOS (ver "Investigación de arranque NixOS" abajo). NO asumir que
+  `init=<closure>/init` es suficiente.
+- `initramfs/init`: modo boot real (`NIXOS_BOOT=1`): montar pseudo-filesystems,
+  cargar módulos necesarios antes de root (ufshcd-qcom, USB DWC3, UFS), montar
+  `LABEL=NIXOS_ROOT`, preparar `/nix/store` y `switch_root`/pivotar al init de la
+  closure; mantener logging (console ttyMSM0) y shell de recuperación.
+- Criterios: init existente y ejecutable (ARM64, i.e. no loader x86-trampoline);
+  initramfs extraíble; boot.img extraíble; sin secretos.
+
+#### 3E. Validar rootfs y boot image
+- Validar la imagen completa (kernelrelease y módulos coherentes con el kernel
+  7.1.0 compartido; arquitectura ARM64 del init/initramfs), generar
+  SHA256SUMS/manifest y subir artefactos. hardware tested=false.
+
+#### Investigación de arranque NixOS (requisito para 3D)
+Confirmar documentalmente antes de escribir init/:
+- stage-1 de NixOS: código real, variables, `/init` re-exec vía `init=` cmdline;
+- ruta correcta del init dentro de la closure (`/nix/store/...-nixos-system-*/init`);
+- manejo de `/nix/store` (la stage-1 de NixOS requiere el store montado);
+- `switch_root` vs `pivot_root` (busybox → stage-2), pseudo-filesystems a
+  re-montar (/proc /sys /dev /run);
+- módulos de kernel necesarios ANTES de montar root (UFS: `ufshcd-qcom`, `ufs`,
+  `phy_qcom_ufs`; USB DWC3) — la stage-1 de linuxPackages_6_12 es para OTRO
+  kernel; el initramfs debe proveerlos o el root no monta;
+- UFS y ext4 disponibles en el initramfs (applets/módulos/dd);
+- shell de recuperación y logging (console ttyMSM0; pipeerr).
+
+#### Criterios de aceptación Fase 3
+- [ ] closure completa construida (no salida mínima);
+- [ ] referencias verificadas (closure del toplevel exportada/check-size);
+- [ ] rootfs montable;
+- [ ] `e2fsck -f` limpio;
+- [ ] label `NIXOS_ROOT` confirmada;
+- [ ] init existente y ejecutable (ARM64 ELF, no trampoline x86);
+- [ ] arquitectura ARM64 (file init), kernelrelease y módulos coincidentes con
+  7.1.0;
+- [ ] initramfs extraíble (cpio.gz válido);
+- [ ] boot.img extraíble (magic ANDROID!, payloads correctos);
+- [ ] ningún secreto en imágenes/reportes;
+- [ ] hardware tested=false (documentado, no probado en dispositivo).
 
 ### Fase 4 — Validación final
 - 06-build-nixos (workflow_dispatch `build_variant=gnome`) → kernel + closure +
@@ -80,10 +135,12 @@ parkeado (ver §5). Se elige Phosh porque:
 - Instrucciones de prueba física (fastboot + flasheo rootfs) en reports.
 
 ### Fase 5 — Arch (parkeado, documentado)
-- Bloqueante actual (verificado 3 runs): pacman dentro del chroot QEMU no puede
-  completar `check_space` (necesita /proc montado en el chroot; el runner GH no
-  permite montarlo; self-bind + /etc/mtab no resuelven: open de `/etc/mtab`
-  → `/proc/self/mounts` inexistente → aborta en commit).
+- Bloqueante actual (verificado 3 runs):
+  *"Current builder fails because pacman check_space expects /proc inside the
+  target environment; alternative RootDir/native pacman approach requires a
+  separate design and CI validation."*
+  Sin afirmar que /proc es imposible de montar en todos los runners GH (no
+  demostrado).
 - Candidato (referencia 7Ji: cross-bootstrap-arch.html): ejecutar **pacman nativo
   x86_64** (pacman-static) con `RootDir=<rootfs aarch64>`, `Architecture =
   aarch64` en config → evita QEMU por completo en instalación. Post-install

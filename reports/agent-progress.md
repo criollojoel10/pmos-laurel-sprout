@@ -1,7 +1,7 @@
 # Agent Progress Report
 
 Estado operativo del pipeline multi-distro para Xiaomi Mi A3 (laurel_sprout / SM6125).
-Actualizado: 2026-08-28 (plan NixOS+Phosh; Arch parkeado).
+Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
 
 ## Kernel (base compartida)
 - Linux mainline `v7.1` = `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`, 4 parches (`patches/kernel/0001..0004`).
@@ -58,17 +58,27 @@ Actualizado: 2026-08-28 (plan NixOS+Phosh; Arch parkeado).
   aserción de lock-out), fallback a salida mínima (kernel + initramfs + boot.img) si la
   closure completa falla.
 
+## Aviso importante (2026-08-28)
+- El "NixOS 3/3 SUCCESS" anterior en 06/07 era un **falso positivo**: el step
+  `nix build` de esos workflows cae en un fallback *blando* (`if ! nix build;
+  then NOTE...`) sin `exit 1`, así que el job salía green aunque la closure
+  NixOS **nunca se construía**. La nueva `nixos-eval.yml` lo destapó.
+- También salieron a la luz atributos inexistentes que jamás se habrían
+  detectado con el flujo anterior (corregidos en a9055c9, ver Fase 2).
+
 ## Pendiente
 - **Foco actual: NixOS + Phosh (gnome)** — plan detallado en
   `reports/plan-nixos-phosh.md`. Decisión: perfeccionar la variante gnome (Phosh)
   con NixOS primero; KDE y Arch quedan sin prioridad.
-- **Arch parkeado**: pacman en chroot QEMU no completa `check_space` (necesita
-  /proc montado; el runner GH no permite montarlo; self-bind b24812d y /etc/mtab
-  5059f64 no resuelven: `could not open file: /etc/mtab` → aborta commit). Todos
-  los jobs archlinux fallan en 3 matrices. Candidato a probar luego: pacman nativo
-  x86_64 con `RootDir` apuntando al rootfs aarch64 (reference 7Ji, evita QEMU).
-- NixOS matrix confirmado verde: console/gnome/kde 3/3 SUCCESS en 33093698708,
-  33104029709, 33108497125.
+- Fase 1 (config Phosh) ✅ `df6d1a6` — 00-quality green.
+- Fase 2 (nixos-eval.yml) ✅ `378c01f` + fix `a9055c9` — run 33133393490 green,
+  `nixos-eval-report` verificado (aarch64-linux, drvPaths distintos console/gnome).
+- Fase 3 (boot real 3A–3E): plan dividido y criterios de aceptación en el plan.
+  Pendiente: investigación de arranque NixOS (requisito 3D) antes de implementar.
+- **Arch parkeado** (redacción oficial): *"Current builder fails because pacman
+  check_space expects /proc inside the target environment; alternative
+  RootDir/native pacman approach requires a separate design and CI validation."*
+  Sin afirmar que /proc es imposible de montar en todos los runners GH.
 - `reports/cross-distro-validation.md` + `reports/artifact-index.json`.
 - Instrucciones de prueba física (fastboot + rootfs) tras Fase 4 del plan.
 - Pendiente menor: el `pkgs` con `crossSystem` en `nixos/flake.nix` (líneas 11-14) es
