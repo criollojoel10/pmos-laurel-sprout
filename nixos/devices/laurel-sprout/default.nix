@@ -30,7 +30,13 @@
         "usb_dwc3"
         "dwc3_qcom"
         "phy_qcom_qusb2"
-        "phy_qcom_qmp"
+        # En linux >= 6.6 el QMP PHY de Qualcomm se dividió en varios módulos;
+        # `phy_qcom_qmp` ya no existe como módulo y rompe el módulo-shrunk
+        # del initrd (modprobe FATAL: not found).
+        "phy_qcom_qmp_combo"
+        "phy_qcom_qmp_pcie"
+        "phy_qcom_qmp_ufs"
+        "phy_qcom_qmp_usb"
       ];
     };
 
