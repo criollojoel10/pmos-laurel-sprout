@@ -72,8 +72,12 @@ fi
 info "import OK:"; cat /tmp/import.log
 
 # ── 2. Localizar toplevel ──────────────────────────────────────────────────
-SYSTEM_PATH="$(find /nix/store -maxdepth 1 -type d -name 'nixos-system-laurel-pmos-*' | head -1)"
-[[ -n "$SYSTEM_PATH" ]] || { echo "ERROR: no se encontró el system path tras import" >&2; exit 1; }
+# Se deriva de closure-paths.txt (ruta importada 1:1), no de `find /nix/store`
+# (el usuario runner puede no poder listar la raíz del store del daemon).
+SYSTEM_PATH="$(grep -m1 'nixos-system-laurel-pmos-' "$PATHS_FILE" || true)"
+[[ -n "$SYSTEM_PATH" ]] || { echo "ERROR: no se encontró el system path en closure-paths.txt" >&2; exit 1; }
+test -d "$SYSTEM_PATH" || { echo "ERROR: system path importado no es directorio: $SYSTEM_PATH" >&2; exit 1; }
+test -x "$SYSTEM_PATH/init" || { echo "ERROR: init no ejecutable en $SYSTEM_PATH" >&2; exit 1; }
 info "toplevel importado: $SYSTEM_PATH"
 
 # ── 3. Coherencia con el closure-paths.txt del artefacto ──────────────────
