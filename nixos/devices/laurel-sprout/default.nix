@@ -29,7 +29,9 @@
         # En linux >= 6.7 el módulo QCOM UFS es `ufs_qcom` (renombrado desde
         # `ufshcd-qcom`, drivers/ufs/host/ufs-qcom.ko).
         "ufs_qcom"
-        "usb_dwc3"
+        # En linux >= 6.4 el core de dwc3 es el módulo `dwc3` (renombrado
+        # desde `usb_dwc3`); la capa de glue Qualcomm es `dwc3_qcom`.
+        "dwc3"
         "dwc3_qcom"
         "phy_qcom_qusb2"
         # En linux >= 6.6 el QMP PHY de Qualcomm se dividió en varios módulos;
