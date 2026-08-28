@@ -106,17 +106,21 @@ ln -s "${SYSTEM_PATH#/}" "$OUT/init"
 
 # ── 6. Validaciones (fail-closed) ──────────────────────────────────────────
 INIT="$OUT/nix/store/$(basename "$SYSTEM_PATH")/init"
-SYSTEMCTL="$OUT/nix/store/$(basename "$SYSTEM_PATH")/bin/systemctl"
+# En NixOS systemctl no vive en <toplevel>/bin: se resuelve dentro del árbol
+# (p.ej. via <toplevel>/sw/bin o un bin/systemctl en el store).
+SYSTEMCTL="$(find "$OUT/nix/store" -path '*/bin/systemctl' -type f -o -path '*/bin/systemctl' -type l | head -1 || true)"
+[[ -n "$SYSTEMCTL" ]] || { echo "FALLO: bin/systemctl ausente en el árbol" >&2; exit 1; }
+SYSTEMCTL_REAL="$(readlink -f "$SYSTEMCTL")"
 test -x "$INIT" || { echo "FALLO: init no ejecutable" >&2; exit 1; }
-test -x "$SYSTEMCTL" || { echo "FALLO: bin/systemctl ausente" >&2; exit 1; }
+test -x "$SYSTEMCTL_REAL" || { echo "FALLO: systemctl no ejecutable ($SYSTEMCTL -> $SYSTEMCTL_REAL)" >&2; exit 1; }
 INIT_ARCH="$(file -b "$INIT" | grep -oE 'ARM aarch64|aarch64' | head -1 || true)"
-SYS_ARCH="$(file -b "$SYSTEMCTL" | grep -oE 'ARM aarch64|aarch64' | head -1 || true)"
+SYS_ARCH="$(file -b "$SYSTEMCTL_REAL" | grep -oE 'ARM aarch64|aarch64' | head -1 || true)"
 [[ "$INIT_ARCH" == *aarch64* && "$SYS_ARCH" == *aarch64* ]] || {
   info "ERROR: arquitectura inesperada init='$INIT_ARCH' systemctl='$SYS_ARCH'"
   exit 1
 }
 info "init (ARM64)         : $(file -b "$INIT")"
-info "systemctl (ARM64)    : $(file -b "$SYSTEMCTL")"
+info "systemctl (ARM64)    : $SYSTEMCTL -> $(file -b "$SYSTEMCTL_REAL")"
 
 # ── 7. Evidencia maquina-legible ───────────────────────────────────────────
 TREE_SIZE="$(du -s "$OUT" | awk '{print $1}')"
