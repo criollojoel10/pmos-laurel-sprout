@@ -26,7 +26,9 @@
     # Initrd
     initrd = {
       availableKernelModules = [
-        "ufshcd-qcom"
+        # En linux >= 6.7 el módulo QCOM UFS es `ufs_qcom` (renombrado desde
+        # `ufshcd-qcom`, drivers/ufs/host/ufs-qcom.ko).
+        "ufs_qcom"
         "usb_dwc3"
         "dwc3_qcom"
         "phy_qcom_qusb2"
