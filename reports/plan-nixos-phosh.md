@@ -98,11 +98,17 @@ validar tras cada una):
   (p.ej. `ModemManager/fcc-unlock…/03f0:4e1d`).
 - Arbol: 663 paths, 2.2 GB; `independently-imported=true` (re-import REAL).
 
-#### 3C. Crear y verificar ext4 NIXOS_ROOT (en curso → próximo commit)
-- Crear imagen ext4 con `-L NIXOS_ROOT`, montarla en loop, copiar el árbol 3B,
-  desmontar, `e2fsck -f` y `blkid` (label + UUID).
-- Criterios: e2fsck limpio; label `NIXOS_ROOT` confirmada; imagen montable de
-  nuevo; contenido `/nix/store` íntegro.
+#### 3C. Crear y verificar ext4 NIXOS_ROOT — ✅ GREEN (run `33207764923`)
+- Job `create-rootfs-image` + `scripts/build-nixos-rootfs-image.sh`: extrae
+  `rootfs-tree.tar.zst`, imagen raw `nixos-rootfs.img` (~2.43 GiB) con
+  `mkfs.ext4 -F -i 4096 -L NIXOS_ROOT -d rootfs-tree` (poblada directo; sin
+  montaje root para crearla), `e2fsck -f` exit 0 (criterio real; "1ª pasada
+  tras -d" es normal), label y UUID via `tune2fs -l`, re-montado loop,ro
+  (663/663 paths + init), sha256.
+- Fixes en el camino: `-i 4096` (inodes suficientes para ~162k ficheros),
+  e2fsck por código de salida (no grep), `find` en vez de `ls`.
+- Artefacto: `nixos-console-rootfs-image`/`image-validation.json`; sha256 local ==
+  CI. `imageSha256=b8e61fc2…` `uuid=87bf6242-3f0b-458c-8bbb-e0be1ad48d0e`.
 
 #### 3D. Integrar initramfs y stage-1
 - **ANTES de implementar**: investigar y confirmar el mecanismo real de arranque

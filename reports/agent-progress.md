@@ -100,7 +100,13 @@ Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
   Fixes en camino: toplevel derivado de closure-paths (no `find` en store del
   daemon), systemctl resuelto vía readlink, jq key entre comillas, artefacto
   empacado en tar.zst (upload-artifact rechaza `:`).
-- Fase 3C (ext4 NIXOS_ROOT): EN CURSO — siguiente commit.
+- Fase 3C ✅ GREEN (run `33207764923`): `build-nixos-rootfs-image.sh` + job
+  `create-rootfs-image`; imagen `nixos-rootfs.img` (~2.43 GiB) label `NIXOS_ROOT`
+  (uuid `87bf6242-…`), `e2fsck -f` exit 0, remontada con 663/663 store paths,
+  sha256 local == CI (`b8e61fc2…`). Fixes en el camino: `-i 4096` inodes,
+  e2fsck por exit code, `find` (SC2012).
+- Fase 3D (initramfs + stage-1): INVESTIGACIÓN de arranque NixOS es requisito
+  previo (plan).
 - **Arch parkeado** (redacción oficial): *"Current builder fails because pacman
   check_space expects /proc inside the target environment; alternative
   RootDir/native pacman approach requires a separate design and CI validation."*

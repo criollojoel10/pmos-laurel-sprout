@@ -88,7 +88,7 @@ info "label=$VOL_NAME uuid=$UUID"
 NIX_STORE_OK=0
 MNT="$(mktemp -d)"
 if sudo -n mount -t ext4 -o loop,ro "$OUT" "$MNT" 2>/dev/null; then
-  COUNT="$(ls -1 "$MNT/nix/store" | wc -l)"
+  COUNT="$(find "$MNT/nix/store" -mindepth 1 -maxdepth 1 | wc -l)"
   INIT="$MNT/nix/store/$(basename "$(jq -r '.systemPath' "$TREE/validation.json")")/init"
   if [[ "$COUNT" -eq "$STORE_PATHS" && -x "$INIT" ]]; then
     NIX_STORE_OK=1

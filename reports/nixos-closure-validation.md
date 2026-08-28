@@ -60,6 +60,7 @@ verificación y export reproducible de la closure de `nixosConfigurations.laurel
 | independently-imported | **true** | re-import real en store aislado durante 3B (run `33204219827`, `validation.json`) |
 | references-complete | **true** | requisitos via `nix-store -qR` (663) |
 | seal (ready-for-rootfs-tree) | **true** | árbol rootfs armado y validado en 3B (`rootfs-tree.tar.zst`, 2.2 GB, 663 paths) |
+| seal-image (ext4 NIXOS_ROOT) | **true** | 3C: imagen raw validada (`nixos-rootfs.img`, label `NIXOS_ROOT`, uuid `87bf6242-…`, e2fsck exit 0, remontable, sha256 `b8e61fc2…`) |
 | hardware-tested | **false** | sin hardware; no se flashea nada |
 
 Nota (status previo): en la primera iteración `independently-imported` era
