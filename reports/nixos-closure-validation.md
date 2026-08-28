@@ -57,15 +57,21 @@ verificación y export reproducible de la closure de `nixosConfigurations.laurel
 | closure-built | **true** | build real, drvPath no vacío, store paths 663 |
 | closure-exported | **true** | nar.zst presente (454 945 616 B) |
 | archive-integrity-verified | **true** | `zstd -t` OK; sha256 coincide; stream `nix-archive-1` |
-| independently-imported | **false** | no disponible store aislado en CI ni local; se documenta en vez de asumir |
+| independently-imported | **true** | re-import real en store aislado durante 3B (run `33204219827`, `validation.json`) |
 | references-complete | **true** | requisitos via `nix-store -qR` (663) |
-| seal (ready-for-rootfs-tree) | **false** | sólo tras 3B (importar el export en un árbol rootfs) |
+| seal (ready-for-rootfs-tree) | **true** | árbol rootfs armado y validado en 3B (`rootfs-tree.tar.zst`, 2.2 GB, 663 paths) |
 | hardware-tested | **false** | sin hardware; no se flashea nada |
 
-Limitación documentada: la export no fue re-importada en un store aislado
-(`independently-imported=false`); la garantía de re-importabilidad descansa en
-`nix-store --export`/`--import` (protocolo estable) + integridad + determinismo
-del origen de la export.
+Nota (status previo): en la primera iteración `independently-imported` era
+`false` porque *no había store aislado*; 3B añade el re-import real: job
+`assemble-rootfs-tree` hace `zstd -dc … | nix-store --import` en un runner
+limpio y verifica los 663 paths 1:1. Importante: `nix-store --import < fichero
+COMPRIMIDO` falla con "input doesn't look like a nix archive"; el flujo correcto
+es descomprimir a un stream antes (`zstd -dc`).
+
+Limitación residual: no se compara `nix-store --verify` post-import en el runner
+3B (el store del runner tiene paths propios del instalador); la comparación es
+de presencia 1:1 contra closure-paths.txt.
 
 Artifacts: `artifacts/nixos-console/` (run `33135793761`). Workflow:
 `.github/workflows/nixos-build-console.yml`. Exportador:

@@ -82,18 +82,25 @@ Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
     drvPath) y exportada reproducible (`nixos-laurel-console-closure.nar.zst`,
     SHA256 `6b969088…`; integridad OK). Fixes de módulos 6.12 en `b62a3a1`,
     `ec5fcaa`, `13da40a` (phy_qcom_qmp*/ufs_qcom/dwc3).
-  - 3A.6/3A.9 ✅ validación descargada e inspeccionada; `independently-imported=false`
-    (documentado). 3A.7 ✅ secret scan limpio. Report: `nixos-closure-validation.md`.
+  - 3A.6/3A.9 ✅ CERRADOS: el re-import REAL en store de runner 3B confirmó
+    `independently-imported=true` (run `33204219827`, `validation.json`; evidencia
+    en `nixos-closure-validation.md`). 3A.7 ✅ secret scan limpio.
   - 3A.10 REVISADO: `gh pr edit 15 --body-file reports/pr-body.md` OK (body
     documenta Fase 3A). PR #15 sigue MERGED — GitHub NO permite reabrir PRs
     merged y, tras FF de `agent/multi-distro-mainline` → main (sin reescribir,
     quedó == main), no hay commits diferenciales para una PR draft nueva.
     Resolución: #15 queda como histórico documentado; el tracking de Fase 3 va
     en `reports/` + commitis de `main`.
-  - 3A.11/3A.12: criterios de salida auditados en
-    `reports/nixos-closure-validation.md`; datos disponibles → 3B en curso.
-- Fase 3 (boot real 3B–3E): plan dividido y criterios de aceptación en el plan.
-  Pendiente: investigación de arranque NixOS (requisito 3D) antes de implementar.
+  - 3A.11/3A.12 ✅ criterios de salida auditados (`nixos-closure-validation.md`);
+    datos disponibles → 3B lanzado.
+- Fase 3B ✅ GREEN (run `33204219827`): `build-nixos-rootfs-tree.sh` +
+  job `assemble-rootfs-tree`; re-import real (663 paths 1:1), init/systemctl
+  ARM64 verificadas, `validation.json` (independently-imported=true),
+  `rootfs-tree.tar.zst` (461 MB, 162 751 entradas) + `validation.json` subidos.
+  Fixes en camino: toplevel derivado de closure-paths (no `find` en store del
+  daemon), systemctl resuelto vía readlink, jq key entre comillas, artefacto
+  empacado en tar.zst (upload-artifact rechaza `:`).
+- Fase 3C (ext4 NIXOS_ROOT): EN CURSO — siguiente commit.
 - **Arch parkeado** (redacción oficial): *"Current builder fails because pacman
   check_space expects /proc inside the target environment; alternative
   RootDir/native pacman approach requires a separate design and CI validation."*

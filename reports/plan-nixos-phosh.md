@@ -86,15 +86,20 @@ validar tras cada una):
   linux 6.12 (`phy_qcom_qmp*`, `ufs_qcom`, `dwc3` — los nombres viejos ya no
   existen y rompían el `modules-shrunk` del initrd).
 
-#### 3B. Construir el árbol rootfs
-- Copiar la closure al árbol raíz objetivo: `/nix/store/*` + symlinks
-  (`/nix/store/...-nixos-system-*/` → toplevel). Incluir el conjunto completo de
-  store paths (referencias cerradas), `/nix/var/nix/db` NO requerido para boot;
-  `/etc` del sistema (no la del initramfs).
-- Criterio: `bin/systemctl` y `init` presentes; árbol ~ closure de aarch64.
+#### 3B. Construir el árbol rootfs — ✅ GREEN (run `33204219827`)
+- Job `assemble-rootfs-tree` en `nixos-build-console.yml` +
+  `scripts/build-nixos-rootfs-tree.sh`: re-importa el export en un store limpio de
+  runner (`zstd -dc nar | nix-store --import`; ojo: pasar el fichero comprimido
+  directo falla), verifica 663 paths 1:1 vs closure-paths.txt, copia a
+  `rootfs-tree/{nix/store,etc,init}`, valida fail-closed (init y systemctl
+  ejecutables ARM64 vía `readlink -f` — en NixOS systemctl NO vive en
+  `<toplevel>/bin`, se resuelve dentro del árbol) y genera `validation.json`.
+  Se sube `.tar.zst` (461 MB) porque upload-artifact rechaza nombres con `:`
+  (p.ej. `ModemManager/fcc-unlock…/03f0:4e1d`).
+- Arbol: 663 paths, 2.2 GB; `independently-imported=true` (re-import REAL).
 
-#### 3C. Crear y verificar ext4 NIXOS_ROOT
-- Crear imagen ext4 con `-L NIXOS_ROOT`, montaria en loop, copiar el árbol 3B,
+#### 3C. Crear y verificar ext4 NIXOS_ROOT (en curso → próximo commit)
+- Crear imagen ext4 con `-L NIXOS_ROOT`, montarla en loop, copiar el árbol 3B,
   desmontar, `e2fsck -f` y `blkid` (label + UUID).
 - Criterios: e2fsck limpio; label `NIXOS_ROOT` confirmada; imagen montable de
   nuevo; contenido `/nix/store` íntegro.
