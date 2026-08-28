@@ -1,7 +1,7 @@
 # Agent Progress Report
 
 Estado operativo del pipeline multi-distro para Xiaomi Mi A3 (laurel_sprout / SM6125).
-Actualizado: 2026-08-27 (matrix console/gnome/kde).
+Actualizado: 2026-08-28 (plan NixOS+Phosh; Arch parkeado).
 
 ## Kernel (base compartida)
 - Linux mainline `v7.1` = `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`, 4 parches (`patches/kernel/0001..0004`).
@@ -59,10 +59,17 @@ Actualizado: 2026-08-27 (matrix console/gnome/kde).
   closure completa falla.
 
 ## Pendiente
-- Confirmar green real de Arch (paquetes base instalados; runs `33093627504` console y
-  `33093698708` matrix 07 en curso) y NixOS (closure completa ya corregida en 8bca017).
-- Validar variantes nuevas gnome y kde en CI (matrix 07 `33093698708`, console/gnome/kde).
+- **Foco actual: NixOS + Phosh (gnome)** — plan detallado en
+  `reports/plan-nixos-phosh.md`. Decisión: perfeccionar la variante gnome (Phosh)
+  con NixOS primero; KDE y Arch quedan sin prioridad.
+- **Arch parkeado**: pacman en chroot QEMU no completa `check_space` (necesita
+  /proc montado; el runner GH no permite montarlo; self-bind b24812d y /etc/mtab
+  5059f64 no resuelven: `could not open file: /etc/mtab` → aborta commit). Todos
+  los jobs archlinux fallan en 3 matrices. Candidato a probar luego: pacman nativo
+  x86_64 con `RootDir` apuntando al rootfs aarch64 (reference 7Ji, evita QEMU).
+- NixOS matrix confirmado verde: console/gnome/kde 3/3 SUCCESS en 33093698708,
+  33104029709, 33108497125.
 - `reports/cross-distro-validation.md` + `reports/artifact-index.json`.
-- Prerelease con artefactos validados; instrucciones de prueba física.
+- Instrucciones de prueba física (fastboot + rootfs) tras Fase 4 del plan.
 - Pendiente menor: el `pkgs` con `crossSystem` en `nixos/flake.nix` (líneas 11-14) es
   código muerto (nixosSystem usa su propio pkgs vía `system`); limpiar.
