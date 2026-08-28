@@ -1,0 +1,103 @@
+name: Nixos Build Console (Closure)
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nixos-build-console
+  cancel-in-progress: true
+
+jobs:
+  build-and-export-console:
+    name: "Build + export closure (aarch64-linux)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      BUILD_VARIANT: console
+    steps:
+      - name: Runner info
+        run: |
+          df -h
+          free -h
+
+      # actions/checkout@v7.0.1
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      # DeterminateSystems/nix-installer-action@v16
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
+        with:
+          daemon: true
+          extra-conf: |
+            experimental-features = nix-command flakes
+            extra-platforms = aarch64-linux
+
+      - name: Verify committed flake.lock (flake.lock is REQUIRED, never auto-updated)
+        run: |
+          set -Eeuo pipefail
+          test -f nixos/flake.lock || {
+            echo "FALLO: falta nixos/flake.lock versionado (el CI nunca la regenera)" >&2
+            exit 1
+          }
+          echo "nixpkgs rev fijado: $(jq -r '.nodes.nixpkgs.locked.rev' nixos/flake.lock)"
+
+      - name: Enable aarch64 cross-build (qemu/binfmt, cached binary deps)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user-static binfmt-support
+          sudo update-binfmts --enable qemu-aarch64
+
+      # Build REAL de la closure. Sin --impure, sin kernel rebuild/download,
+      # sin acciones destructivas. Un fallo => job fallido.
+      # flake.lock ya está commiteado; la ruta build-toplevel es la de siempre.
+      - name: Build NixOS toplevel (closure real)
+        run: |
+          set -Eeuo pipefail
+          nix build \
+            ./nixos#nixosConfigurations.laurel-console.config.system.build.toplevel \
+            --out-link result-console \
+            --print-build-logs
+
+      - name: Assert closure produit
+        run: |
+          set -Eeuo pipefail
+          test -L result-console || { echo "FALLO: falta result-console" >&2; exit 1; }
+          SYSTEM_PATH="$(readlink -f result-console)"
+          test -d "$SYSTEM_PATH" || { echo "FALLO: sistema no es directorio" >&2; exit 1; }
+          test -x "$SYSTEM_PATH/init" || { echo "FALLO: falta init ejecutable" >&2; exit 1; }
+          echo "systemPath=$SYSTEM_PATH"
+
+      - name: Verify and export closure (reproducible)
+        run: |
+          set -Eeuo pipefail
+          chmod +x scripts/export-nixos-closure.sh
+          scripts/export-nixos-closure.sh \
+            --out-link result-console \
+            --out artifacts/nixos-console
+
+      - name: Upload closure artifacts
+        # actions/upload-artifact@v4.9.5
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-console-closure
+          path: artifacts/nixos-console/**/*
+          retention-days: 7
+          if-no-files-found: error
+
+      # Diagnóstico solo en fallo (nunca contamina producto)
+      - name: Upload diagnostic logs
+        if: failure()
+        # actions/upload-artifact@v4.9.5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-build-console-diagnostic
+          path: |
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore
