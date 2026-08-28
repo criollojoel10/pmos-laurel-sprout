@@ -212,7 +212,7 @@ jobs:
     name: "Build shared kernel v7.1 (for NixOS boot.img)"
     uses: ./.github/workflows/reusable-build-kernel.yml
     with:
-      build_variant: nixos-console
+      build_variant: release
       kernel_source: linux-mainline-v7.1
 
   # Fase 3D: busybox estático ARM64 para el initramfs
@@ -259,7 +259,7 @@ jobs:
         # actions/download-artifact@v4.3.3
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: kernel-nixos-console
+          name: kernel-release
           path: /tmp/kernel-artifact
 
       - name: Download busybox (aarch64)
