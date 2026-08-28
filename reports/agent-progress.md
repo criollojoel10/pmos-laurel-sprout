@@ -55,8 +55,8 @@ Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
   `nixos/modules/plasma-mobile.nix` (plasma6 + `kdePackages.plasma-mobile` +
   plasma-login-manager; nixpkgs aún no tiene módulo oficial, nixpkgs#432702).
 - NixOS: flake en `nixos/` (cd nixos), `users.allowNoPasswordLogin = true` (evita
-  aserción de lock-out), fallback a salida mínima (kernel + initramfs + boot.img) si la
-  closure completa falla.
+  aserción de lock-out). Contrato fail-closed (3A): si la closure completa falla,
+  el build NixOS es un ERROR (exit≠0), no se produce salida mínima "éxito".
 
 ## Aviso importante (2026-08-28)
 - El "NixOS 3/3 SUCCESS" anterior en 06/07 era un **falso positivo**: el step
@@ -73,7 +73,15 @@ Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
 - Fase 1 (config Phosh) ✅ `df6d1a6` — 00-quality green.
 - Fase 2 (nixos-eval.yml) ✅ `378c01f` + fix `a9055c9` — run 33133393490 green,
   `nixos-eval-report` verificado (aarch64-linux, drvPaths distintos console/gnome).
-- Fase 3 (boot real 3A–3E): plan dividido y criterios de aceptación en el plan.
+- Fase 3A (build real fail-closed) en curso:
+  - 3A.1 ✅ iniciado: `check-no-soft-fallback.sh` (regresión), `build-nixos-rootfs.sh`
+    endurecido (nix build → exit≠0), 06/07 con gates `if: success()`, registro de
+    invalidación `reports/nixos-build-invalidation-log.md` (runs 33093698708,
+    33104029709, 33108497125, 33088227815 → `false-positive-invalidated`).
+  - Pendiente: commit `fix(nixos): fail closed when closure build fails`, 00-quality,
+    luego 3A.2–3A.5 (workflow/script de export de closure), 3A.6–3A.9 validación y
+    artefactos, 3A.10 docs + PR #15 (resolver estado MERGED vs draft), 3A.11/3A.12.
+- Fase 3 (boot real 3B–3E): plan dividido y criterios de aceptación en el plan.
   Pendiente: investigación de arranque NixOS (requisito 3D) antes de implementar.
 - **Arch parkeado** (redacción oficial): *"Current builder fails because pacman
   check_space expects /proc inside the target environment; alternative

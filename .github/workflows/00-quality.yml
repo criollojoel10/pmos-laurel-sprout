@@ -153,6 +153,10 @@ jobs:
             exit 1
           fi
           echo "[OK] todas las acciones externas fijadas por SHA"
+      - name: Regression - no soft fallback en rutas NixOS
+        run: |
+          set -Eeuo pipefail
+          bash scripts/check-no-soft-fallback.sh
       - name: Ejecutar unit tests del builder de boot image
         run: |
           set -Eeuo pipefail

@@ -67,35 +67,15 @@ jobs:
           extra-conf: |
             experimental-features = nix-command flakes
             # Permitir al nix-daemon construir derivaciones aarch64-linux
-            # en el runner x86_64 mediante binfmt/qemu (sin esto:
-            # "platform mismatch, Required system aarch64-linux").
+            # en el runner x86_64 mediante binfmt/qemu.
             extra-platforms = aarch64-linux
 
-      - name: Generate flake.lock
+      - name: Verify committed flake.lock (never auto-generated)
         run: |
-          cd nixos
-          if [[ ! -f flake.lock ]]; then
-            echo "Generating flake.lock..."
-            nix flake lock --update-input nixpkgs
-            echo "::group::flake.lock"
-            cat flake.lock
-            echo "::endgroup::"
-          else
-            echo "flake.lock already exists"
-            cat flake.lock
-          fi
-
-      - name: Validate flake
-        run: |
-          cd nixos
-          echo "::group::nix flake metadata"
-          nix flake metadata
-          echo "::endgroup::"
-          echo "::group::nix flake show"
-          nix flake show 2>&1 || echo "(show may fail without aarch64 emulation)"
-          echo "::endgroup::"
-          # Evaluate platform
-          nix eval .#nixosConfigurations.laurel-console.config.nixpkgs.hostPlatform.system 2>/dev/null || echo "eval skipped"
+          set -Eeuo pipefail
+          test -f nixos/flake.lock || {
+            echo "FALLO: falta nixos/flake.lock versionado" >&2; exit 1; }
+          echo "flake.lock presente: $(jq -r '.nodes.nixpkgs.locked.rev' nixos/flake.lock)"
 
       - name: Enable cross-compilation
         run: |
@@ -103,105 +83,32 @@ jobs:
           sudo apt-get install -y -qq qemu-user-static binfmt-support crossbuild-essential-arm64
           sudo update-binfmts --enable qemu-aarch64 || true
 
-      - name: Build NixOS closure
+      - name: Build NixOS rootfs (fail-closed)
         run: |
-          CONFIG="laurel-${BUILD_VARIANT}"
-          echo "Building nixosConfigurations.${CONFIG}..."
-          # Evaluate the flake to get the system closure.
-          # flake.nix lives in nixos/; must run from that directory.
-          cd nixos
-          if ! nix build \
-            .#nixosConfigurations.${CONFIG}.config.system.build.toplevel \
-            --no-link --print-out-paths \
-            > /tmp/nix-build.log 2>&1; then
-            echo "NOTE: NixOS cross-build for SM6125 is experimental."
-            echo "The full NixOS build requires aarch64 emulation or native runner."
-            echo "Full build log saved to /tmp/nix-build.log and uploaded as diagnostic."
-            echo "Creating minimal output from kernel artifacts + NixOS config."
-          else
-            echo "NixOS closure built successfully:"
-            tail -3 /tmp/nix-build.log
-          fi
-          # Create output artifact
-          mkdir -p /tmp/output/nixos
-          cp /tmp/kernel-artifact/Image /tmp/output/nixos/ 2>/dev/null || true
-          cp /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb /tmp/output/nixos/ 2>/dev/null || true
-          if [[ -f /tmp/kernel-artifact/modules.tar.zst ]]; then
-            mkdir -p /tmp/output/nixos/modules
-            tar --zstd -xf /tmp/kernel-artifact/modules.tar.zst -C /tmp/output/nixos/modules/ 2>/dev/null || true
-          fi
-          cp "${GITHUB_WORKSPACE}/nixos/flake.nix" /tmp/output/nixos/
-          cp -a "${GITHUB_WORKSPACE}/nixos/" /tmp/output/nixos/nixos-config/
-          # Record kernelrelease
-          strings /tmp/kernel-artifact/Image 2>/dev/null | grep -m1 'Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' > /tmp/output/nixos/kernelrelease 2>/dev/null || true
-          # Include flake.lock if generated
-          ls -la /tmp/output/nixos/nixos-config/flake.lock 2>/dev/null || true
-
-      - name: Build ramdisk
-        run: |
-          # Minimal static BusyBox initramfs so boot.img has a valid ramdisk
-          chmod +x scripts/build-busybox-arm64.sh scripts/build-diagnostic-initramfs.sh
-          bash scripts/build-busybox-arm64.sh --out /tmp/busybox-out
-          bash scripts/build-diagnostic-initramfs.sh \
-            --init initramfs/init \
-            --busybox-root /tmp/busybox-out/applet-root \
-            --out /tmp/initramfs-out
-          ls -la /tmp/initramfs-out/
-
-      - name: Create boot image
-        run: |
-          # Assemble Android boot image from NixOS artifacts
-          if [[ -f /tmp/kernel-artifact/Image && -f /tmp/initramfs-out/initramfs.cpio.gz ]]; then
-            python3 scripts/build-boot-image.py \
-              --kernel /tmp/kernel-artifact/Image \
-              --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
-              --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
-              --cmdline "console=ttyMSM0,115200n8 androidboot.hardware=laurel_sprout" \
-              --out /tmp/output/nixos/boot.img || {
-                echo "NOTE: boot image assembly requires build-boot-image.py"
-              }
-          fi
+          set -Eeuo pipefail
+          chmod +x scripts/build-nixos-rootfs.sh
+          scripts/build-nixos-rootfs.sh \
+            --kernel-artifact /tmp/kernel-artifact \
+            --variant "$BUILD_VARIANT" \
+            --out /tmp/output
 
       - name: Upload NixOS artifacts
         # actions/upload-artifact@v4.9.5
+        if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: nixos-${{ inputs.build_variant || 'console' }}
           path: |
             /tmp/output/nixos/*
           retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Upload flake.lock
-        if: hashFiles('nixos/flake.lock') != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: nixos-flake-lock
-          path: nixos/flake.lock
-          retention-days: 7
-
-      - name: Generate checksums and manifest
-        run: |
-          set -Eeuo pipefail
-          cd /tmp/output/nixos
-          # SHA256 of all artifacts
-          find . -type f -not -name 'SHA256SUMS' -not -name 'manifest.json' \
-            -exec sha256sum {} + > SHA256SUMS 2>/dev/null || true
-          cat SHA256SUMS
-          # Read kernel version from Image
-          KERNELRELEASE="$(cat kernelrelease 2>/dev/null || strings Image 2>/dev/null | grep -m1 '^Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' || echo 'unknown')"
-          jq -n \
-            --arg variant "${{ inputs.build_variant || 'console' }}" \
-            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg kernelrelease "$KERNELRELEASE" \
-            '{distro:"nixos", variant:$variant, kernelrelease:$kernelrelease, generated_at:$date}' > manifest.json
-          cat manifest.json
+          if-no-files-found: error
 
       - name: Upload diagnostic logs
-        if: always()
+        if: failure()
+        # actions/upload-artifact@v4.9.5
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: nixos-diagnostic
+          name: nixos-diagnostic-log
           path: /tmp/nix-*.log
           retention-days: 3
           if-no-files-found: ignore

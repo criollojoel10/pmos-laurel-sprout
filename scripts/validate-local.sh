@@ -177,6 +177,15 @@ for wf in 04-build-pmos-console.yml 04-build-pmos-phosh.yml 05-build-pmos-plasma
   fi
 done
 
+# ── 12. No soft-fallback (regression) ──
+echo "--- 12. No soft-fallback (regression) ---"
+if bash scripts/check-no-soft-fallback.sh >/dev/null 2>&1; then
+  ok "no soft-fallback patterns in critical NixOS paths"
+else
+  fail "soft-fallback patterns detected"
+  bash scripts/check-no-soft-fallback.sh 2>&1 | head -15
+fi
+
 # ── Summary ──
 echo ""
 echo "=== Summary ==="
