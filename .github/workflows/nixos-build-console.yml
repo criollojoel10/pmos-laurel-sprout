@@ -206,3 +206,135 @@ jobs:
           path: artifacts-3c/
           retention-days: 7
           if-no-files-found: error
+
+  # Fase 3D: kernel v7.1 compartido (NO reconstruir por iteración de rootfs)
+  build-kernel:
+    name: "Build shared kernel v7.1 (for NixOS boot.img)"
+    uses: ./.github/workflows/reusable-build-kernel.yml
+    with:
+      build_variant: nixos-console
+      kernel_source: linux-mainline-v7.1
+
+  # Fase 3D: busybox estático ARM64 para el initramfs
+  build-busybox:
+    name: "Build static busybox (aarch64)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install cross toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq crossbuild-essential-arm64
+
+      - name: Build busybox
+        run: |
+          set -Eeuo pipefail
+          chmod +x scripts/build-busybox-arm64.sh
+          scripts/build-busybox-arm64.sh --out /tmp/busybox-out
+          file /tmp/busybox-out/busybox
+
+      - name: Upload busybox
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-console-busybox
+          path: /tmp/busybox-out/busybox
+          retention-days: 7
+          if-no-files-found: error
+
+  # Fase 3D: initramfs (uinit) + boot.img con cmdline stage-2 de NixOS
+  build-boot-image:
+    name: "Build NixOS initramfs + boot.img (3D)"
+    needs: [build-and-export-console, assemble-rootfs-tree, build-kernel, build-busybox]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download kernel (v7.1 shared)
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kernel-nixos-console
+          path: /tmp/kernel-artifact
+
+      - name: Download busybox (aarch64)
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-busybox
+          path: /tmp/busybox
+
+      - name: Download rootfs tree (3B) for systemPath
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-rootfs-tree
+          path: artifacts-3b
+
+      - name: Build NixOS initramfs
+        run: |
+          set -Eeuo pipefail
+          chmod +x scripts/build-nixos-initramfs.sh
+          scripts/build-nixos-initramfs.sh \
+            --busybox /tmp/busybox/busybox \
+            --modules /tmp/kernel-artifact/modules.tar.zst \
+            --out /tmp/initramfs-out
+          gzip -dc /tmp/initramfs-out/initramfs.cpio.gz | cpio -t | sort > /tmp/initramfs-file-list.txt
+          grep -q '/init$' /tmp/initramfs-file-list.txt || { echo "FALLO: init ausente en initramfs" >&2; exit 1; }
+          grep -q '/busybox$' /tmp/initramfs-file-list.txt || { echo "FALLO: busybox ausente en initramfs" >&2; exit 1; }
+          grep -c '/lib/modules/' /tmp/initramfs-file-list.txt
+          file /tmp/initramfs-out/busybox
+
+      - name: Build + verify boot.img
+        run: |
+          set -Eeuo pipefail
+          SYSTEM_PATH="$(jq -r '.systemPath' artifacts-3b/validation.json)"
+          chmod +x scripts/build-nixos-boot-image.sh
+          mkdir -p /tmp/boot-out
+          scripts/build-nixos-boot-image.sh \
+            --kernel /tmp/kernel-artifact/Image \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --system-path "$SYSTEM_PATH" \
+            --out /tmp/boot-out/boot-laurel-nixos-console.img \
+            --boot-limit 67108864
+          CMDLINE_EXTRACTED="$(python3 scripts/unpack-boot-image.py --boot /tmp/boot-out/boot-laurel-nixos-console.img --out /tmp/boot-validation/unpack --print-cmdline)"
+          printf '%s\n' "$CMDLINE_EXTRACTED" > /tmp/boot-out/cmdline.txt
+          echo "cmdline: $CMDLINE_EXTRACTED"
+          grep -q "root=LABEL=NIXOS_ROOT" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin root=LABEL=NIXOS_ROOT" >&2; exit 1; }
+          grep -q "init=/nix/store/" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin init=/nix/store/..." >&2; exit 1; }
+
+      - name: Boot manifest (3D)
+        run: |
+          set -Eeuo pipefail
+          SIZE="$(stat -c %s /tmp/boot-out/boot-laurel-nixos-console.img)"
+          SYSTEM_PATH="$(jq -r '.systemPath' artifacts-3b/validation.json)"
+          jq -n \
+            --arg run_id "${GITHUB_RUN_ID}" \
+            --arg system_path "$SYSTEM_PATH" \
+            --argjson size_bytes "$(printf '%s' "$SIZE")" \
+            --argjson limit_bytes 67108864 \
+            --arg cmdline "$(cat /tmp/boot-out/cmdline.txt)" \
+            '{fase:"3D", run_id:$run_id, systemPath:$system_path, bootImageBytes:$size_bytes, bootLimitBytes:$limit_bytes, fits:($size_bytes < 67108864), cmdline:$cmdline, hardwareTested:false}' > /tmp/boot-out/boot-manifest.json
+          jq . /tmp/boot-out/boot-manifest.json
+
+      - name: Upload boot image (3D)
+        # actions/upload-artifact@v4.9.5
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-console-boot
+          path: |
+            /tmp/boot-out/boot-laurel-nixos-console.img
+            /tmp/boot-out/cmdline.txt
+            /tmp/boot-out/boot-manifest.json
+            /tmp/boot-validation/**/*
+            /tmp/initramfs-file-list.txt
+            /tmp/initramfs-out/initramfs.cpio.gz
+          retention-days: 7
+          if-no-files-found: error
