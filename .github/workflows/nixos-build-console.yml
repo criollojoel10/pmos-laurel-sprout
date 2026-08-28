@@ -158,3 +158,51 @@ jobs:
             artifacts-3b/validation.json
           retention-days: 7
           if-no-files-found: error
+
+  # Fase 3C: imagen ext4 NIXOS_ROOT desde el árbol 3B (sin hardware)
+  create-rootfs-image:
+    name: "Create + verify ext4 NIXOS_ROOT image (3C)"
+    needs: assemble-rootfs-tree
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Disk baseline
+        run: df -h /nix / 2>/dev/null || df -h /
+
+      # actions/checkout@v7.0.1
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download rootfs tree (3B)
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-rootfs-tree
+          path: artifacts-3b
+
+      - name: Extract rootfs tree
+        run: |
+          set -Eeuo pipefail
+          mkdir -p rootfs-tree
+          tar -xf artifacts-3b/rootfs-tree.tar.zst -C rootfs-tree
+          jq . rootfs-tree/validation.json
+
+      - name: Create and verify ext4 NIXOS_ROOT image
+        run: |
+          set -Eeuo pipefail
+          chmod +x scripts/build-nixos-rootfs-image.sh
+          mkdir -p artifacts-3c
+          scripts/build-nixos-rootfs-image.sh \
+            --tree rootfs-tree \
+            --out artifacts-3c/nixos-rootfs.img \
+            --label NIXOS_ROOT
+
+      - name: Upload rootfs image
+        # actions/upload-artifact@v4.9.5
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-console-rootfs-image
+          path: artifacts-3c/
+          retention-days: 7
+          if-no-files-found: error
