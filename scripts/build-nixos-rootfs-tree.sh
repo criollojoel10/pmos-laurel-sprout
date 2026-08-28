@@ -133,7 +133,7 @@ jq -n \
   '{
     fase: "3B",
     run_id: $run_id,
-    independently-imported: $import_verified,
+    "independently-imported": $import_verified,
     systemPath: $system_path,
     storePaths: $store_paths,
     treeSizeKB: $tree_size_kb,
