@@ -68,13 +68,15 @@ if ! mkfs.ext4 -q -F -i 4096 -L "$LABEL" -d "$TREE" "$OUT"; then
 fi
 
 # ── 3. e2fsck -f limpio ─────────────────────────────────────────────────────
+# El criterio es el código de salida de e2fsck (-y con exit 0 => fs consistente;
+# durante la 1ª pasada tras -d suele marcar "FILE SYSTEM WAS MODIFIED", normal).
 info "e2fsck -f ..."
 if ! e2fsck -y -f "$OUT" > /tmp/e2fsck.log 2>&1; then
   echo "ERROR: e2fsck -f NO limpio; volcado:" >&2
   tail -30 /tmp/e2fsck.log >&2
   exit 1
 fi
-grep -qiE "clean|no errors" /tmp/e2fsck.log || { echo "ERROR: e2fsck sin confirmación de limpieza" >&2; tail -10 /tmp/e2fsck.log >&2; exit 1; }
+info "e2fsck exit=0: $(tail -1 /tmp/e2fsck.log)"
 
 # ── 4. Label y UUID confirmadas ─────────────────────────────────────────────
 VOL_NAME="$(tune2fs -l "$OUT" | awk -F: '/Filesystem volume name/{gsub(/^ +| +$/,"",$2); print $2}')"
