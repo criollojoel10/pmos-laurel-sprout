@@ -101,3 +101,50 @@ jobs:
             *.log
           retention-days: 3
           if-no-files-found: ignore
+
+  # Fase 3B: re-import del export + árbol rootfs en directorio (sin ext4 aún)
+  assemble-rootfs-tree:
+    name: "Assemble rootfs tree (3B)"
+    needs: build-and-export-console
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Disk baseline
+        run: df -h /nix / 2>/dev/null || df -h /
+
+      # actions/checkout@v7.0.1
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download closure export
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-closure
+          path: artifacts/nixos-console
+
+      # DeterminateSystems/nix-installer-action@v16
+      - name: Install Nix (for nix-store --import)
+        uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Assemble and validate rootfs tree
+        run: |
+          set -Eeuo pipefail
+          chmod +x scripts/build-nixos-rootfs-tree.sh
+          scripts/build-nixos-rootfs-tree.sh \
+            --nar artifacts/nixos-console/nixos-laurel-console-closure.nar.zst \
+            --paths artifacts/nixos-console/closure-paths.txt \
+            --out rootfs-tree
+
+      - name: Upload rootfs tree
+        # actions/upload-artifact@v4.9.5
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-console-rootfs-tree
+          path: rootfs-tree/**
+          retention-days: 7
+          if-no-files-found: error
