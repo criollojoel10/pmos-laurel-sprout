@@ -6,9 +6,6 @@ CONFIG_BINFMT_MISC=y
 CONFIG_IKCONFIG=y
 CONFIG_IKCONFIG_PROC=y
 
-# Reducción de verbose innecesario en release
-CONFIG_HUSH_PARSER=y
-
 # Hibernación/suspensión si el árbol lo soporta (verify-kconfig lo valida)
 CONFIG_SUSPEND=y
 CONFIG_PM=y
