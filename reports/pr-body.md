@@ -1,97 +1,62 @@
-# ci: add reproducible multi-distro builds for laurel-sprout
+# CI: reproducible multi-distro builds for laurel-sprout (NixOS Fase 3A)
 
-> **EXPERIMENTAL** — UNTESTED ON PHYSICAL HARDWARE
+**Estado actual:** PR #15 quedó **MERGED** en `c2c559a` (solo el trabajo temprano
+de la rama `agent/multi-distro-mainline`, 29 commits por detrás de `main`). El
+trabajo técnico actual vive en `main` y NO está reflejado en esta PR. Pendiente:
+decidir entre (a) reabrir esta PR como draft apuntando a la cima de `main`,
+(b) crear una PR nueva de tracking, o (c) dejar esta PR merged como referencia
+histórica.
 
-## Architecture
+## Contexto
+
+Pipeline multi-distro reproducible para Xiaomi Mi A3 (laurel_sprout / SM6125):
+kernel 7.1.0 compartido + rootfs builds de [NixOS] (+ Arch aparcado, pmOS
+bloqueado aguas arriba). Variante GUI prioritaria: NixOS + Phosh (gnome).
+
+## NixOS Fase 3A — build real de la closure + export reproducible
+
+Estado: ✅ verificado en CI (run `33135793761`).
+
+- **Fail-closed (regresión):** elimina el fallback *blando* que reportaba
+  SUCCESS sin construir la closure:
+  - `scripts/build-nixos-rootfs.sh` y `06-build-nixos.yml` → `nix build` fallido =
+    `exit 1`; artefactos de producto solo con `if: success()`.
+  - `scripts/check-no-soft-fallback.sh` exigido por `00-quality.yml` y
+    `validate-local.sh`.
+  - Runs previos documentados como INVALIDATED:
+    `workflow returned success without constructing the NixOS closure.`
+    (`reports/nixos-build-invalidation-log.md`).
+- **Workflow nuevo** `.github/workflows/nixos-build-console.yml` (dispatch/call):
+  flake.lock versionado requerido (nunca auto-generado), `nix build
+  ./nixos#nixosConfigurations.laurel-console.config.system.build.toplevel
+  --out-link result-console --print-build-logs`, sin `--impure`, sin kernel
+  rebuild/download, artefactos solo tras éxito, logs de diagnóstico solo en
+  fallo.
+- **Export reproducible** `scripts/export-nixos-closure.sh`:
+  requisitos ordenados → `nix-store --export | zstd -T0 -19` →
+  `nixos-laurel-console-closure.nar.zst`. Verificado:
+  - hostPlatform `aarch64-linux`; systemPath + drvPath reales; 663 store paths.
+  - `nix store verify` (contenido) OK.
+  - Integridad del archivo: `zstd -t` OK, stream `nix-archive-1`, SHA256
+    `6b969088ef4ac6bc0c9bdc3376e686bdfe8cfb00219922a97825ed1863faae7a`.
+  - `independently-imported=false` (documentado; sin store aislado).
+  - Secret scan limpio; sin claves/contrasñas en la config.
+  - Detalles: `reports/nixos-closure-validation.md`.
+
+## Cómo reproducir
 
 ```
-┌─────────────────────────────────────────────────┐
-│           Shared Kernel (Linux mainline v7.1)    │
-│  Image.gz, DTB, modules, System.map, .config    │
-│  Commit: b3f94b2b3f3e51ab880a51fc6510e1dafba654ed│
-│  Tag v7.1 verified via GitHub API ✓              │
-└──────────────┬──────────────┬───────────────────┘
-               │              │
-    ┌──────────▼──┐  ┌───────▼──────┐  ┌──────────▼──┐
-    │ postmarketOS│  │ Arch Linux   │  │    NixOS    │
-    │ console/    │  │    ARM       │  │ console/    │
-    │ Phosh/Plasma│  │ console/Phosh│  │ Phosh       │
-    └─────────────┘  └──────────────┘  └─────────────┘
+gh workflow run nixos-build-console.yml --ref main
+gh run download <RUN_ID> --dir artifacts/<RUN_ID>
 ```
 
-## What This PR Adds
+Artefacto clave: `artifacts/nixos-console/nixos-laurel-console-closure.nar.zst`.
 
-### Workflows (5 new)
-- `reusable-build-kernel.yml` — parameterized shared kernel build
-- `04-build-pmos-phosh.yml` — postmarketOS Phosh variant
-- `05-build-archlinux.yml` — Arch Linux ARM (console + Phosh)
-- `06-build-nixos.yml` — NixOS flake (console + Phosh)
-- `07-build-distros.yml` — full distro matrix orchestrator
+## Notas
 
-### Modified Workflows (2)
-- `04-build-pmos-console.yml` — added `workflow_call` + `build_variant` input
-- `05-build-pmos-plasma.yml` — added `workflow_call` + `build_variant` input
-
-### Configs (3 new)
-- `configs/pmos/phosh-packages.txt` — Phosh UI package list
-- `configs/archlinux/console-packages.txt` — Arch Linux base packages
-- `configs/archlinux/phosh-packages.txt` — Arch Linux Phosh packages
-
-### NixOS (4 new)
-- `nixos/flake.nix` — cross-compilation flake (console + Phosh)
-- `nixos/devices/laurel-sprout/default.nix` — SM6125 device config
-- `nixos/configurations/console.nix` — text-only system
-- `nixos/configurations/phosh.nix` — Phosh + Wayland
-
-### Scripts (3 new)
-- `scripts/build-archlinux-rootfs.sh` — Arch Linux ARM rootfs builder
-- `scripts/build-manifest.sh` — unified build manifest generator
-- `scripts/validate-local.sh` — local validation suite
-
-### Reports (6 new)
-- `reports/upstream-audit.md` — kernel SM6125 upstream status
-- `reports/skill-audit.md` — linux-phone-porting methodology audit
-- `reports/source-gap-analysis.md` — missing sources analysis
-- `reports/matrix-audit.md` — distro × variant implementation matrix
-
-### Modified
-- `sources.lock.json` — added archlinuxarm-rootfs + linux-phone-porting-skill entries
-
-## Kernel
-- **Source**: Linux mainline v7.1
-- **Commit**: `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`
-- **Tag verification**: GitHub API confirms `torvalds/linux` tag v7.1 = this commit ✓
-- **Patches**: 4 downstream patches (panel, GPU, WiFi WCN3990)
-- **DTS**: `sm6125-xiaomi-laurel-sprout.dtb` merged upstream since v6.3
-
-## Skill
-- **Repository**: https://github.com/angelwzr/linux-phone-porting
-- **Commit**: `f0a60ccfb4764bb0d0295b57ce743a800fb43bee` (2026-08-24)
-- **License**: CC BY 4.0
-- **Applied as**: methodology reference only (no scripts executed)
-
-## CI Status
-- `00-quality.yml`: ✓ GREEN (ShellCheck, YAML, JSON, security, licenses all pass)
-- `03-build-kernel.yml`: dispatched, in progress (run 33030495004)
-
-## Known Limitations
-1. **NixOS**: No `flake.lock` (requires nix + network). Not reproducible until locked.
-2. **Arch Linux ARM**: rootfs MD5 (`23eec86...`) reported by upstream, not independently verified.
-3. **postmarketOS Phosh/Plasma**: scaffold-only (pmbootstrap integration placeholder).
-4. **No physical hardware testing**: All builds are image-validated only.
-5. **GPU**: Adreno 610 requires firmware `a610_zap.mbn` not yet packaged.
-6. **ShellCheck pre-existing**: `ssh-harden-rootfs.sh` SC2016 warnings fixed with disable directive (intentional regex pattern).
-
-## Recovery
-If this branch causes issues: `git checkout main && git branch -D agent/multi-distro-mainline`
-
-## Checklist
-- [x] Quality CI green
-- [x] Kernel source verified (tag v7.1 = correct commit)
-- [x] All workflows support `workflow_call` for matrix
-- [x] No secrets in repository
-- [x] No destructive commands in workflows
-- [x] All external actions pinned by SHA
-- [ ] NixOS flake.lock (blocked on nix availability)
-- [ ] Arch Linux ARM rootfs checksum independently verified
-- [ ] Physical hardware testing
+- `nixpkgs` fijado en `nixos/flake.lock` (`56c02bc…`, nixos-unstable) — el CI
+  nunca actualiza el lock silenciosamente.
+- Fixes de módulos initrd para linux 6.12 (`phy_qcom_qmp*`, `ufs_qcom`,
+  `dwc3`) — los nombres previos ya no existen y rompían el `modules-shrunk`.
+- Pendiente: 3B (árbol rootfs), 3C (ext4 NIXOS_ROOT), 3D (stage-1 real,
+  previa investigación del arranque), 3E (boot image; `hardware-tested=false`).
