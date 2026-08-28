@@ -73,14 +73,19 @@ Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
 - Fase 1 (config Phosh) ✅ `df6d1a6` — 00-quality green.
 - Fase 2 (nixos-eval.yml) ✅ `378c01f` + fix `a9055c9` — run 33133393490 green,
   `nixos-eval-report` verificado (aarch64-linux, drvPaths distintos console/gnome).
-- Fase 3A (build real fail-closed) en curso:
-  - 3A.1 ✅ iniciado: `check-no-soft-fallback.sh` (regresión), `build-nixos-rootfs.sh`
-    endurecido (nix build → exit≠0), 06/07 con gates `if: success()`, registro de
-    invalidación `reports/nixos-build-invalidation-log.md` (runs 33093698708,
-    33104029709, 33108497125, 33088227815 → `false-positive-invalidated`).
-  - Pendiente: commit `fix(nixos): fail closed when closure build fails`, 00-quality,
-    luego 3A.2–3A.5 (workflow/script de export de closure), 3A.6–3A.9 validación y
-    artefactos, 3A.10 docs + PR #15 (resolver estado MERGED vs draft), 3A.11/3A.12.
+- Fase 3A (build real fail-closed) ✅ EN VERDE:
+  - 3A.1 ✅ `22d8b17` (fail-closed: build-nixos-rootfs.sh, 06/07 gates, regresión
+    check-no-soft-fallback.sh, invalidation-log).
+  - 3A.2–3A.5 ✅ `07b607f`+ (`nixos-build-console.yml` + `export-nixos-closure.sh`):
+    run `33135793761` GREEN — closure laurel-console realmente construida,
+    verificada (`nix store verify` OK, 663 paths, hostPlatform aarch64-linux,
+    drvPath) y exportada reproducible (`nixos-laurel-console-closure.nar.zst`,
+    SHA256 `6b969088…`; integridad OK). Fixes de módulos 6.12 en `b62a3a1`,
+    `ec5fcaa`, `13da40a` (phy_qcom_qmp*/ufs_qcom/dwc3).
+  - 3A.6/3A.9 ✅ validación descargada e inspeccionada; `independently-imported=false`
+    (documentado). 3A.7 ✅ secret scan limpio. Report: `nixos-closure-validation.md`.
+  - Pendiente: 3A.10 (pr-body + resolución PR #15 MERGED), 3A.11/3A.12 (criterios
+    de salida; datos para 3B).
 - Fase 3 (boot real 3B–3E): plan dividido y criterios de aceptación en el plan.
   Pendiente: investigación de arranque NixOS (requisito 3D) antes de implementar.
 - **Arch parkeado** (redacción oficial): *"Current builder fails because pacman

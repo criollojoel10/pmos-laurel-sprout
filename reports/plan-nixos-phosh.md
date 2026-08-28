@@ -67,10 +67,24 @@ Subfases incrementales en commits separados (implementar de forma independiente,
 validar tras cada una):
 
 #### 3A. Exportar la closure
-- En `build-nixos-rootfs.sh`, tras `nix build ... --no-link --print-out-paths`,
-  guardar `OUT`. Verificar existencia de `<OUT>/init` y `<OUT>/etc/systemd`.
-- Criterio: closure completa logueada; fallo → NOTA explícita (no salida mínima
-  silenciosa).
+- ✅ IMPLEMENTADA (commits `22d8b17`, `07b607f`, `b62a3a1`, `ec5fcaa`, `13da40a`,
+  `a2b825c`, `b76d1ef`). Workflow `.github/workflows/nixos-build-console.yml` +
+  `scripts/export-nixos-closure.sh`.
+- Build REAL del toplevel (`nix build ./nixos#nixosConfigurations.laurel-console
+  .config.system.build.toplevel --out-link result-console --print-build-logs`),
+  fail-closed (sin fallback blando; regresión `scripts/check-no-soft-fallback.sh`
+  en 00-quality y validate-local). Inventario de invalidated runs:
+  `reports/nixos-build-invalidation-log.md`.
+- Verificación: `nix store verify` de los 663 paths OK; `init` ejecutable;
+  drvPath/systemPath/hostPlatform registrados (run `33135793761`);
+  `reports/nixos-closure-validation.md`.
+- Export reproducible: requisitos ordenados → `nix-store --export | zstd -T0 -19`
+  → `artifacts/nixos-console/nixos-laurel-console-closure.nar.zst`; SHA256
+  `6b969088…faae7a`; integridad verificada (zstd -t, stream `nix-archive-1`).
+  `independently-imported=false` (documentado, sin store aislado).
+- Fixes de reliability en el camino: módulos en `availableKernelModules` para
+  linux 6.12 (`phy_qcom_qmp*`, `ufs_qcom`, `dwc3` — los nombres viejos ya no
+  existen y rompían el `modules-shrunk` del initrd).
 
 #### 3B. Construir el árbol rootfs
 - Copiar la closure al árbol raíz objetivo: `/nix/store/*` + symlinks
