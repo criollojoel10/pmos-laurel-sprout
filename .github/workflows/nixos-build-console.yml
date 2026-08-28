@@ -139,12 +139,22 @@ jobs:
             --paths artifacts/nixos-console/closure-paths.txt \
             --out rootfs-tree
 
-      - name: Upload rootfs tree
+      - name: Package rootfs tree archive
+        run: |
+          set -Eeuo pipefail
+          mkdir -p artifacts-3b
+          tar -cf - -C rootfs-tree . | zstd -T0 -19 -q -o artifacts-3b/rootfs-tree.tar.zst
+          cp rootfs-tree/validation.json artifacts-3b/validation.json
+          sha256sum artifacts-3b/rootfs-tree.tar.zst
+
+      - name: Upload rootfs tree archive
         # actions/upload-artifact@v4.9.5
         if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: nixos-console-rootfs-tree
-          path: rootfs-tree/**
+          path: |
+            artifacts-3b/rootfs-tree.tar.zst
+            artifacts-3b/validation.json
           retention-days: 7
           if-no-files-found: error
