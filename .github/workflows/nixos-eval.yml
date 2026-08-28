@@ -1,0 +1,168 @@
+name: NixOS Fast Evaluation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'nixos/**'
+      - '.github/workflows/nixos-eval.yml'
+      - '.github/workflows/06-build-nixos.yml'
+      - '.github/workflows/07-build-distros.yml'
+      - 'scripts/build-nixos-rootfs.sh'
+      - 'scripts/build-busybox-arm64.sh'
+      - 'scripts/build-diagnostic-initramfs.sh'
+      - 'scripts/build-boot-image.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nixos-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Los evals no construyen nada: solo evaluacion. NO se usa caché (el lockfile
+  # fijado hace la evaluacion reproducible sin cachear) y NO se incluye
+  # extra-platforms: si un comando intentara realizar una derivacion fallaría
+  # rápido en vez de iniciar un build emulado.
+  NIXPKGS_PIN: "56c02bc00adcf003215cc4bd996d6efaf4cff188"
+
+jobs:
+  evaluate:
+    name: Evaluate NixOS (console + gnome), no build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Runner info
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -m"; uname -m; echo "::endgroup::"
+
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install Nix
+        # DeterminateSystems/nix-installer-action@v16
+        uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
+        with:
+          daemon: true
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Verify committed flake.lock (never updated silently by CI)
+        run: |
+          set -Eeuo pipefail
+          if [[ ! -f nixos/flake.lock ]]; then
+            echo "FALLO: nixos/flake.lock no está versionado." >&2
+            echo "Fluir el lockfile: generar con 'nix flake lock' en local y commitearlo." >&2
+            exit 1
+          fi
+          REV="$(jq -r '.nodes.nixpkgs.locked.rev' nixos/flake.lock)"
+          echo "Locked nixpkgs rev: $REV"
+          if [[ "$REV" != "$NIXPKGS_PIN" ]]; then
+            echo "FALLO: nixpkgs lockeado != pin ($NIXPKGS_PIN)." >&2
+            exit 1
+          fi
+          echo "[OK] flake.lock versionado y fijado a $REV"
+
+      - name: nix flake metadata
+        run: |
+          set -Eeuo pipefail
+          nix flake metadata ./nixos
+
+      - name: nix flake show
+        run: |
+          set -Eeuo pipefail
+          nix flake show ./nixos
+
+      - name: nix flake check --no-build
+        run: |
+          set -Eeuo pipefail
+          nix flake check ./nixos --no-build
+
+      - name: Evaluate hostPlatform (console + gnome) = aarch64-linux
+        run: |
+          set -Eeuo pipefail
+          for V in console gnome; do
+            P="$(nix eval --raw "./nixos#nixosConfigurations.laurel-${V}.config.nixpkgs.hostPlatform.system")"
+            echo "hostPlatform[$V] = $P"
+            if [[ "$P" != "aarch64-linux" ]]; then
+              echo "FALLO: hostPlatform[$V] debe ser aarch64-linux" >&2
+              exit 1
+            fi
+          done
+          echo "[OK] hostPlatform aarch64-linux verificado (console y gnome)"
+
+      - name: Evaluate toplevel.drvPath (console + gnome) y filtrar vacios
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/nixos-eval-report
+          for V in console gnome; do
+            DRV="$(nix eval --raw "./nixos#nixosConfigurations.laurel-${V}.config.system.build.toplevel.drvPath")"
+            echo "$DRV" > "/tmp/nixos-eval-report/${V}.drvpath"
+            echo "toplevel.drvPath[$V] = $DRV"
+            [[ -n "$DRV" ]] || { echo "FALLO: drvPath de $V vacío" >&2; exit 1; }
+            [[ "$DRV" == "/nix/store/"* && "$DRV" == *".drv" ]] || {
+              echo "FALLO: drvPath de $V no es una ruta .drv válida: $DRV" >&2; exit 1; }
+          done
+          A="$(cat /tmp/nixos-eval-report/console.drvpath)"
+          B="$(cat /tmp/nixos-eval-report/gnome.drvpath)"
+          [[ "$A" != "$B" ]] || { echo "FALLO: console y gnome generan la MISMA drv" >&2; exit 1; }
+          echo "[OK] drvPaths no vacíos, /nix/store/*.drv y diferentes entre variantes"
+
+      - name: Generate report (Markdown + JSON)
+        run: |
+          set -Eeuo pipefail
+          HOST_C="aarch64-linux"
+          HOST_G="aarch64-linux"
+          DRV_C="$(cat /tmp/nixos-eval-report/console.drvpath)"
+          DRV_G="$(cat /tmp/nixos-eval-report/gnome.drvpath)"
+          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          jq -n \
+            --arg host_console "$HOST_C" \
+            --arg host_gnome "$HOST_G" \
+            --arg drv_console "$DRV_C" \
+            --arg drv_gnome "$DRV_G" \
+            --arg nixpkgs_pin "$NIXPKGS_PIN" \
+            --arg generated_at "$NOW" \
+            '{aarch64_locked:true, nixpkgs_pin:$nixpkgs_pin,
+              variants:{
+                console:{hostPlatform:$host_console, toplevel_drvPath:$drv_console},
+                gnome:{hostPlatform:$host_gnome, toplevel_drvPath:$drv_gnome}},
+              generated_at:$generated_at}' \
+            > /tmp/nixos-eval-report/report.json
+          {
+            echo "# NixOS Evaluation Report"
+            echo ""
+            echo "Fecha: $NOW"
+            echo "Runner: x86_64 (ubuntu-latest) · solo evaluación, sin builds ni kernel"
+            echo "nixpkgs pin: \`$NIXPKGS_PIN\` (verificado igual al flake.lock commiteado)"
+            echo ""
+            echo "| Variante | hostPlatform | toplevel.drvPath |"
+            echo "|---|---|---|"
+            echo "| console | $HOST_C | \`$DRV_C\` |"
+            echo "| gnome (Phosh) | $HOST_G | \`$DRV_G\` |"
+            echo ""
+            echo "- hostPlatform **aarch64-linux** verificado para console y gnome."
+            echo "- drvPaths no vacíos, \`/nix/store/*.drv\` y distintos entre variantes."
+            echo "- flake.lock versionado y \`nix flake check --no-build\` verde."
+          } > /tmp/nixos-eval-report/report.md
+          echo "::group::report.md"
+          cat /tmp/nixos-eval-report/report.md
+          echo "::endgroup::"
+          echo "::group::report.json"
+          cat /tmp/nixos-eval-report/report.json
+          echo "::endgroup::"
+
+      - name: Upload evaluation report
+        # actions/upload-artifact@v4.9.5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-eval-report
+          path: |
+            /tmp/nixos-eval-report/*
+          retention-days: 30
+          if-no-files-found: error
