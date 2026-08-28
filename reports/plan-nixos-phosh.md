@@ -110,14 +110,23 @@ validar tras cada una):
 - Artefacto: `nixos-console-rootfs-image`/`image-validation.json`; sha256 local ==
   CI. `imageSha256=b8e61fc2…` `uuid=87bf6242-3f0b-458c-8bbb-e0be1ad48d0e`.
 
-#### 3D. Integrar initramfs y stage-1
-- **ANTES de implementar**: investigar y confirmar el mecanismo real de arranque
-  NixOS (ver "Investigación de arranque NixOS" abajo). NO asumir que
-  `init=<closure>/init` es suficiente.
-- `initramfs/init`: modo boot real (`NIXOS_BOOT=1`): montar pseudo-filesystems,
-  cargar módulos necesarios antes de root (ufshcd-qcom, USB DWC3, UFS), montar
-  `LABEL=NIXOS_ROOT`, preparar `/nix/store` y `switch_root`/pivotar al init de la
-  closure; mantener logging (console ttyMSM0) y shell de recuperación.
+#### 3D. Integrar initramfs y stage-1 — ✅ INVESTIGACIÓN COMPLETADA (ver abajo)
+- Confirmado documentalmente (fuentes nixpkgs `stage-1-init.sh`/`stage-2-init.sh`,
+  master): el mecanismo es un initramfs (stage-1, shell) que procesa `/proc/cmdline`
+  (`init=` → stage2Init; `root=` → /dev/root), monta el root y hace
+  `exec switch_root /mnt-root <stage2Init>`. NO basta un `init=` a secas: el
+  initramfs es el QUE monta root y entrega /proc,/sys,/dev,/run movidos.
+- `initramfs/init` propio (modo boot real): montar pseudo-fs, cargar módulos
+  UFS/DWC3 (nombres 6.12 ya en `availableKernelModules`), localizar y montar
+  `LABEL=NIXOS_ROOT`, `mount --move` de /proc,/sys,/dev,/run, y
+  `exec switch_root /mnt-root /nix/store/<hash>-nixos-system-…/init` (el applet
+  `switch_root` de busybox; stage-2 luego re-monta / rw, bind de /nix/store con
+  opciones, corre `activate` y `exec systemd`). Shell de recuperación en
+  fallo + logging console ttyMSM0.
+- Kernel v7.1 (compartido) via `reusable-build-kernel.yml` MISM del run
+  (patrón de `07-build-distros`), NO rebuild por iteración de rootfs. UFS y ext4
+  vienen de los módulos del kernel 7.1 en el initramfs (no del initrd de NixOS
+  para 6.12, que es de otro kernel).
 - Criterios: init existente y ejecutable (ARM64, i.e. no loader x86-trampoline);
   initramfs extraíble; boot.img extraíble; sin secretos.
 
@@ -126,18 +135,43 @@ validar tras cada una):
   7.1.0 compartido; arquitectura ARM64 del init/initramfs), generar
   SHA256SUMS/manifest y subir artefactos. hardware tested=false.
 
-#### Investigación de arranque NixOS (requisito para 3D)
-Confirmar documentalmente antes de escribir init/:
-- stage-1 de NixOS: código real, variables, `/init` re-exec vía `init=` cmdline;
-- ruta correcta del init dentro de la closure (`/nix/store/...-nixos-system-*/init`);
-- manejo de `/nix/store` (la stage-1 de NixOS requiere el store montado);
-- `switch_root` vs `pivot_root` (busybox → stage-2), pseudo-filesystems a
-  re-montar (/proc /sys /dev /run);
-- módulos de kernel necesarios ANTES de montar root (UFS: `ufshcd-qcom`, `ufs`,
-  `phy_qcom_ufs`; USB DWC3) — la stage-1 de linuxPackages_6_12 es para OTRO
-  kernel; el initramfs debe proveerlos o el root no monta;
-- UFS y ext4 disponibles en el initramfs (applets/módulos/dd);
-- shell de recuperación y logging (console ttyMSM0; pipeerr).
+#### Investigación de arranque NixOS (requisito para 3D) — ✅ COMPLETADA
+Fuentes: `nixos/modules/system/boot/stage-1-init.sh` y `stage-2-init.sh`
+(nixpkgs master, GitHub). Hallazgos:
+- stage-1 es un script shell ran como PID1 en un initramfs; `@extraUtils@`
+  (busybox+bash+switch_root+applets) vive en el propio initramfs. Procesa
+  `/proc/cmdline` (tras montar /proc): `init=*` → `stage2Init` (default `/init`);
+  `root=LABEL=X`/`root=UUID=…` → symlink `/dev/root`; `root=<ruta>` firewall
+  directo. `console=*` elige el TTY del shell de recuperación.
+- Carga módulos de `boot.initrd.kernelModules`/`availableKernelModules` con
+  modprobe desde extraUtils ANTES de udev; crea nodos vía systemd-udevd.
+- Monta root desde `fsInfo` (generado del `fileSystems."/".device`), encadenando
+  `mountFS` en `/mnt-root`; `waitDevice` reintenta (loop 20s) si falta el nodo.
+- `switch_root`: `mkdir -p $targetRoot/{proc,sys,dev,run}`; `mount --move` de
+  /proc /sys /dev /run a `$targetRoot`; después
+  `exec env -i $(type -P switch_root) "$targetRoot" "$stage2Init"`. O sea el
+  tool `switch_root` (util-linux o busybox) prototipo es imprescindible y los
+  pseudo-fs se MUEVEN (no re-montan) al root real.
+- `stage2Init` en real NixOS lo pasa el bootloader: cmdline del boot entry
+  `init=/nix/store/<hash>-nixos-system-<ver>/init` → ese `init` es el stage-2.
+- stage-2 (`<toplevel>/init`): `if [ ! -e /proc/1 ]` re-monta pseudo-fs si no
+  hay stage-1; remonta `/` rw; bind de `/nix/store` con opciones
+  (`ro,nosuid,nodev` por defecto) — el store DEBE estar en la raíz; corre
+  `$systemConfig/activate`; `ln -sfn "$systemConfig" /run/booted-system`;
+  `exec systemd "$@"`. Además necesita `/etc` (existe en el root NIXOS_ROOT/…).
+- Implicaciones para laurel: nuestro init propio DELIVERA stage-2 SÓLO con
+  (1) root montado en /mnt-root, (2) /nix/store presente en la raíz (el árbol 3B
+  YA lo tiene), (3) pseudo-fs movidos, (4) `/etc` del sistema (árbol 3B), (5)
+  cmdline `init=<toplevel>/init`. No hace falta el initrd NixOS completo; el
+  initramfs propio (busybox ARM64 estático + módulos 7.1 del kernel compartido)
+  lo habilita.
+- Nombres de módulos para 6.12 del root (el plan viejo decía `ufshcd-qcom`/
+  `phy_qcom_ufs`; con linux-mainline 6.12.x los nombres correctos son
+  `ufs_qcom`, `phy_qcom_qmp_ufs`, `dwc3`, `dwc3_qcom` — ya aplicados en
+  `nixos/devices/laurel-sprout/default.nix`).
+- Shell de recuperación y logging: stage-1 usa `console=` de cmdline para el TTY
+  del shell interactivo (`fail`); nuestro init usa `console=ttyMSM0,115200n8`
+  (default ya en assemble-boot-image.sh) + tee a /dev/kmsg.
 
 #### Criterios de aceptación Fase 3
 - [ ] closure completa construida (no salida mínima);

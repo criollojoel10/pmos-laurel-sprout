@@ -105,8 +105,12 @@ Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
   (uuid `87bf6242-…`), `e2fsck -f` exit 0, remontada con 663/663 store paths,
   sha256 local == CI (`b8e61fc2…`). Fixes en el camino: `-i 4096` inodes,
   e2fsck por exit code, `find` (SC2012).
-- Fase 3D (initramfs + stage-1): INVESTIGACIÓN de arranque NixOS es requisito
-  previo (plan).
+- Fase 3D (initramfs + stage-1): INVESTIGACIÓN de arranque NixOS REQUISITO
+  PREVIO — COMPLETADA (fuentes stage-1-init.sh/stage-2-init.sh, nixpkgs master;
+  hallazgos en `plan-nixos-phosh.md`). Inicio de implementación: initramfs propio
+  (busybox ARM64 + módulos kernel v7.1 compartido via reusable-build-kernel) que
+  monta root y hace `exec switch_root` al `<toplevel>/init`; cmdline
+  `init=<toplevel>/init`.
 - **Arch parkeado** (redacción oficial): *"Current builder fails because pacman
   check_space expects /proc inside the target environment; alternative
   RootDir/native pacman approach requires a separate design and CI validation."*
