@@ -22,36 +22,40 @@
   # User account
   users.users.user = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" "video" "input" ];
+    # "feedbackd" group: required by programs.feedbackd so the user can trigger
+    # haptic effects (per nixos/modules/programs/feedbackd.nix). dialout NOT
+    # added: the modem is not on ttyUSB/ttyACM (no documented need).
+    extraGroups = [ "wheel" "networkmanager" "video" "input" "feedbackd" ];
     initialPassword = "test"; # CHANGE on first boot
   };
 
-  # Packages for Phosh environment
+  # Required by the GNOME/GTK stack (GSettings backend). Also set by
+  # gnome core-os-services; explicit here for clarity.
+  programs.dconf.enable = true;
+
+  # Only packages NOT already installed by the phosh/gnome modules
+  # (phosh, phoc, stevia, gnome-shell, gnome-control-center,
+  # adwaita-icon-theme, gnome-settings-daemon, ... come from the modules).
   environment.systemPackages = with pkgs; [
-    # Phosh dependencies
-    phosh
+    # Phosh companion settings app (not provided by any module)
     phosh-mobile-settings
-    phoc
-    # GNOME integration
-    adwaita-icon-theme
-    gnome-control-center
-    gnome-session
-    # Wayland
+    # Wayland utilities and Qt Wayland runtime
     wayland-utils
     qt6-wayland
     # Diagnostics
-    mesa-utils
     eglinfo
     glmark2-es2-wayland
     libinput
-    htop
-    vim
-    # Network
-    networkmanagerapplet
-    # Bluetooth
-    bluez
     bluez-tools
   ];
+
+  # Desktop-only GNOME services not needed on a phone; core-shell enables them
+  # with mkDefault true, so explicit false wins.
+  services.gnome = {
+    gnome-initial-setup.enable = false;
+    gnome-remote-desktop.enable = false;
+  };
+  environment.gnome.excludePackages = [ pkgs.orca ];
 
   # Enable Bluetooth
   hardware.bluetooth = {
@@ -67,10 +71,13 @@
   };
 
   # Display scaling for 720x1560
+  # phocConfig default already scales DSI-1 to 2; these env vars keep the
+  # shell and apps coherent. QT_QPA_PLATFORM=wayland for Qt apps under Phosh.
   environment.sessionVariables = {
     PHOSH_SCALE = "2";
     GDK_SCALE = "2";
     QT_SCALE_FACTOR = "2";
+    QT_QPA_PLATFORM = "wayland";
   };
 
   # Disable gdm (Phosh has its own greeter)
