@@ -60,8 +60,9 @@ info "tamaño imagen: $SIZE_BYTES bytes (~$(( SIZE_BYTES / 1024 / 1024 )) MiB) p
 truncate -s "$SIZE_BYTES" "$OUT"
 
 # ── 2. mkfs.ext4 con la closure poblada (-L NIXOS_ROOT) ───────────────────
+# -i 4096   árbol con ~162k ficheros => inodes suficientes (-d los agota).
 info "mkfs.ext4 -L $LABEL (poblada desde $TREE)..."
-if ! mkfs.ext4 -q -F -L "$LABEL" -d "$TREE" "$OUT"; then
+if ! mkfs.ext4 -q -F -i 4096 -L "$LABEL" -d "$TREE" "$OUT"; then
   echo "ERROR: mkfs.ext4 falló" >&2
   exit 1
 fi
