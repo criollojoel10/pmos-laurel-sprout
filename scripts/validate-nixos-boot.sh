@@ -72,7 +72,9 @@ grep -qE '(^\./)?init$' /tmp/unpack/rd.list || { echo "ERROR: init ausente en in
 grep -qE '(^\./)?busybox$' /tmp/unpack/rd.list || { echo "ERROR: busybox ausente en initramfs" >&2; exit 1; }
 rm -rf /tmp/unpack/rm
 mkdir -p /tmp/unpack/rm
-( cd /tmp/unpack/rm && gzip -dc /tmp/unpack/ramdisk | cpio -id --quiet ./busybox 2>/dev/null )
+( cd /tmp/unpack/rm && gzip -dc /tmp/unpack/ramdisk | cpio -id --quiet busybox 2>/dev/null || true )
+[ -f /tmp/unpack/rm/busybox ] || ( cd /tmp/unpack/rm && gzip -dc /tmp/unpack/ramdisk | cpio -id --quiet ./busybox 2>/dev/null || true )
+[ -f /tmp/unpack/rm/busybox ] || { echo "ERROR: no se pudo extraer busybox del initramfs" >&2; exit 1; }
 BB_ARCH="$(file /tmp/unpack/rm/busybox | grep -oE 'ARM aarch64|aarch64' | head -1)"
 [[ "$BB_ARCH" == *aarch64* ]] || { echo "ERROR: busybox no aarch64 ($BB_ARCH)" >&2; exit 1; }
 
