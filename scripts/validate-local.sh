@@ -59,13 +59,24 @@ for f in scripts/*.sh; do
   fi
 done
 
-# ── 4. ShellCheck ──
+# ── 4. ShellCheck (misma versión 0.10.0 pinneada que en 00-quality) ──
 echo "--- 4. ShellCheck ---"
-if command -v shellcheck >/dev/null 2>&1; then
+SC=""
+for cand in /data/data/com.termux/files/usr/tmp/opencode/shellcheck-v0.10.0/shellcheck \
+            "$HOME/opencode/shellcheck-v0.10.0/shellcheck"; do
+  if [[ -x "$cand" ]]; then SC="$cand"; break; fi
+done
+if [[ -z "$SC" ]]; then
+  SC="$(command -v shellcheck 2>/dev/null || true)"
+  if [[ -n "$SC" ]]; then
+    echo "  nota: usando ShellCheck del PATH ($($SC --version | head -1)); el CI usa 0.10.0 pinneado"
+  fi
+fi
+if [[ -n "$SC" ]]; then
   SCFAIL=0
   for f in scripts/*.sh; do
     [[ -f "$f" ]] || continue
-    if shellcheck --external-sources "$f" 2>/dev/null; then
+    if "$SC" --external-sources "$f" 2>/dev/null; then
       ok "shellcheck: $(basename "$f")"
     else
       fail "shellcheck: $(basename "$f")"
@@ -145,7 +156,10 @@ ok "referenced files check completed"
 
 # ── 9. Dangerous patterns ──
 echo "--- 9. Security patterns ---"
-DANGEROUS=$(grep -RInE "curl.*\|.*(sh|bash)|eval [\"'\$]|set -x" scripts .github nixos configs 2>/dev/null | grep -v 'test-opencode-security' | grep -v '.gitignore' || true)
+# Excepción documentada: `boot.debug) set -x` en el `init` del initramfs es un
+# switch de diagnóstico SOLO activo si el cmdline del dispositivo lleva
+# `boot.debug` (nunca por defecto); no afecta al pipeline del CI.
+DANGEROUS=$(grep -RInE "curl.*\|.*(sh|bash)|eval [\"'\$]|set -x" scripts .github nixos configs 2>/dev/null | grep -v 'test-opencode-security' | grep -v '.gitignore' | grep -v 'boot\.debug) set -x' || true)
 if [[ -z "$DANGEROUS" ]]; then
   ok "no dangerous patterns"
 else

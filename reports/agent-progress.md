@@ -105,17 +105,27 @@ Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
   (uuid `87bf6242-…`), `e2fsck -f` exit 0, remontada con 663/663 store paths,
   sha256 local == CI (`b8e61fc2…`). Fixes en el camino: `-i 4096` inodes,
   e2fsck por exit code, `find` (SC2012).
-- Fase 3D (initramfs + stage-1): INVESTIGACIÓN de arranque NixOS REQUISITO
-  PREVIO — COMPLETADA (fuentes stage-1-init.sh/stage-2-init.sh, nixpkgs master;
-  hallazgos en `plan-nixos-phosh.md`). Inicio de implementación: initramfs propio
-  (busybox ARM64 + módulos kernel v7.1 compartido via reusable-build-kernel) que
-  monta root y hace `exec switch_root` al `<toplevel>/init`; cmdline
-  `init=<toplevel>/init`.
+- Fase 3D ✅ GREEN (run `33240188674`): `build-nixos-initramfs.sh` +
+  `assemble-boot-image.sh` — initramfs (init ARM64 estático + busybox aarch64 +
+  módulos kernel v7.1, 1 995 paths) + boot.img **con `Image.gz`** (Image RAW 56.3
+  MiB excede partición 64 MiB), Header v2, 37 818 368 B. Causa raíz de fallos
+  previos: GNU cpio lista SIN `./` → greps tolerantes `(^|/)init$`/`(^|/)busybox$`;
+  `grep -c '/lib/modules/'`→0 con `set -e` (ahora `grep -cE 'lib/modules' || true`
+  + aserción MOD_COUNT>0); scripts sin `+x` (commit `0ddd15f`, 100755).
+- Fase 3E ✅ GREEN (run `33240188674`): `validate-nixos-boot.sh` + job
+  `package-release` — magic ANDROID!, payloads (Image.gz/ramdisk/dtb v17),
+  kernelrelease kernel==módulos `7.1.0-postmarketos-sm6125-00001-g8eab428f49a7`,
+  ARM64, secret scan limpio, SHA256SUMS/artifact-index,
+  `nixos-console-release-validation`. Robustez: mktemp, find recursivo
+  (upload-artifact v4 anida rutas absolutas), guards `|| true` en `| head` bajo
+  pipefail. Boot sha256 `66ae73a3…`.
+- **Fase 3 COMPLETA** (3A–3E verdes, run `33240188674`, commit `7b8d7ad`);
+  preparada para test físico console.
 - **Arch parkeado** (redacción oficial): *"Current builder fails because pacman
   check_space expects /proc inside the target environment; alternative
   RootDir/native pacman approach requires a separate design and CI validation."*
   Sin afirmar que /proc es imposible de montar en todos los runners GH.
 - `reports/cross-distro-validation.md` + `reports/artifact-index.json`.
-- Instrucciones de prueba física (fastboot + rootfs) tras Fase 4 del plan.
+- Instrucciones de prueba física (fastboot + rootfs): en `reports/physical-test-laurel-nixos.md`.
 - Pendiente menor: el `pkgs` con `crossSystem` en `nixos/flake.nix` (líneas 11-14) es
   código muerto (nixosSystem usa su propio pkgs vía `system`); limpiar.

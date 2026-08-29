@@ -74,8 +74,9 @@ grep -qE '(^|/)init$' "$WORK/rd.list" || { echo "ERROR: init ausente en initramf
 grep -qE '(^|/)busybox$' "$WORK/rd.list" || { echo "ERROR: busybox ausente en initramfs" >&2; exit 1; }
 rm -rf "$WORK/rm"
 mkdir -p "$WORK/rm"
-( cd "$WORK/rm" && gzip -dc "$WORK/ramdisk" | cpio -id --quiet busybox 2>/dev/null || true )
-[ -f "$WORK/rm/busybox" ] || ( cd "$WORK/rm" && gzip -dc "$WORK/ramdisk" | cpio -id --quiet ./busybox 2>/dev/null || true )
+if ! ( cd "$WORK/rm" && gzip -dc "$WORK/ramdisk" | cpio -id --quiet busybox 2>/dev/null ); then
+  ( cd "$WORK/rm" && gzip -dc "$WORK/ramdisk" | cpio -id --quiet ./busybox 2>/dev/null ) || true
+fi
 [ -f "$WORK/rm/busybox" ] || { echo "ERROR: no se pudo extraer busybox del initramfs" >&2; exit 1; }
 BB_ARCH="$(file "$WORK/rm/busybox" | grep -oE 'ARM aarch64|aarch64' | head -1 || true)"
 [[ "$BB_ARCH" == *aarch64* ]] || { echo "ERROR: busybox no aarch64 ($BB_ARCH)" >&2; exit 1; }

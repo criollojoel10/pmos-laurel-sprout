@@ -61,6 +61,8 @@ verificación y export reproducible de la closure de `nixosConfigurations.laurel
 | references-complete | **true** | requisitos via `nix-store -qR` (663) |
 | seal (ready-for-rootfs-tree) | **true** | árbol rootfs armado y validado en 3B (`rootfs-tree.tar.zst`, 2.2 GB, 663 paths) |
 | seal-image (ext4 NIXOS_ROOT) | **true** | 3C: imagen raw validada (`nixos-rootfs.img`, label `NIXOS_ROOT`, uuid `87bf6242-…`, e2fsck exit 0, remontable, sha256 `b8e61fc2…`) |
+| seal-initramfs (ready-for-boot) | **true** | 3D (run `33240188674`): initramfs armado (`init` ARM64 estático + busybox aarch64 + módulos kernel 7.1, 1 995 paths), greps/cmdline OK, MOD_COUNT>0 |
+| seal-boot (ready-for-physical-test) | **true** | 3E (run `33240188674`): magic ANDROID!, payloads extraíbles (Image.gz + ramdisk cpio.gz + dtb v17), cabe en partición (37 818 368 B < 67 108 864 B), boot sha256 `66ae73a3…`, kernelrelease kernel==modules `7.1.0-postmarketos-sm6125-00001-g8eab428f49a7`, e2fsck OK, secret scan limpio |
 | hardware-tested | **false** | sin hardware; no se flashea nada |
 
 Nota (status previo): en la primera iteración `independently-imported` era

@@ -110,30 +110,36 @@ validar tras cada una):
 - Artefacto: `nixos-console-rootfs-image`/`image-validation.json`; sha256 local ==
   CI. `imageSha256=b8e61fc2…` `uuid=87bf6242-3f0b-458c-8bbb-e0be1ad48d0e`.
 
-#### 3D. Integrar initramfs y stage-1 — ✅ INVESTIGACIÓN COMPLETADA (ver abajo)
-- Confirmado documentalmente (fuentes nixpkgs `stage-1-init.sh`/`stage-2-init.sh`,
-  master): el mecanismo es un initramfs (stage-1, shell) que procesa `/proc/cmdline`
-  (`init=` → stage2Init; `root=` → /dev/root), monta el root y hace
-  `exec switch_root /mnt-root <stage2Init>`. NO basta un `init=` a secas: el
-  initramfs es el QUE monta root y entrega /proc,/sys,/dev,/run movidos.
-- `initramfs/init` propio (modo boot real): montar pseudo-fs, cargar módulos
-  UFS/DWC3 (nombres 6.12 ya en `availableKernelModules`), localizar y montar
-  `LABEL=NIXOS_ROOT`, `mount --move` de /proc,/sys,/dev,/run, y
-  `exec switch_root /mnt-root /nix/store/<hash>-nixos-system-…/init` (el applet
-  `switch_root` de busybox; stage-2 luego re-monta / rw, bind de /nix/store con
-  opciones, corre `activate` y `exec systemd`). Shell de recuperación en
-  fallo + logging console ttyMSM0.
-- Kernel v7.1 (compartido) via `reusable-build-kernel.yml` MISM del run
-  (patrón de `07-build-distros`), NO rebuild por iteración de rootfs. UFS y ext4
-  vienen de los módulos del kernel 7.1 en el initramfs (no del initrd de NixOS
-  para 6.12, que es de otro kernel).
+#### 3D. Integrar initramfs y stage-1 — ✅ GREEN (run `33240188674`)
+- `scripts/build-nixos-initramfs.sh` + `assemble-boot-image.sh`: initramfs con
+  `init` propio + busybox ARM64 estático + módulos del kernel v7.1 compartido
+  (mismo run), empaquetado cpio clásico (`find . -print | sort | cpio -o -H
+  newc` — GNU cpio lista/almacena SIN prefijo `./`, por eso los greps usan
+  `(^|/)init$`/`(^|/)busybox$`). Boot.img ensamblado con `Image.gz` (no Image:
+  56.3 MiB excede el límite de 64 MiB; Image.gz 17.9 MiB) + ramdisk + dtb, Header
+  v2 (ramdisk 0x1000000, dtb 0x1f00000).
+- Causa raíz de los fallos previos documentada en `reports/nixos-closure-validation.md`
+  y agent-progress: (1) greps estrictos contra listado cpio sin `./`; (2)
+  `grep -c '/lib/modules/'` devolvía 0 → aborto `set -e` (fijo con
+  `grep -cE 'lib/modules' || true` + aserción `MOD_COUNT>0`); (3) Kernel Image
+  demasiado grande para partición `boot`; (4) scripts sin `+x` en git (ahora
+  100755, se invocan con `bash`).
+- Verificado en CI: initramfs 1 995 paths (init/busybox/modules), cmdline con
+  `root=LABEL=NIXOS_ROOT init=/nix/store/<hash>-…/init`, boot.img 37 818 368 B.
 - Criterios: init existente y ejecutable (ARM64, i.e. no loader x86-trampoline);
   initramfs extraíble; boot.img extraíble; sin secretos.
 
-#### 3E. Validar rootfs y boot image
-- Validar la imagen completa (kernelrelease y módulos coherentes con el kernel
-  7.1.0 compartido; arquitectura ARM64 del init/initramfs), generar
-  SHA256SUMS/manifest y subir artefactos. hardware tested=false.
+#### 3E. Validar rootfs y boot image — ✅ GREEN (run `33240188674`)
+- `scripts/validate-nixos-boot.sh` + job `package-release`: magic ANDROID!,
+  payloads extraíbles (Image.gz, ramdisk cpio.gz, dtb v17), kernelrelease
+  kernel==módulos (`7.1.0-postmarketos-sm6125-00001-g8eab428f49a7`),
+  busybox aarch64, `init` ARM64, secret scan, SHA256SUMS, `artifact-index.json`,
+  hardware-tested **false**. Artefacto: `nixos-console-release-validation`
+  (reporte + índice con sha256 de boot/rootfs/closure).
+- Detalles de robustez: `mktemp -d` (no `/tmp` fijo), descubre artefactos en
+  anidado de `upload-artifact@v4` (`find` recursivo), greps tolerantes a cpio sin
+  `./`, kernelrelease vía decompresión de `Image.gz` (`zcat | strings`), guards
+  `|| true` en pipes `| head` bajo `pipefail`.
 
 #### Investigación de arranque NixOS (requisito para 3D) — ✅ COMPLETADA
 Fuentes: `nixos/modules/system/boot/stage-1-init.sh` y `stage-2-init.sh`
@@ -174,24 +180,26 @@ Fuentes: `nixos/modules/system/boot/stage-1-init.sh` y `stage-2-init.sh`
   (default ya en assemble-boot-image.sh) + tee a /dev/kmsg.
 
 #### Criterios de aceptación Fase 3
-- [ ] closure completa construida (no salida mínima);
-- [ ] referencias verificadas (closure del toplevel exportada/check-size);
-- [ ] rootfs montable;
-- [ ] `e2fsck -f` limpio;
-- [ ] label `NIXOS_ROOT` confirmada;
-- [ ] init existente y ejecutable (ARM64 ELF, no trampoline x86);
-- [ ] arquitectura ARM64 (file init), kernelrelease y módulos coincidentes con
+- [x] closure completa construida (no salida mínima);
+- [x] referencias verificadas (closure del toplevel exportada/check-size);
+- [x] rootfs montable;
+- [x] `e2fsck -f` limpio;
+- [x] label `NIXOS_ROOT` confirmada;
+- [x] init existente y ejecutable (ARM64 ELF, no trampoline x86);
+- [x] arquitectura ARM64 (file init), kernelrelease y módulos coincidentes con
   7.1.0;
-- [ ] initramfs extraíble (cpio.gz válido);
-- [ ] boot.img extraíble (magic ANDROID!, payloads correctos);
-- [ ] ningún secreto en imágenes/reportes;
-- [ ] hardware tested=false (documentado, no probado en dispositivo).
+- [x] initramfs extraíble (cpio.gz válido);
+- [x] boot.img extraíble (magic ANDROID!, payloads correctos);
+- [x] ningún secreto en imágenes/reportes;
+- [x] hardware tested=false (documentado, no probado en dispositivo).
 
 ### Fase 4 — Validación final
 - 06-build-nixos (workflow_dispatch `build_variant=gnome`) → kernel + closure +
   imagen. Chequear jobs verdes + artefactos (`boot.img`, `ext4.img.xz`) +
   generar `reports/cross-distro-validation.md`.
-- Instrucciones de prueba física (fastboot + flasheo rootfs) en reports.
+- Instrucciones de prueba física (fastboot + flasheo rootfs): listas en
+  `reports/physical-test-laurel-nixos.md` (artefactos sellados del run
+  `33240188674`).
 
 ### Fase 5 — Arch (parkeado, documentado)
 - Bloqueante actual (verificado 3 runs):
