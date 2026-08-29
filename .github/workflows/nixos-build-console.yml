@@ -287,6 +287,7 @@ jobs:
           gzip -dc /tmp/initramfs-out/initramfs.cpio.gz | cpio -t | sort > /tmp/initramfs-file-list.txt
           grep -q '/init$' /tmp/initramfs-file-list.txt || grep -q '^\./init$' /tmp/initramfs-file-list.txt || { echo "FALLO: init ausente en initramfs" >&2; exit 1; }
           grep -q '/busybox$' /tmp/initramfs-file-list.txt || grep -q '^\./busybox$' /tmp/initramfs-file-list.txt || { echo "FALLO: busybox ausente en initramfs" >&2; exit 1; }
+          find /tmp/initramfs-out/lib/modules -name 'modules.dep' | grep -q . || { echo "FALLO: sin modules.dep (modprobe no resolvería)" >&2; exit 1; }
           grep -c '/lib/modules/' /tmp/initramfs-file-list.txt
           file /tmp/initramfs-out/busybox
 
@@ -334,7 +335,55 @@ jobs:
             /tmp/boot-out/cmdline.txt
             /tmp/boot-out/boot-manifest.json
             /tmp/boot-validation/**/*
+            /tmp/boot-out/boot-validation/**/*
             /tmp/initramfs-file-list.txt
             /tmp/initramfs-out/initramfs.cpio.gz
           retention-days: 7
+          if-no-files-found: error
+
+  # Fase 3E: empaquetado y validación final del conjunto (sin flasheo)
+  package-release:
+    name: "Package + final validation (3E)"
+    needs: [create-rootfs-image, build-boot-image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download closure (3A)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-closure
+          path: artifacts-3a
+
+      - name: Download rootfs image (3C)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-rootfs-image
+          path: artifacts-3c
+
+      - name: Download boot image (3D)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-boot
+          path: artifacts-3d
+
+      - name: Validate + package release (3E)
+        run: |
+          set -Eeuo pipefail
+          chmod +x scripts/validate-nixos-boot.sh
+          scripts/validate-nixos-boot.sh \
+            --closure-dir artifacts-3a \
+            --image-dir artifacts-3c \
+            --boot-dir artifacts-3d \
+            --out artifacts-3e
+
+      - name: Upload release validation (3E)
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-console-release-validation
+          path: artifacts-3e/
+          retention-days: 14
           if-no-files-found: error
