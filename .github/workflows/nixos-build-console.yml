@@ -288,7 +288,9 @@ jobs:
           grep -qE '(^|/)init$' /tmp/initramfs-file-list.txt || { echo "FALLO: init ausente en initramfs" >&2; sed -n '1,20p' /tmp/initramfs-file-list.txt >&2; exit 1; }
           grep -qE '(^|/)busybox$' /tmp/initramfs-file-list.txt || { echo "FALLO: busybox ausente en initramfs" >&2; sed -n '1,20p' /tmp/initramfs-file-list.txt >&2; exit 1; }
           find /tmp/initramfs-out/lib/modules -name 'modules.dep' | grep -q . || { echo "FALLO: sin modules.dep (modprobe no resolvería)" >&2; exit 1; }
-          grep -c '/lib/modules/' /tmp/initramfs-file-list.txt
+          MOD_COUNT="$(grep -cE 'lib/modules' /tmp/initramfs-file-list.txt || true)"
+          [ "$MOD_COUNT" -gt 0 ] || { echo "FALLO: initramfs sin módulos del kernel" >&2; exit 1; }
+          echo "entradas con módulos del kernel: $MOD_COUNT"
           file /tmp/initramfs-out/busybox
 
       - name: Build + verify boot.img
