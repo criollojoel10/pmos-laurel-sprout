@@ -30,6 +30,12 @@
       "test": "Diagnóstico root SSH 6.1 de solo-lectura: inventario completo vía root@172.16.42.1",
       "result": "partially-working",
       "notes": "Root SSH por clave Ed25519 confirmado; no se habilitó password authentication. Dmesg confirma simplefb registrado en 0x5c000000 (720x1560x32, stride 2880), RNDIS/QUSB2 y UFS. No aparecen mmc/SDIO, wlan0, hci0, power_supply, thermal zones, cpufreq ni /dev/dri. Resumen público en reports/physical-tests/SSH-ROOT-6_1-READONLY/result.md."
+    },
+    {
+      "date": "2026-08-29",
+      "test": "NixOS boot header v2, slot b (boot_b = boot-laurel-nixos-console.img run 33240188674, sha256 66ae73a3, v2 + dtb field 0x1f00000)",
+      "result": "blocked",
+      "notes": "fastboot boot rechazado por el ABL con clientes 37.0.0 y r33.0.3 (FASTBOOT_BOOT_COMMAND_UNSUPPORTED, download OKAY pero Booting FAILED unknown command). Flash boot_b + set_active b + reboot -> fallback inmediato a Fastboot sin estado observable (no kernel booting, no initramfs, no gadget). HARDWARE_STATE_MAX = bootloader-rejected. Coherente con h1 IT1/IT2/IT3. Slot a intacto (e/OS), dtbo_b borrado, vbmeta_b flags=2, rootfs NIXOS_ROOT ausente. Sin prueba de userspace NixOS. Detalle: reports/physical-tests/NIXOS-V2-BOOTLOADER-REJECTED/result.md. Siguiente: variante v0+append_dtb en CI (header v0) para re-testeo."
     }
   ],
   "device": {

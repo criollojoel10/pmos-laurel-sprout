@@ -1,7 +1,7 @@
 # Agent Progress Report
 
 Estado operativo del pipeline multi-distro para Xiaomi Mi A3 (laurel_sprout / SM6125).
-Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
+Actualizado: 2026-08-29 (test físico NixOS v2 → bootloader-rejected; variante v0+append en CI).
 
 ## Kernel (base compartida)
 - Linux mainline `v7.1` = `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`, 4 parches (`patches/kernel/0001..0004`).
@@ -129,3 +129,20 @@ Actualizado: 2026-08-28 (NixOS+Phosh: Fase 1 y 2 verdes; Arch parkeado).
 - Instrucciones de prueba física (fastboot + rootfs): en `reports/physical-test-laurel-nixos.md`.
 - Pendiente menor: el `pkgs` con `crossSystem` en `nixos/flake.nix` (líneas 11-14) es
   código muerto (nixosSystem usa su propio pkgs vía `system`); limpiar.
+
+## Test físico NixOS v2 (2026-08-29) — bootloader-rejected
+
+- Imagen probada: `boot-laurel-nixos-console.img` (header v2 + DTB campo
+  `0x1f00000`, run 33240188674, sha256 `66ae73a3…`), slot `boot_b`.
+- `fastboot boot` rechazado por el ABL con clientes **37.0.0 y r33.0.3**
+  (`FASTBOOT_BOOT_COMMAND_UNSUPPORTED` definitivo; el error "crclist" es de Mi
+  Flash Tool/Windows, no aplica).
+- `flash boot_b` + `set_active b` + `reboot` → **fallback inmediato a Fastboot**,
+  sin estado observable (no kernel booting, no initramfs, no gadget).
+- Clasificación máx: `bootloader-rejected`. Coherente con todo v2 histórico
+  (h1 IT1/IT2/IT3). Slot a intacto. Detalle en
+  `reports/physical-tests/NIXOS-V2-BOOTLOADER-REJECTED/result.md`.
+- **Lección integrada en el pipeline**: el ABL solo arranca layout `header v0 +
+  append_dtb` (evidencia H61 6.1 sedfix). La variante NixOS pasa a
+  `--boot-layout v0-append` (header v0 + append_dtb + `boot.shell_on_fail=1` +
+  `console=tty0`) en CI antes del próximo test físico.
