@@ -44,6 +44,8 @@ def main():
     ap.add_argument("--print-cmdline", action="store_true")
     ap.add_argument("--append-dtb", action="store_true",
                     help="extraer el DTB concatenado al final del payload del kernel (layout header v0 + append_dtb)")
+    ap.add_argument("--assert-header-version", type=int, choices=[0, 2],
+                    help="fallar si el header no es de la versión pedida (gate de CI)")
     args = ap.parse_args()
 
     with open(args.boot, "rb") as fh:
@@ -74,6 +76,10 @@ def main():
         dtb = find_appended_dtb(kernel)
         if dtb is None:
             raise SystemExit("ERROR: no se encontró DTB concatenado en el payload del kernel")
+
+    if args.assert_header_version is not None and version != args.assert_header_version:
+        raise SystemExit(
+            f"ERROR: header v{version} != v{args.assert_header_version} requerido")
 
     os.makedirs(args.out, exist_ok=True)
     with open(os.path.join(args.out, "kernel"), "wb") as fh:

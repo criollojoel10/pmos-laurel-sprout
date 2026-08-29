@@ -1,0 +1,200 @@
+name: Nixos Boot v0-append (reuse artifacts)
+
+on:
+  workflow_dispatch:
+    inputs:
+      boot_layout:
+        description: "Layout del boot.img (v0-append recomendado; ABL rechaza header v2)"
+        type: choice
+        default: v0-append
+        options:
+          - v0-append
+          - v2-dtb-field
+      source_run_id:
+        description: "Run del que reutilizar closure/kernel/busybox/rootfs (evita rebuild de ~1h)"
+        type: string
+        default: "33256486259"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nixos-boot-v0-append-reuse
+  cancel-in-progress: true
+
+jobs:
+  assemble-and-validate-boot:
+    name: "Assemble + validate boot.img (reusing artifacts)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Runner info
+        run: |
+          df -h
+          free -h
+
+      # actions/checkout@v7.0.1
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download closure export (3A, source run)
+        # actions/download-artifact@v4.3.3
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-closure
+          path: artifacts-3a
+          run-id: ${{ github.event.inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download rootfs tree (3B, source run)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-rootfs-tree
+          path: artifacts-3b
+          run-id: ${{ github.event.inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download rootfs image (3C, source run)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-rootfs-image
+          path: artifacts-3c
+          run-id: ${{ github.event.inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download kernel (v7.1, source run)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kernel-release
+          path: /tmp/kernel-artifact
+          run-id: ${{ github.event.inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download busybox (source run)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nixos-console-busybox
+          path: /tmp/busybox
+          run-id: ${{ github.event.inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build NixOS initramfs
+        run: |
+          set -Eeuo pipefail
+          chmod +x scripts/build-nixos-initramfs.sh
+          scripts/build-nixos-initramfs.sh \
+            --busybox /tmp/busybox/busybox \
+            --modules /tmp/kernel-artifact/modules.tar.zst \
+            --out /tmp/initramfs-out
+          gzip -dc /tmp/initramfs-out/initramfs.cpio.gz | cpio -t | sort > /tmp/initramfs-file-list.txt
+          grep -qE '(^|/)init$' /tmp/initramfs-file-list.txt || { echo "FALLO: init ausente" >&2; exit 1; }
+          grep -qE '(^|/)busybox$' /tmp/initramfs-file-list.txt || { echo "FALLO: busybox ausente" >&2; exit 1; }
+
+      - name: Build + verify boot.img (v0-append)
+        run: |
+          set -Eeuo pipefail
+          BOOT_LAYOUT="${{ github.event.inputs.boot_layout }}"
+          case "$BOOT_LAYOUT" in
+            v0-append|v2-dtb-field) echo "boot_layout=$BOOT_LAYOUT" ;;
+            *) echo "FALLO: boot_layout inválido: $BOOT_LAYOUT" >&2; exit 1 ;;
+          esac
+          if [ "$BOOT_LAYOUT" = "v0-append" ]; then
+            BOOT_IMG="boot-laurel-nixos-console-v0-append.img"
+          else
+            BOOT_IMG="boot-laurel-nixos-console.img"
+          fi
+          SYSTEM_PATH="$(jq -r '.systemPath' artifacts-3b/validation.json)"
+          case "$SYSTEM_PATH" in
+            /nix/store/*) echo "systemPath=$SYSTEM_PATH" ;;
+            *) echo "FALLO: systemPath inválido: $SYSTEM_PATH" >&2; jq . artifacts-3b/validation.json >&2; exit 1 ;;
+          esac
+          chmod +x scripts/build-nixos-boot-image.sh
+          mkdir -p /tmp/boot-out
+          scripts/build-nixos-boot-image.sh \
+            --kernel /tmp/kernel-artifact/Image.gz \
+            --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
+            --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
+            --system-path "$SYSTEM_PATH" \
+            --out /tmp/boot-out/$BOOT_IMG \
+            --boot-limit 67108864 \
+            --boot-layout "$BOOT_LAYOUT"
+          mkdir -p /tmp/boot-validation/unpack
+          CMDLINE_EXTRACTED="$(python3 scripts/unpack-boot-image.py --boot /tmp/boot-out/$BOOT_IMG --out /tmp/boot-validation/unpack --print-cmdline)"
+          printf '%s\n' "$CMDLINE_EXTRACTED" > /tmp/boot-out/cmdline.txt
+          echo "cmdline: $CMDLINE_EXTRACTED"
+          grep -q "root=LABEL=NIXOS_ROOT" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin root=LABEL=NIXOS_ROOT" >&2; exit 1; }
+          grep -q "init=/nix/store/" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin init=/nix/store/..." >&2; exit 1; }
+          if [ "$BOOT_LAYOUT" = "v0-append" ]; then
+            grep -q "boot.shell_on_fail=1" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin boot.shell_on_fail=1" >&2; exit 1; }
+            grep -q "console=tty0" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin console=tty0" >&2; exit 1; }
+            python3 scripts/unpack-boot-image.py \
+              --boot "/tmp/boot-out/$BOOT_IMG" \
+              --out /tmp/boot-validation/unpack \
+              --assert-header-version 0
+            SIZE="$(stat -c %s "/tmp/boot-out/$BOOT_IMG")"
+            [ "$SIZE" -lt 67108864 ] || { echo "FALLO: boot.img supera 64 MiB ($SIZE)" >&2; exit 1; }
+            echo "header v0 confirmado; tamaño $SIZE < 64 MiB OK"
+          fi
+
+      - name: Boot manifest
+        run: |
+          set -Eeuo pipefail
+          BOOT_LAYOUT="${{ github.event.inputs.boot_layout }}"
+          if [ "$BOOT_LAYOUT" = "v0-append" ]; then
+            BOOT_IMG="boot-laurel-nixos-console-v0-append.img"
+          else
+            BOOT_IMG="boot-laurel-nixos-console.img"
+          fi
+          SIZE="$(stat -c %s /tmp/boot-out/$BOOT_IMG)"
+          SHA256="$(sha256sum /tmp/boot-out/$BOOT_IMG | awk '{print $1}')"
+          SYSTEM_PATH="$(jq -r '.systemPath' artifacts-3b/validation.json)"
+          jq -n \
+            --arg run_id "${GITHUB_RUN_ID}" \
+            --arg source_run "${{ github.event.inputs.source_run_id }}" \
+            --arg boot_layout "$BOOT_LAYOUT" \
+            --arg system_path "$SYSTEM_PATH" \
+            --argjson size_bytes "$(printf '%s' "$SIZE")" \
+            --argjson limit_bytes 67108864 \
+            --arg sha256 "$SHA256" \
+            --arg cmdline "$(cat /tmp/boot-out/cmdline.txt)" \
+            '{fase:"3D", run_id:$run_id, source_run:$source_run, bootLayout:$boot_layout, systemPath:$system_path, bootImageBytes:$size_bytes, bootLimitBytes:$limit_bytes, fits:($size_bytes < 67108864), sha256:$sha256, cmdline:$cmdline, hardwareTested:false}' > /tmp/boot-out/boot-manifest.json
+          jq . /tmp/boot-out/boot-manifest.json
+
+      - name: Strict end-to-end validation (3E)
+        run: |
+          set -Eeuo pipefail
+          chmod +x scripts/validate-nixos-boot.sh
+          scripts/validate-nixos-boot.sh \
+            --closure-dir artifacts-3a \
+            --image-dir artifacts-3c \
+            --boot-dir /tmp/boot-out \
+            --out artifacts-3e
+          cat artifacts-3e/nixos-boot-validation.md
+
+      - name: Upload boot image + validation
+        if: success()
+        # actions/upload-artifact@v4.9.5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-console-boot
+          path: |
+            /tmp/boot-out/boot-laurel-nixos-console*.img
+            /tmp/boot-out/cmdline.txt
+            /tmp/boot-out/boot-manifest.json
+            /tmp/boot-out/boot-validation/**/*
+            /tmp/boot-validation/**/*
+            /tmp/initramfs-file-list.txt
+            /tmp/initramfs-out/initramfs.cpio.gz
+            artifacts-3e/**
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload diagnostic logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nixos-boot-v0-append-reuse-diagnostic
+          path: |
+            *.log
+          retention-days: 3
+          if-no-files-found: ignore

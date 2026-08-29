@@ -339,18 +339,13 @@ jobs:
           if [ "$BOOT_LAYOUT" = "v0-append" ]; then
             grep -q "boot.shell_on_fail=1" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin boot.shell_on_fail=1" >&2; exit 1; }
             grep -q "console=tty0" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin console=tty0" >&2; exit 1; }
-            python3 - "$BOOT_IMG" <<'PYEOF'
-            import struct, sys
-            p = f"/tmp/boot-out/{sys.argv[1]}"
-            with open(p, "rb") as f:
-                boot = f.read()
-            assert boot[:8] == b"ANDROID!", "sin magic ANDROID!"
-            _, _, _, _, _, _, _, page, version, _ = struct.unpack_from("<10I", boot, 8)
-            assert version == 0, f"v0 requerido, header v{version}"
-            print(f"header v{version} confirmado (page {page})")
-            assert len(boot) < 67108864, "boot supera 64 MiB"
-            print("tamaño < 64 MiB OK")
-            PYEOF
+            python3 scripts/unpack-boot-image.py \
+              --boot "/tmp/boot-out/$BOOT_IMG" \
+              --out /tmp/boot-validation/unpack \
+              --assert-header-version 0
+            SIZE="$(stat -c %s "/tmp/boot-out/$BOOT_IMG")"
+            [ "$SIZE" -lt 67108864 ] || { echo "FALLO: boot.img supera 64 MiB ($SIZE)" >&2; exit 1; }
+            echo "header v0 confirmado; tamaño $SIZE < 64 MiB OK"
           fi
 
       - name: Boot manifest (3D)
