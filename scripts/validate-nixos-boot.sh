@@ -66,7 +66,24 @@ grep -q 'root=LABEL=NIXOS_ROOT' <<<"$CMDLINE" || { echo "ERROR: cmdline sin root
 grep -q 'init=/nix/store/' <<<"$CMDLINE" || { echo "ERROR: cmdline sin init=/nix/store/..." >&2; exit 1; }
 test -s "$WORK/kernel" || { echo "ERROR: kernel extraído vacío" >&2; exit 1; }
 test -s "$WORK/ramdisk" || { echo "ERROR: ramdisk extraído vacío" >&2; exit 1; }
+
+# v2 → sección DTB en el header; v0+append_dtb → DTB dentro del payload del
+# kernel (extracción posterior al magic del DTB + totalsize).
+APPEND_MODE=0
+if ! test -s "$WORK/dtb"; then
+  info "header sin sección DTB; buscando DTB concatenado al kernel (append_dtb)..."
+  python3 "$TOOLS/unpack-boot-image.py" --boot "$BOOT_IMG" --out "$WORK" --append-dtb \
+    || { echo "ERROR: sin DTB en sección v2 ni concatenado al kernel" >&2; exit 1; }
+  APPEND_MODE=1
+fi
 test -s "$WORK/dtb" || { echo "ERROR: dtb extraído vacío" >&2; exit 1; }
+if [ "$APPEND_MODE" = "1" ]; then
+  grep -q 'boot.shell_on_fail=1' <<<"$CMDLINE" || { echo "ERROR: cmdline v0-append sin boot.shell_on_fail=1" >&2; exit 1; }
+  grep -q 'console=tty0' <<<"$CMDLINE" || { echo "ERROR: cmdline v0-append sin console=tty0" >&2; exit 1; }
+  if ! head -c4 "$WORK/dtb" | od -An -tx1 | grep -q 'd0 0d fe ed'; then
+    echo "ERROR: DTB concatenado sin magic d0 0d fe ed" >&2; exit 1
+  fi
+fi
 
 # ── 2. initramfs del boot: init, busybox, coherencia de kernelrelease ─────
 gzip -dc "$WORK/ramdisk" | cpio -t 2>/dev/null | sort > "$WORK/rd.list"
@@ -101,7 +118,7 @@ SHA_BOOT="$(sha256sum "$BOOT_IMG" | awk '{print $1}')"
 SHA_ROOTFS="$(sha256sum "$ROOTFS_IMG" | awk '{print $1}')"
 SHA_NAR="$(sha256sum "$NAR" | awk '{print $1}')"
 {
-  printf '%s  boot-laurel-nixos-console.img\n' "$SHA_BOOT"
+  printf '%s  %s\n' "$SHA_BOOT" "$(basename "$BOOT_IMG")"
   printf '%s  nixos-rootfs.img\n' "$SHA_ROOTFS"
   printf '%s  nixos-laurel-console-closure.nar.zst\n' "$SHA_NAR"
 } > "$OUT/SHA256SUMS"

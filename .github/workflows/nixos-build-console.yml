@@ -2,7 +2,20 @@ name: Nixos Build Console (Closure)
 
 on:
   workflow_dispatch:
+    inputs:
+      boot_layout:
+        description: "Layout del boot.img (v0-append es el recomendado: el ABL de laurel_sprout rechaza header v2)"
+        type: choice
+        default: v0-append
+        options:
+          - v0-append
+          - v2-dtb-field
   workflow_call:
+    inputs:
+      boot_layout:
+        description: "Layout del boot.img"
+        type: string
+        default: v0-append
 
 permissions:
   contents: read
@@ -296,6 +309,16 @@ jobs:
       - name: Build + verify boot.img
         run: |
           set -Eeuo pipefail
+          BOOT_LAYOUT="${{ inputs.boot_layout }}"
+          case "$BOOT_LAYOUT" in
+            v0-append|v2-dtb-field) echo "boot_layout=$BOOT_LAYOUT" ;;
+            *) echo "FALLO: boot_layout inválido: $BOOT_LAYOUT" >&2; exit 1 ;;
+          esac
+          if [ "$BOOT_LAYOUT" = "v0-append" ]; then
+            BOOT_IMG="boot-laurel-nixos-console-v0-append.img"
+          else
+            BOOT_IMG="boot-laurel-nixos-console.img"
+          fi
           SYSTEM_PATH="$(jq -r '.systemPath' artifacts-3b/validation.json)"
           chmod +x scripts/build-nixos-boot-image.sh
           mkdir -p /tmp/boot-out
@@ -304,26 +327,53 @@ jobs:
             --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
             --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
             --system-path "$SYSTEM_PATH" \
-            --out /tmp/boot-out/boot-laurel-nixos-console.img \
-            --boot-limit 67108864
-          CMDLINE_EXTRACTED="$(python3 scripts/unpack-boot-image.py --boot /tmp/boot-out/boot-laurel-nixos-console.img --out /tmp/boot-validation/unpack --print-cmdline)"
+            --out /tmp/boot-out/$BOOT_IMG \
+            --boot-limit 67108864 \
+            --boot-layout "$BOOT_LAYOUT"
+          rm -rf /tmp/boot-validation/unpack
+          CMDLINE_EXTRACTED="$(python3 scripts/unpack-boot-image.py --boot /tmp/boot-out/$BOOT_IMG --out /tmp/boot-validation/unpack --print-cmdline)"
           printf '%s\n' "$CMDLINE_EXTRACTED" > /tmp/boot-out/cmdline.txt
           echo "cmdline: $CMDLINE_EXTRACTED"
           grep -q "root=LABEL=NIXOS_ROOT" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin root=LABEL=NIXOS_ROOT" >&2; exit 1; }
           grep -q "init=/nix/store/" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin init=/nix/store/..." >&2; exit 1; }
+          if [ "$BOOT_LAYOUT" = "v0-append" ]; then
+            grep -q "boot.shell_on_fail=1" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin boot.shell_on_fail=1" >&2; exit 1; }
+            grep -q "console=tty0" <<<"$CMDLINE_EXTRACTED" || { echo "FALLO: cmdline sin console=tty0" >&2; exit 1; }
+            python3 - "$BOOT_IMG" <<'PYEOF'
+            import struct, sys
+            p = f"/tmp/boot-out/{sys.argv[1]}"
+            with open(p, "rb") as f:
+                boot = f.read()
+            assert boot[:8] == b"ANDROID!", "sin magic ANDROID!"
+            _, _, _, _, _, _, _, page, version, _ = struct.unpack_from("<10I", boot, 8)
+            assert version == 0, f"v0 requerido, header v{version}"
+            print(f"header v{version} confirmado (page {page})")
+            assert len(boot) < 67108864, "boot supera 64 MiB"
+            print("tamaño < 64 MiB OK")
+            PYEOF
+          fi
 
       - name: Boot manifest (3D)
         run: |
           set -Eeuo pipefail
-          SIZE="$(stat -c %s /tmp/boot-out/boot-laurel-nixos-console.img)"
+          BOOT_LAYOUT="${{ inputs.boot_layout }}"
+          if [ "$BOOT_LAYOUT" = "v0-append" ]; then
+            BOOT_IMG="boot-laurel-nixos-console-v0-append.img"
+          else
+            BOOT_IMG="boot-laurel-nixos-console.img"
+          fi
+          SIZE="$(stat -c %s /tmp/boot-out/$BOOT_IMG)"
+          SHA256="$(sha256sum /tmp/boot-out/$BOOT_IMG | awk '{print $1}')"
           SYSTEM_PATH="$(jq -r '.systemPath' artifacts-3b/validation.json)"
           jq -n \
             --arg run_id "${GITHUB_RUN_ID}" \
+            --arg boot_layout "$BOOT_LAYOUT" \
             --arg system_path "$SYSTEM_PATH" \
             --argjson size_bytes "$(printf '%s' "$SIZE")" \
             --argjson limit_bytes 67108864 \
+            --arg sha256 "$SHA256" \
             --arg cmdline "$(cat /tmp/boot-out/cmdline.txt)" \
-            '{fase:"3D", run_id:$run_id, systemPath:$system_path, bootImageBytes:$size_bytes, bootLimitBytes:$limit_bytes, fits:($size_bytes < 67108864), cmdline:$cmdline, hardwareTested:false}' > /tmp/boot-out/boot-manifest.json
+            '{fase:"3D", run_id:$run_id, bootLayout:$boot_layout, systemPath:$system_path, bootImageBytes:$size_bytes, bootLimitBytes:$limit_bytes, fits:($size_bytes < 67108864), sha256:$sha256, cmdline:$cmdline, hardwareTested:false}' > /tmp/boot-out/boot-manifest.json
           jq . /tmp/boot-out/boot-manifest.json
 
       - name: Upload boot image (3D)
@@ -333,7 +383,7 @@ jobs:
         with:
           name: nixos-console-boot
           path: |
-            /tmp/boot-out/boot-laurel-nixos-console.img
+            /tmp/boot-out/boot-laurel-nixos-console*.img
             /tmp/boot-out/cmdline.txt
             /tmp/boot-out/boot-manifest.json
             /tmp/boot-validation/**/*

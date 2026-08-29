@@ -34,6 +34,10 @@ def fake_bytes(n, seed):
     return bytes(((seed * 251 + i * 7) & 0xFF) for i in range(n))
 
 
+def synthetic_dtb(n):
+    return DTB_MAGIC + struct.pack(">I", n) + b"\x00" * (n - 8)
+
+
 class AssembleBootImageWrapperTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -148,6 +152,31 @@ class AssembleBootImageWrapperTest(unittest.TestCase):
                     data = f.read()
                 self.assertGreater(len(data), 0)
                 self.assertEqual(data[:8], MAGIC)
+
+    def test_append_dtb_roundtrip_extraction(self):
+        dtb = synthetic_dtb(60_000)
+        dtb_path = self._write("dtb-real.dtb", dtb)
+        out = os.path.join(self.dir, "boot-rt.img")
+        proc = subprocess.run(
+            ["bash", WRAPPER,
+             "--kernel", self.kernel_path,
+             "--ramdisk", self.ramdisk_path,
+             "--dtb", dtb_path,
+             "--out", out,
+             "--header-version", "0", "--append-dtb"],
+            capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "scripts", "unpack-boot-image.py"),
+             "--boot", out, "--out", os.path.join(self.dir, "unpack"), "--append-dtb"],
+            capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with open(os.path.join(self.dir, "unpack", "kernel"), "rb") as f:
+            kernel = f.read()
+        with open(os.path.join(self.dir, "unpack", "dtb"), "rb") as f:
+            dtb_out = f.read()
+        self.assertEqual(kernel, self.kernel + dtb)
+        self.assertEqual(dtb_out, dtb)
 
 
 if __name__ == "__main__":

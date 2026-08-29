@@ -14,7 +14,8 @@
 #     --ramdisk <initramfs-original> \
 #     --dtb <dtb-original> \
 #     --boot-limit <bytes> \
-#     --out <dir>
+#     --out <dir> \
+#     [--append-dtb]
 
 set -Eeuo pipefail
 
@@ -24,9 +25,10 @@ RAMDISK=""
 DTB=""
 LIMIT=""
 OUT=""
+APPEND=0
 
 usage() {
-  echo "uso: $0 --boot <boot.img> --kernel <Image> --ramdisk <initramfs> --dtb <dtb> --boot-limit <bytes> --out <dir>" >&2
+  echo "uso: $0 --boot <boot.img> --kernel <Image> --ramdisk <initramfs> --dtb <dtb> --boot-limit <bytes> --out <dir> [--append-dtb]" >&2
   exit 2
 }
 
@@ -38,6 +40,7 @@ while (( $# > 0 )); do
     --dtb) DTB="$2"; shift 2 ;;
     --boot-limit) LIMIT="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
+    --append-dtb) APPEND=1; shift ;;
     *) usage ;;
   esac
 done
@@ -86,10 +89,22 @@ elif [[ "$TOOL" == "unpack_bootimg" ]]; then
     || info "unpack_bootimg falló; revisa en CI"
 fi
 
+# En modo append_dtb el payload del kernel incluye el DTB concatenado:
+# el kernel extraído debe compararse con kernel+dtb, no con kernel solo.
+if [[ "$APPEND" == "1" ]]; then
+  KERNEL_EXPECT="$(mktemp)"
+  cat "$KERNEL" "$DTB" > "$KERNEL_EXPECT"
+  APPEND_TMP="$KERNEL_EXPECT"
+else
+  APPEND_TMP=""
+fi
+trap '[[ -n "$APPEND_TMP" ]] && rm -f "$APPEND_TMP"' EXIT
+
 # Comparación por hashes si se extrajeron
 for pair in "kernel:$KERNEL" "ramdisk:$RAMDISK" "dtb:$DTB"; do
   name="${pair%%:*}"
   orig="${pair#*:}"
+  [[ "$name" == "kernel" && -n "$APPEND_TMP" ]] && orig="$APPEND_TMP"
   ext=""
   for cand in "$OUT/$name" "$OUT/$name.img" "$OUT/${name}-orig" "$OUT/${name}_$(basename "$orig")"; do
     if [[ -f "$cand" ]]; then ext="$cand"; break; fi
