@@ -1,18 +1,21 @@
 # Prueba física console — NixOS en Xiaomi Mi A3 (laurel_sprout)
 
-Estado: **hardware-tested=false**. Artefactos sellados en el run
-`33240188674` (commit `7b8d7ad`). Todo lo de abajo es para un operador con el
-dispositivo en mano; el pipeline NO flashea nada.
+Estado: **hardware-tested=false**. Imagen recomendada para el test:
+`boot-laurel-nixos-console-v0-append.img` (header v0 + append_dtb, run
+`33258899468`, commit `35b6669`). La v2 (`66ae73a3…`, run `33240188674`) quedó
+como evidencia histórica: **rechazada por el ABL** (`bootloader-rejected`).
+Todo lo de abajo es para un operador con el dispositivo en mano; el pipeline NO
+flashea nada.
 
-## Artefactos necesarios (del run sellado)
+## Artefactos necesarios
 
 | Artefacto | Contenido |
 |---|---|
-| `nixos-console-boot` | `boot-laurel-nixos-console.img` (37 818 368 B, sha256 `66ae73a3aff6337b…`), `cmdline.txt`, `boot-manifest.json`, reporte de imagen |
+| `nixos-console-boot` | `boot-laurel-nixos-console-v0-append.img` (37 814 272 B, sha256 `1043b607ce05515308de5b164f9bbc93667a86a2659f4f9f537f3cfbd94ecd78`, header v0), `cmdline.txt`, `boot-manifest.json`, reporte de imagen |
 | `nixos-console-rootfs-image` | `nixos-rootfs.img` (~2.43 GiB, ext4, label `NIXOS_ROOT`, uuid `87bf6242-3f0b-458c-8bbb-e0be1ad48d0e`, sha256 `e6fd88d3…`) |
 | `nixos-console-release-validation` | `nixos-boot-validation.md`, `artifact-index.json`, `SHA256SUMS` |
 
-Kernel/módulos/dtb coherentes: kernelrelease `7.1.0-postmarketos-sm6125-00001-g8eab428f49a7`.
+Kernel/módulos/dtb coherentes: kernelrelease `7.1.0-postmarketos-sm6125-00001-gcedc0f9bbabc`.
 
 ## Paso 0 — Preparación del dispositivo (una vez)
 
@@ -25,7 +28,7 @@ Kernel/módulos/dtb coherentes: kernelrelease `7.1.0-postmarketos-sm6125-00001-g
 
 ```sh
 fastboot devices                # debe listar el device
-fastboot boot boot-laurel-nixos-console.img
+fastboot boot boot-laurel-nixos-console-v0-append.img
 ```
 
 - Esperar arranque de kernel + initramfs propio (console `ttyMSM0,115200n8`).

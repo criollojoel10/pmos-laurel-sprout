@@ -60,3 +60,19 @@ Artefacto clave: `artifacts/nixos-console/nixos-laurel-console-closure.nar.zst`.
   `dwc3`) — los nombres previos ya no existen y rompían el `modules-shrunk`.
 - Pendiente: 3B (árbol rootfs), 3C (ext4 NIXOS_ROOT), 3D (stage-1 real,
   previa investigación del arranque), 3E (boot image; `hardware-tested=false`).
+
+## Update 2026-08-29 — boot v0-append (post-test físico v2)
+
+- El test físico de la imagen NixOS v2 (`66ae73a3…`, header v2 + dtb field)
+  terminó en **`bootloader-rejected`**: el ABL de laurel_sprout rechaza todo
+  header v2 (fallback Fastboot). Evidencia: los primeros 4 bytes del payload
+  que el ABL interpreta — coincide con todo el histórico v2.
+- Se construyó y validó en CI la variante **`boot-laurel-nixos-console-v0-append.img`**
+  (header v0 + DTB concatenado al kernel, cmdline diagnóstica:
+  `boot.shell_on_fail=1 console=tty0 root=LABEL=NIXOS_ROOT` + init sellado de la closure).
+  SHA-256 `1043b607ce05515308de5b164f9bbc93667a86a2659f4f9f537f3cfbd94ecd78`,
+  37 814 272 B (< 64 MiB), run `33258899468`,
+  `hardwareTested=false` (pendiente test físico).
+- Detalle: `reports/nixos-v0-append-ci-validation.md`.
+- Para reproducir: `gh workflow run nixos-boot-v0-append-reuse.yml -f boot_layout=v0-append`
+  (reutiliza artefactos del run fuente y solo re-ensambla initramfs+boot.img, sin rebuild de 1h).

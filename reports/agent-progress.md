@@ -1,7 +1,7 @@
 # Agent Progress Report
 
 Estado operativo del pipeline multi-distro para Xiaomi Mi A3 (laurel_sprout / SM6125).
-Actualizado: 2026-08-29 (test físico NixOS v2 → bootloader-rejected; variante v0+append en CI).
+Actualizado: 2026-08-29 (variante NixOS v0+append validada en CI — `1043b607…`; v2 físico → bootloader-rejected).
 
 ## Kernel (base compartida)
 - Linux mainline `v7.1` = `b3f94b2b3f3e51ab880a51fc6510e1dafba654ed`, 4 parches (`patches/kernel/0001..0004`).
@@ -146,3 +146,31 @@ Actualizado: 2026-08-29 (test físico NixOS v2 → bootloader-rejected; variante
   append_dtb` (evidencia H61 6.1 sedfix). La variante NixOS pasa a
   `--boot-layout v0-append` (header v0 + append_dtb + `boot.shell_on_fail=1` +
   `console=tty0`) en CI antes del próximo test físico.
+
+## Variante NixOS v0+append — CI validada (2026-08-29)
+
+- `assemble-boot-image.sh`: `--append-dtb` (opt-in) + reenvío real de
+  `--header-version` (era silenciosamente ignorado → siempre v2). Commits
+  `82ac61b`, `7feb086`, `35b6669`.
+- `build-nixos-boot-image.sh`: `--boot-layout {v0-append|v2-dtb-field}`; v0-append
+  = header v0 + append_dtb + cmdline diagnóstica (root=LABEL=NIXOS_ROOT,
+  init=/nix/store/… sellado, boot.shell_on_fail=1, console=tty0); guarda contra
+  duplicados root/init/boot.shell_on_fail.
+- `unpack-boot-image.py`: `--append-dtb` (DTB en tail del kernel vía
+  magic+totalsize BIG endian) y `--assert-header-version` (gate CI sin heredocs).
+- `validate-nixos-boot.sh` (3E): layout sin sección DTB → extrae append y exige
+  shell_on_fail + console=tty0 + magic DTB; SHA256SUMS usa basename real.
+- `nixos-build-console.yml`: input `boot_layout` (default `v0-append`), artefacto
+  `boot-laurel-nixos-console-v0-append.img`, manifest con bootLayout+sha256.
+- Rescate de tiempo: el run completo `33256486259` (1h) falló al FINAL por un
+  heredoc `PYEOF` sangrado en el workflow (`unexpected end of file`). Fix
+  `35b6669` + workflow nuevo `nixos-boot-v0-append-reuse.yml` que REUTILIZA los
+  artefactos del run fuente (`run-id`, por defecto `33256486259`) y solo
+  re-ensambla initramfs+boot.img + 3E (~minutos, sin rebuild de 1h).
+- **Resultado GREEN (run `33258899468`)**: `boot-laurel-nixos-console-v0-append.img`
+  sha256 `1043b607ce05515308de5b164f9bbc93667a86a2659f4f9f537f3cfbd94ecd78`,
+  37 814 272 B (< 64 MiB), header v0, kernel 17 951 274 = Image.gz 17 913 515 +
+  dtb 37 759 (tail exacto), ramdisk == initramfs 3D, kernelrelease coherente,
+  cmdline con root=LABEL=NIXOS_ROOT + init sellado + shell_on_fail=1 + tty0.
+  `hardwareTested=false`. Detalle: `reports/nixos-v0-append-ci-validation.md`.
+- Pendiente: test físico del v0-append (FASE 8 — parada y autorización).
