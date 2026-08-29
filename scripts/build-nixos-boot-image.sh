@@ -57,7 +57,7 @@ TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INIT="$SYSTEM_PATH/init"
 CMDLINE="androidboot.hardware=laurel_sprout console=ttyMSM0,115200n8 root=LABEL=NIXOS_ROOT init=$INIT"
 
-"$TOOLS/assemble-boot-image.sh" \
+bash "$TOOLS/assemble-boot-image.sh" \
   --kernel "$KERNEL" \
   --ramdisk "$RAMDISK" \
   --dtb "$DTB" \
@@ -73,7 +73,7 @@ CMDLINE="androidboot.hardware=laurel_sprout console=ttyMSM0,115200n8 root=LABEL=
   --tags-offset 0x00000100 \
   --dtb-offset 0x01f00000
 
-"$TOOLS/inspect-boot-image.sh" \
+bash "$TOOLS/inspect-boot-image.sh" \
   --boot "$OUT" \
   --kernel "$KERNEL" \
   --ramdisk "$RAMDISK" \

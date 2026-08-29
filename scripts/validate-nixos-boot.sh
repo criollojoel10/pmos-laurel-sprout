@@ -45,6 +45,8 @@ done
 info() { printf '[nixos-validate-boot] %s\n' "$*" >&2; }
 
 TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
 BOOT_IMG="$(find "$BOOT" -maxdepth 1 -name 'boot-laurel-*.img' | head -1)"
 [[ -n "$BOOT_IMG" ]] || { echo "ERROR: boot.img no encontrado en $BOOT" >&2; exit 1; }
 ROOTFS_IMG="$(find "$IMAGE" -maxdepth 1 -name 'nixos-rootfs.img' | head -1)"
@@ -53,33 +55,39 @@ NAR="$(find "$CLOSURE" -maxdepth 1 -name 'nixos-laurel-console-closure.nar.zst' 
 [[ -n "$NAR" ]] || { echo "ERROR: nar.zst no encontrado en $CLOSURE" >&2; exit 1; }
 
 rm -rf "$OUT"
-mkdir -p "$OUT" /tmp/unpack
+mkdir -p "$OUT" "$WORK"
 info "boot.img: $BOOT_IMG"
 info "rootfs:   $ROOTFS_IMG"
 info "closure:  $NAR"
 
 # ── 1. boot.img: magic, payloads y cmdline ───────────────────────────────
-CMDLINE="$(python3 "$TOOLS/unpack-boot-image.py" --boot "$BOOT_IMG" --out /tmp/unpack --print-cmdline)"
+CMDLINE="$(python3 "$TOOLS/unpack-boot-image.py" --boot "$BOOT_IMG" --out "$WORK" --print-cmdline)"
 grep -q 'root=LABEL=NIXOS_ROOT' <<<"$CMDLINE" || { echo "ERROR: cmdline sin root=LABEL=NIXOS_ROOT" >&2; exit 1; }
 grep -q 'init=/nix/store/' <<<"$CMDLINE" || { echo "ERROR: cmdline sin init=/nix/store/..." >&2; exit 1; }
-test -s /tmp/unpack/kernel || { echo "ERROR: kernel extraído vacío" >&2; exit 1; }
-test -s /tmp/unpack/ramdisk || { echo "ERROR: ramdisk extraído vacío" >&2; exit 1; }
-test -s /tmp/unpack/dtb || { echo "ERROR: dtb extraído vacío" >&2; exit 1; }
+test -s "$WORK/kernel" || { echo "ERROR: kernel extraído vacío" >&2; exit 1; }
+test -s "$WORK/ramdisk" || { echo "ERROR: ramdisk extraído vacío" >&2; exit 1; }
+test -s "$WORK/dtb" || { echo "ERROR: dtb extraído vacío" >&2; exit 1; }
 
 # ── 2. initramfs del boot: init, busybox, coherencia de kernelrelease ─────
-gzip -dc /tmp/unpack/ramdisk | cpio -t 2>/dev/null | sort > /tmp/unpack/rd.list
-grep -qE '(^\./)?init$' /tmp/unpack/rd.list || { echo "ERROR: init ausente en initramfs" >&2; exit 1; }
-grep -qE '(^\./)?busybox$' /tmp/unpack/rd.list || { echo "ERROR: busybox ausente en initramfs" >&2; exit 1; }
-rm -rf /tmp/unpack/rm
-mkdir -p /tmp/unpack/rm
-( cd /tmp/unpack/rm && gzip -dc /tmp/unpack/ramdisk | cpio -id --quiet busybox 2>/dev/null || true )
-[ -f /tmp/unpack/rm/busybox ] || ( cd /tmp/unpack/rm && gzip -dc /tmp/unpack/ramdisk | cpio -id --quiet ./busybox 2>/dev/null || true )
-[ -f /tmp/unpack/rm/busybox ] || { echo "ERROR: no se pudo extraer busybox del initramfs" >&2; exit 1; }
-BB_ARCH="$(file /tmp/unpack/rm/busybox | grep -oE 'ARM aarch64|aarch64' | head -1)"
+gzip -dc "$WORK/ramdisk" | cpio -t 2>/dev/null | sort > "$WORK/rd.list"
+grep -qE '(^|/)init$' "$WORK/rd.list" || { echo "ERROR: init ausente en initramfs" >&2; exit 1; }
+grep -qE '(^|/)busybox$' "$WORK/rd.list" || { echo "ERROR: busybox ausente en initramfs" >&2; exit 1; }
+rm -rf "$WORK/rm"
+mkdir -p "$WORK/rm"
+( cd "$WORK/rm" && gzip -dc "$WORK/ramdisk" | cpio -id --quiet busybox 2>/dev/null || true )
+[ -f "$WORK/rm/busybox" ] || ( cd "$WORK/rm" && gzip -dc "$WORK/ramdisk" | cpio -id --quiet ./busybox 2>/dev/null || true )
+[ -f "$WORK/rm/busybox" ] || { echo "ERROR: no se pudo extraer busybox del initramfs" >&2; exit 1; }
+BB_ARCH="$(file "$WORK/rm/busybox" | grep -oE 'ARM aarch64|aarch64' | head -1)"
 [[ "$BB_ARCH" == *aarch64* ]] || { echo "ERROR: busybox no aarch64 ($BB_ARCH)" >&2; exit 1; }
 
-MREL="$(sed -nE 's#^\./lib/modules/([^/]+)/.*#\1#p' /tmp/unpack/rd.list | head -1)"
-KREL="$(strings /tmp/unpack/kernel | grep -m1 '^Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' || true)"
+MREL="$(sed -nE 's#(^|/)lib/modules/([^/]+)/.*#\2#p' "$WORK/rd.list" | head -1)"
+if head -c2 "$WORK/kernel" | od -An -tx1 | grep -q '1f 8b'; then
+  zcat "$WORK/kernel" > "$WORK/kernel.u" 2>/dev/null || true
+  KERNEL_TARGET="$WORK/kernel.u"
+else
+  KERNEL_TARGET="$WORK/kernel"
+fi
+KREL="$(strings "$KERNEL_TARGET" | grep -m1 '^Linux version' | sed 's/^Linux version \([^ ]*\).*/\1/' || true)"
 [[ -n "$MREL" && -n "$KREL" ]] || { echo "ERROR: kernelrelease no extraíble (kernel='$KREL', modules='$MREL')" >&2; exit 1; }
 [[ "$KREL" == "$MREL" ]] || {
   echo "ERROR: kernelrelease incongruente kernel='$KREL' modules='$MREL'" >&2

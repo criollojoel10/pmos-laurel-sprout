@@ -300,7 +300,7 @@ jobs:
           chmod +x scripts/build-nixos-boot-image.sh
           mkdir -p /tmp/boot-out
           scripts/build-nixos-boot-image.sh \
-            --kernel /tmp/kernel-artifact/Image \
+            --kernel /tmp/kernel-artifact/Image.gz \
             --dtb /tmp/kernel-artifact/sm6125-xiaomi-laurel-sprout.dtb \
             --ramdisk /tmp/initramfs-out/initramfs.cpio.gz \
             --system-path "$SYSTEM_PATH" \
