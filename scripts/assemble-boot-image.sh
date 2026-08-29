@@ -22,7 +22,15 @@
 #     [--header-version N] [--base 0x...] [--pagesize N] \
 #     [--cmdline "..."] [--os-version x.y] [--os-patch-level ...] \
 #     [--kernel-offset 0x...] [--dtb-offset 0x...] \
-#     [--ramdisk-offset 0x...] [--tags-offset 0x...]
+#     [--ramdisk-offset 0x...] [--tags-offset 0x...] \
+#     [--append-dtb]
+#
+# --append-dtb: concatena el DTB al final del payload del kernel
+#   (kernel = Image/Image.gz + DTB, "vmlinuz-dtb", deviceinfo_append_dtb=true).
+#   Es el único layout que el ABL de laurel_sprout acepta (H61 v0 sedfix).
+#   Con header v2 deja dtb_size=0 en el campo DTB; con header v0 no existe
+#   sección DTB. NO se combina con --dtb-offset (campo DTB v2) ni con maskas
+#   de "QCDT": el ensamblado falla si ambos se piden.
 #
 # Localización del builder Python:
 PYBUILDER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/build-boot-image.py"
@@ -43,6 +51,7 @@ KERNEL_OFFSET=""
 DTBO_ADDR=""
 RAMDISK_OFFSET=""
 TAGS_OFFSET=""
+APPEND_DTB="no"
 
 usage() {
   echo "uso: $0 --kernel <Image> --ramdisk <initramfs> --dtb <dtb> --out <boot.img> [opciones]" >&2
@@ -65,36 +74,51 @@ while (( $# > 0 )); do
     --dtb-offset) DTBO_ADDR="$2"; shift 2 ;;
     --ramdisk-offset) RAMDISK_OFFSET="$2"; shift 2 ;;
     --tags-offset) TAGS_OFFSET="$2"; shift 2 ;;
+    --append-dtb) APPEND_DTB="yes"; shift ;;
     *) usage ;;
   esac
 done
 
 [[ -n "$KERNEL" && -n "$RAMDISK" && -n "$DTB" && -n "$OUT" ]] || usage
-[[ -f "$KERNEL" ]] || { echo "ERROR: kernel no existe: $KERNEL" >&2; exit 1; }
-[[ -f "$RAMDISK" ]] || { echo "ERROR: ramdisk no existe: $RAMDISK" >&2; exit 1; }
-[[ -f "$DTB" ]] || { echo "ERROR: dtb no existe: $DTB" >&2; exit 1; }
+for f in "$KERNEL" "$RAMDISK" "$DTB"; do
+  [[ -f "$f" ]] || { echo "ERROR: archivo no existe: $f" >&2; exit 1; }
+  [[ -s "$f" ]] || { echo "ERROR: archivo vacío: $f" >&2; exit 1; }
+done
+
+if [[ "$APPEND_DTB" == "yes" && -n "$DTBO_ADDR" ]]; then
+  echo "ERROR: --append-dtb NO puede combinarse con --dtb-offset (campo DTB v2)" >&2
+  exit 1
+fi
 
 info() { printf '[bootimg] %s\n' "$*" >&2; }
 
 [[ -f "$PYBUILDER" ]] || { echo "ERROR: builder Python no encontrado: $PYBUILDER" >&2; exit 1; }
+
+if [[ "$APPEND_DTB" == "yes" ]]; then
+  KERNEL_SIZE="$(stat -c %s "$KERNEL")"
+  DTB_SIZE="$(stat -c %s "$DTB")"
+  info "layout append_dtb: kernel payload = kernel ($KERNEL_SIZE B) + dtb ($DTB_SIZE B) = $((KERNEL_SIZE + DTB_SIZE)) B"
+fi
 
 ARGS=(
   --kernel "$KERNEL"
   --ramdisk "$RAMDISK"
   --dtb "$DTB"
   --out "$OUT"
+  --header-version "$HEADER_VERSION"
   --base "$BASE"
   --page-size "$PAGESIZE"
-  --kernel-offset "$KERNEL_OFFSET"
-  --ramdisk-offset "$RAMDISK_OFFSET"
-  --tags-offset "$TAGS_OFFSET"
-  --dtb-offset "$DTBO_ADDR"
   --cmdline "$CMDLINE"
 )
-[[ -n "$OS_VERSION" ]] && ARGS+=(--os-version "$OS_VERSION")
-[[ -n "$OS_PATCH" ]] && ARGS+=(--os-patch-level "$OS_PATCH")
+[[ -n "$KERNEL_OFFSET" ]]  && ARGS+=(--kernel-offset "$KERNEL_OFFSET")
+[[ -n "$RAMDISK_OFFSET" ]] && ARGS+=(--ramdisk-offset "$RAMDISK_OFFSET")
+[[ -n "$TAGS_OFFSET" ]]    && ARGS+=(--tags-offset "$TAGS_OFFSET")
+[[ -n "$DTBO_ADDR" ]]      && ARGS+=(--dtb-offset "$DTBO_ADDR")
+[[ -n "$OS_VERSION" ]]     && ARGS+=(--os-version "$OS_VERSION")
+[[ -n "$OS_PATCH" ]]       && ARGS+=(--os-patch-level "$OS_PATCH")
+[[ "$APPEND_DTB" == "yes" ]] && ARGS+=(--append-dtb)
 
-info "ensamblando boot image (header v$HEADER_VERSION, builder python)..."
+info "ensamblando boot image (header v$HEADER_VERSION, append_dtb=$APPEND_DTB, builder python)..."
 python3 "$PYBUILDER" "${ARGS[@]}"
 
 info "boot image creado: $OUT"
