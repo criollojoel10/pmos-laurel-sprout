@@ -285,8 +285,8 @@ jobs:
             --modules /tmp/kernel-artifact/modules.tar.zst \
             --out /tmp/initramfs-out
           gzip -dc /tmp/initramfs-out/initramfs.cpio.gz | cpio -t | sort > /tmp/initramfs-file-list.txt
-          grep -q '/init$' /tmp/initramfs-file-list.txt || { echo "FALLO: init ausente en initramfs" >&2; exit 1; }
-          grep -q '/busybox$' /tmp/initramfs-file-list.txt || { echo "FALLO: busybox ausente en initramfs" >&2; exit 1; }
+          grep -q '/init$' /tmp/initramfs-file-list.txt || grep -q '^\./init$' /tmp/initramfs-file-list.txt || { echo "FALLO: init ausente en initramfs" >&2; exit 1; }
+          grep -q '/busybox$' /tmp/initramfs-file-list.txt || grep -q '^\./busybox$' /tmp/initramfs-file-list.txt || { echo "FALLO: busybox ausente en initramfs" >&2; exit 1; }
           grep -c '/lib/modules/' /tmp/initramfs-file-list.txt
           file /tmp/initramfs-out/busybox
 
