@@ -47,11 +47,11 @@ info() { printf '[nixos-validate-boot] %s\n' "$*" >&2; }
 TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-BOOT_IMG="$(find "$BOOT" -maxdepth 1 -name 'boot-laurel-*.img' | head -1)"
+BOOT_IMG="$(find "$BOOT" -name 'boot-laurel-*.img' | head -1 || true)"
 [[ -n "$BOOT_IMG" ]] || { echo "ERROR: boot.img no encontrado en $BOOT" >&2; exit 1; }
-ROOTFS_IMG="$(find "$IMAGE" -maxdepth 1 -name 'nixos-rootfs.img' | head -1)"
+ROOTFS_IMG="$(find "$IMAGE" -name 'nixos-rootfs.img' | head -1 || true)"
 [[ -n "$ROOTFS_IMG" ]] || { echo "ERROR: nixos-rootfs.img no encontrado en $IMAGE" >&2; exit 1; }
-NAR="$(find "$CLOSURE" -maxdepth 1 -name 'nixos-laurel-console-closure.nar.zst' | head -1)"
+NAR="$(find "$CLOSURE" -name 'nixos-laurel-console-closure.nar.zst' | head -1 || true)"
 [[ -n "$NAR" ]] || { echo "ERROR: nar.zst no encontrado en $CLOSURE" >&2; exit 1; }
 
 rm -rf "$OUT"
