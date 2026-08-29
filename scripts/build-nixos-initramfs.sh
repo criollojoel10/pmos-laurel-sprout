@@ -141,6 +141,10 @@ EOF
 chmod 755 "$OUT/init"
 
 # ── 3. Empacar initramfs.cpio.gz ───────────────────────────────────────────
-( cd "$OUT" && find . -print0 | sort -z | cpio --null -o -H newc 2>/dev/null | gzip -9 ) > "$OUT/initramfs.cpio.gz"
+# El archivo NO puede escribirse dentro de $OUT (auto-inclusión al archivar);
+# se genera en un dir temporal y se mueve al final.
+ARCHIVE="$(mktemp -d)/initramfs.cpio.gz"
+( cd "$OUT" && find . -print0 | sort -z | cpio --null -o -H newc 2>/dev/null | gzip -9 ) > "$ARCHIVE"
+mv "$ARCHIVE" "$OUT/initramfs.cpio.gz"
 info "initramfs.cpio.gz: $(du -h "$OUT/initramfs.cpio.gz" | cut -f1)"
-info "uinit con módulos: $(gzip -dc "$OUT/initramfs.cpio.gz" | cpio -t 2>/dev/null | wc -l) entradas"
+info "uinit con módulos: $(gzip -dc "$OUT/initramfs.cpio.gz" | cpio -t 2>/dev/null | grep -c .) entradas"
