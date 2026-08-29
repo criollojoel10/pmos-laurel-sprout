@@ -77,11 +77,11 @@ mkdir -p "$WORK/rm"
 ( cd "$WORK/rm" && gzip -dc "$WORK/ramdisk" | cpio -id --quiet busybox 2>/dev/null || true )
 [ -f "$WORK/rm/busybox" ] || ( cd "$WORK/rm" && gzip -dc "$WORK/ramdisk" | cpio -id --quiet ./busybox 2>/dev/null || true )
 [ -f "$WORK/rm/busybox" ] || { echo "ERROR: no se pudo extraer busybox del initramfs" >&2; exit 1; }
-BB_ARCH="$(file "$WORK/rm/busybox" | grep -oE 'ARM aarch64|aarch64' | head -1)"
+BB_ARCH="$(file "$WORK/rm/busybox" | grep -oE 'ARM aarch64|aarch64' | head -1 || true)"
 [[ "$BB_ARCH" == *aarch64* ]] || { echo "ERROR: busybox no aarch64 ($BB_ARCH)" >&2; exit 1; }
 
-MREL="$(sed -nE 's#(^|/)lib/modules/([^/]+)/.*#\2#p' "$WORK/rd.list" | head -1)"
-if head -c2 "$WORK/kernel" | od -An -tx1 | grep -q '1f 8b'; then
+MREL="$(sed -nE 's#(^|/)lib/modules/([^/]+)/.*#\2#p' "$WORK/rd.list" | head -1 || true)"
+if head -c2 "$WORK/kernel" | od -An -tx1 | grep -Eq '1f 8b|0000'; then
   zcat "$WORK/kernel" > "$WORK/kernel.u" 2>/dev/null || true
   KERNEL_TARGET="$WORK/kernel.u"
 else
