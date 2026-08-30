@@ -18,6 +18,7 @@
 #     --system-path /nix/store/<hash>-nixos-system-... \
 #     --out <boot.img> \
 #     [--boot-layout v0-append|v2-dtb-field] \
+#     [--ramdisk-offset 0x...] [--os-version X.Y.Z] [--os-patch-level YYYY-MM] \
 #     [--boot-limit <bytes>]
 #
 # --boot-layout:
@@ -40,9 +41,12 @@ SYSTEM_PATH=""
 OUT=""
 BOOT_LIMIT="67108864"
 BOOT_LAYOUT="v2-dtb-field"
+RAMDISK_OFFSET="0x01000000"
+OS_VERSION="12.0.0"
+OS_PATCH_LEVEL="2026-08"
 
 usage() {
-  echo "uso: $0 --kernel <Image> --dtb <dtb> --ramdisk <cpio.gz> --system-path <ruta> --out <boot.img> [--boot-layout v0-append|v2-dtb-field] [--boot-limit <bytes>]" >&2
+  echo "uso: $0 --kernel <Image> --dtb <dtb> --ramdisk <cpio.gz> --system-path <ruta> --out <boot.img> [--boot-layout v0-append|v2-dtb-field] [--ramdisk-offset 0x...] [--os-version X.Y.Z] [--os-patch-level YYYY-MM] [--boot-limit <bytes>]" >&2
   exit 2
 }
 
@@ -55,6 +59,9 @@ while (( $# > 0 )); do
     --out) OUT="$2"; shift 2 ;;
     --boot-limit) BOOT_LIMIT="$2"; shift 2 ;;
     --boot-layout) BOOT_LAYOUT="$2"; shift 2 ;;
+    --ramdisk-offset) RAMDISK_OFFSET="$2"; shift 2 ;;
+    --os-version) OS_VERSION="$2"; shift 2 ;;
+    --os-patch-level) OS_PATCH_LEVEL="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
@@ -112,10 +119,10 @@ ASSEMBLE_ARGS=(
   "--base" "0x00000000"
   "--pagesize" "4096"
   "--cmdline" "$CMDLINE"
-  "--os-version" "12.0.0"
-  "--os-patch-level" "2026-08"
+  "--os-version" "$OS_VERSION"
+  "--os-patch-level" "$OS_PATCH_LEVEL"
   "--kernel-offset" "0x00008000"
-  "--ramdisk-offset" "0x01000000"
+  "--ramdisk-offset" "$RAMDISK_OFFSET"
   "--tags-offset" "0x00000100"
 )
 [[ -n "$DTB_OFFSET" ]] && ASSEMBLE_ARGS+=(--dtb-offset "$DTB_OFFSET")

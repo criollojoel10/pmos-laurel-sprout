@@ -14,6 +14,18 @@ on:
         description: "Run del que reutilizar closure/kernel/busybox/rootfs (evita rebuild de ~1h)"
         type: string
         default: "33256486259"
+      ramdisk_offset:
+        description: "ramdisk_offset en el header v0 (0x1000000 stock; 0x2000000 si el kernel ~18 MiB solapa 16 MiB)"
+        type: string
+        default: "0x1000000"
+      os_version:
+        description: "Versión del SO en el header (12.0.0 NixOS; 1.0.0 paridad con imagen 6.1 que arrancó)"
+        type: string
+        default: "1.0.0"
+      os_patch_level:
+        description: "Nivel de parche del SO en el header (formato YYYY-MM)"
+        type: string
+        default: "2022-12"
 
 permissions:
   contents: read
@@ -117,7 +129,10 @@ jobs:
             --system-path "$SYSTEM_PATH" \
             --out /tmp/boot-out/$BOOT_IMG \
             --boot-limit 67108864 \
-            --boot-layout "$BOOT_LAYOUT"
+            --boot-layout "$BOOT_LAYOUT" \
+            --ramdisk-offset "${{ github.event.inputs.ramdisk_offset }}" \
+            --os-version "${{ github.event.inputs.os_version }}" \
+            --os-patch-level "${{ github.event.inputs.os_patch_level }}"
           mkdir -p /tmp/boot-validation/unpack
           CMDLINE_EXTRACTED="$(python3 scripts/unpack-boot-image.py --boot /tmp/boot-out/$BOOT_IMG --out /tmp/boot-validation/unpack --print-cmdline)"
           printf '%s\n' "$CMDLINE_EXTRACTED" > /tmp/boot-out/cmdline.txt
