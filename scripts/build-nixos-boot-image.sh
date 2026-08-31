@@ -90,7 +90,7 @@ case "$BOOT_LAYOUT" in
     HEADER_VERSION="0"
     DTB_OFFSET=""
     APT="yes"
-    CMDLINE="androidboot.hardware=laurel_sprout console=ttyMSM0,115200n8 console=tty0 boot.shell_on_fail=1 root=LABEL=NIXOS_ROOT init=$INIT"
+    CMDLINE="androidboot.hardware=laurel_sprout console=ttyMSM0,115200n8 console=tty0 boot.shell_on_fail=1 clk_ignore_unused root=LABEL=NIXOS_ROOT init=$INIT"
     info "layout v0-append (header v0 + DTB concatenado al kernel)"
     ;;
   *)
