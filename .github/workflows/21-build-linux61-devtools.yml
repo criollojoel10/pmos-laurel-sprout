@@ -149,7 +149,7 @@ jobs:
           # Lineas que SE ANEXAN (idempotente): solo si la clave no existe ya.
           while IFS= read -r line; do
             key=${line%%=*}
-            if rg -q "^#?${key}=" "$KCFG"; then
+            if grep -qE "^#?\b${key}(=| )" "$KCFG"; then
               echo "ya existe: $key"
             else
               echo "$line" >> "$KCFG"
@@ -167,7 +167,7 @@ jobs:
                    CONFIG_USB_NET_DM9601 CONFIG_USB_NET_SMSC95XX \
                    CONFIG_USB_NET_SR9700 CONFIG_USB_NET_CDC_EEM \
                    CONFIG_USB_SERIAL_PL2303 CONFIG_USB_CONFIGFS_RNDIS; do
-            rg -q "^${k}=" "$KCFG" && echo "OK  $k" || { echo "FALTA $k"; exit 1; }
+            grep -qE "^#?\b${k}(=| )" "$KCFG" && echo "OK  $k" || { echo "FALTA $k"; exit 1; }
           done
       - name: Escribir pmbootstrap.cfg (SSH habilitado)
         run: |
