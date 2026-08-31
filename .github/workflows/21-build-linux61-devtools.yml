@@ -268,6 +268,13 @@ jobs:
               --config-channels "$GITHUB_WORKSPACE/config/pmos-historical-channels.cfg" \
               "$@"
           }
+          if [ "${{ github.event.inputs.usb_dongles }}" = "true" ]; then
+            # El APKBUILD del kernel 6.1 fija el sha512 del config fuente;
+            # al anadir drivers al config hay que regenerar los checksums o
+            # abuild falla en 'unpack failed' (sha512sum mismatch). Mismo
+            # patron que 'pmbootstrap checksum' en el workflow begonia.
+            PMB checksum linux-postmarketos-qcom-sm6125 < /tmp/init-answers.txt 2>&1 | tail -10 | tee /tmp/kernel-checksum.log
+          fi
           PMB build linux-postmarketos-qcom-sm6125 < /tmp/init-answers.txt 2>&1 | tee /tmp/kernel-build.log
           echo "== tail =="
           tail -15 /tmp/kernel-build.log
