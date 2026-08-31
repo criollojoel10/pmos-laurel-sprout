@@ -259,6 +259,13 @@ jobs:
           echo "---"
           cat /home/runner/.local/var/pmbootstrap/cache_git/pmaports/channels.cfg 2>/dev/null || true
           echo "channels.cfg congelado verificado en workflow, ver arriba"
+      - name: Restaurar cache de paquetes pmbootstrap (no recompilar kernel)
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: /home/runner/.local/var/pmbootstrap/packages
+          key: pmos61-pkgs-${{ github.run_id }}
+          restore-keys: |
+            pmos61-pkgs-
       - name: Compilar kernel histórico (pmb:cross-native, sin qemu)
         run: |
           set -Eeuo pipefail
@@ -282,6 +289,12 @@ jobs:
           find /home/runner/.local/var/pmbootstrap/packages \
             -name 'linux-postmarketos-qcom-sm6125-*.apk' \
             -exec ls -la {} \; 2>/dev/null || true
+      - name: Guardar cache de paquetes pmbootstrap (kernel ya compilado)
+        if: success()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: /home/runner/.local/var/pmbootstrap/packages
+          key: pmos61-pkgs-${{ github.run_id }}
       - name: Liberar espacio (limpiar builddir y distfiles del kernel)
         if: always()
         run: |
@@ -463,7 +476,10 @@ jobs:
             echo "=== inyectar opencode en /usr/local/bin del rootfs (p2) ==="
             test -f /tmp/opencode-bin || { echo "ERROR: falta /tmp/opencode-bin"; exit 1; }
             RAW="$ROOTFS/xiaomi-laurel-ssh.raw"
-            python3 scripts/inject-opencode-rootfs.py "$RAW" "$SECTOR" /tmp/opencode-bin
+            # la raw endurecida es propiedad de root (ssh-harden corre con
+            # sudo), por eso python3 tambien va con sudo (mismo patron que
+            # 'sudo e2fsck'). Sin sudo: PermissionError al abrir en r+b.
+            sudo python3 scripts/inject-opencode-rootfs.py "$RAW" "$SECTOR" /tmp/opencode-bin
           fi
           # liberar espacio: la raw base (2.1 GiB) ya no se necesita
           sudo rm -f "$ROOTFS/xiaomi-laurel.raw"
