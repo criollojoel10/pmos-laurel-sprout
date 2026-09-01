@@ -150,16 +150,16 @@ Resultado:
 
 ## Congelación real de la base 6.1
 
-La base 6.1 está documentada como funcional y reproducible, pero no está completamente congelada al nivel de referencia Git verificable.
+La base 6.1 está documentada como funcional y reproducible, y ahora cuenta con una referencia Git local verificada.
 
 Estado actual:
 
 - `baseline_documented = yes`
-- `baseline_committed = no`
-- `baseline_tagged_or_bundled = no`
-- `baseline_reproducibly_frozen = no`
+- `baseline_committed = yes`
+- `baseline_tagged_or_bundled = yes`
+- `baseline_reproducibly_frozen = yes`
 
-La razón es que los reportes y los artefactos documentados siguen sin un commit local seguro o tag local verificado que encierre la referencia de la base funcional.
+La referencia local se conserva como el commit `3ec4bcd` y el tag local `laurel-linux61-baseline-ssh-fb-2026-09-01`, sin publicar nada ni incluir artefactos privados.
 
 ## Conclusión final
 

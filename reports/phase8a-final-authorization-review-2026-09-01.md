@@ -73,11 +73,11 @@ La recuperación no está demostrada porque ni el slot objetivo ni el estado del
 ## Base 6.1 y congelación
 
 - baseline_documented = yes
-- baseline_committed = no
-- baseline_tagged_or_bundled = no
-- baseline_reproducibly_frozen = no
+- baseline_committed = yes
+- baseline_tagged_or_bundled = yes
+- baseline_reproducibly_frozen = yes
 
-La base 6.1 está documentada, pero no sellada aún con un commit local o bundle verificado que permita rollback reproducible.
+La base 6.1 queda sellada como referencia local reproducible por medio del commit `3ec4bcd` y el tag local `laurel-linux61-baseline-ssh-fb-2026-09-01`, sin publicar artefactos ni secretos.
 
 ## Contradicciones encontradas
 
