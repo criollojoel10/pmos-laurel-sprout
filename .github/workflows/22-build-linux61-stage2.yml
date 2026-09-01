@@ -1,0 +1,404 @@
+name: 22-build-linux61-stage2
+
+# ETAPA 2 — reserved-memory/rmtfs/ramoops (pstore de diagnóstico).
+#
+# Objetivo: reconstruir el kernel 6.1 (fork sm6125-mainline @77de535b) con
+# PSTORE_RAM/PSTORE_CONSOLE/PSTORE_PMSG habilitados y con el nodo ramoops del
+# board DTS realmente procesado por el kernel.
+#
+# Hallazgo raíz (2026-09-01, informe stage1-memory-rmtfs-ramoops.md):
+#   El board DTS del fork define el contenedor de memoria reservada como
+#   /reserved_memory (guion bajo). El kernel (drivers/of/of_reserved_mem.c)
+#   SOLO procesa /reserved-memory (guion). Por tanto ramoops/pstore,
+#   debug_mem, last_log_mem y cmdline_mem quedan ignorados en runtime aunque
+#   estén en la DTB (validado en el dispositivo: /proc/iomem no muestra
+#   estas regiones, /sys/fs/pstore vacío y sin dmesg de ramoops aunque el
+#   DTB las contenga).
+#
+# Fix (parche 0005): renombrar el nodo a reserved-memory (guion), corregir
+#   el binding de ramoops (msg-size -> pmsg-size, un cell) y alinear las
+#   unit-address con el reg real.
+#
+# Config: añadir CONFIG_PSTORE_RAM=y, CONFIG_PSTORE_CONSOLE=y,
+#   CONFIG_PSTORE_PMSG=y (el .config fuente de pmaports @7aaee51a NO los
+#   trae; solo CONFIG_PSTORE=y con backend EFI_VARS inoperante).
+#
+# Parches DTS aplicados (orden estricto):
+#   0001-dts-laurel-wcn3990-first-probe  WCN3990 node (sin firmware aún)
+#   0004-dts-sm6125-add-rmtfs-mem         nodo rmtfs-mem (driver ya =y)
+#   0005-dts-sm6125-laurel-fix-reserved-memory-ramoops   fix pstore
+#   NO se aplica 0002/0003 (transporte MPSS / enable MPSS): sin firmware de
+#   modem en el rootfs NO debe activarse el remoteproc del módem.
+#
+# Ensamblado: boot v0 con el MISMO ramdisk del boot funcional (run 21),
+#   mismo cmdline (clk_ignore_unused), nuevo kernel (Image.gz + DTB).
+#   NO flashea, NO escribe el teléfono, NO sube firmware ni rootfs.
+#
+# Salida: artefacto boot-linux61-stage2.img + DTB + config + manifold + SHA256.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rootfs_run_id:
+        description: Run 21 con el boot funcional (para extraer ramdisk + cmdline)
+        type: string
+        default: '33434873426'
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: linux61-stage2
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Kernel 6.1 Etapa 2 (pstore/ramoops + rmtfs + wcn3990)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+          nproc
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+
+      - name: Instalar dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            crossbuild-essential-arm64 device-tree-compiler \
+            flex bison libssl-dev libelf-dev bc python3 cpio xz-utils kmod jq
+
+      - name: Clonar fork sm6125-mainline en el commit fijado
+        run: |
+          set -Eeuo pipefail
+          KC=77de535b8dbd8f483b5802c8937cb714bab5b485
+          git clone --filter=blob:none --no-checkout \
+            https://gitlab.com/sm6125-mainline/linux.git kernel61
+          cd kernel61
+          git fetch --depth 1 origin "$KC"
+          git checkout -q "$KC"
+          echo "Árbol en: $(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$KC"
+
+      - name: Descargar config congelada y verificar SHA-256
+        run: |
+          set -Eeuo pipefail
+          URL="https://gitlab.postmarketos.org/api/v4/projects/postmarketOS%2Fpmaports/repository/files/device%2Ftesting%2Flinux-postmarketos-qcom-sm6125%2Fconfig-postmarketos-qcom-sm6125.aarch64/raw?ref=7aaee51a"
+          curl -fsSL "$URL" -o kernel61/.config
+          EXPECTED="08bcee71d4164ef3e7c1244cdf4d5a0e4e7e2eedcadd9e5576166f8661417c4a"
+          GOT="$(sha256sum kernel61/.config | awk '{print $1}')"
+          echo "config sha256: $GOT"
+          if [[ "$GOT" != "$EXPECTED" ]]; then
+            echo "ERROR: la config no coincide con la congelada" >&2
+            exit 1
+          fi
+
+      - name: Aplicar parches downstream en orden estricto
+        run: |
+          set -Eeuo pipefail
+          P1="$GITHUB_WORKSPACE/patches/kernel-61/0001-dts-laurel-wcn3990-first-probe.patch"
+          P4="$GITHUB_WORKSPACE/patches/kernel-61/0004-dts-sm6125-add-rmtfs-mem.patch"
+          P5="$GITHUB_WORKSPACE/patches/kernel-61/0005-dts-sm6125-laurel-fix-reserved-memory-ramoops.patch"
+          test -f "$P1" && test -f "$P4" && test -f "$P5"
+          for P in "$P1" "$P4" "$P5"; do
+            echo "== git apply --check $P =="
+            git -C kernel61 apply --check "$P"
+            git -C kernel61 apply "$P"
+            echo "aplicado: $(basename "$P")"
+          done
+          { echo "== git diff --stat =="; git -C kernel61 diff --stat; echo "== git diff --check =="; git -C kernel61 diff --check; } | tee /tmp/apply-diff.log
+
+      - name: Habilitar PSTORE_RAM en el config (olddefconfig)
+        run: |
+          set -Eeuo pipefail
+          cd kernel61
+          # Gate: el config fuente NO debe traer PSTORE_RAM habilitado aún
+          if grep -qE '^CONFIG_PSTORE_RAM=y' .config; then
+            echo "AVISO: PSTORE_RAM ya estaba =y en el config fuente; se mantiene" 
+          fi
+          # Activar PSTORE_RAM + PSTORE_CONSOLE + PSTORE_PMSG (idempotente)
+          sed -i -e 's/^# CONFIG_PSTORE_RAM is not set$/CONFIG_PSTORE_RAM=y/' \
+                 -e 's/^# CONFIG_PSTORE_CONSOLE is not set$/CONFIG_PSTORE_CONSOLE=y/' \
+                 -e 's/^# CONFIG_PSTORE_PMSG is not set$/CONFIG_PSTORE_PMSG=y/' \
+                 .config
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig > /tmp/k61-olddefconfig.log 2>&1
+          echo "== verify PSTORE =="
+          grep -E '^CONFIG_PSTORE' .config | grep -E 'RAM|CONSOLE|PMSG|=y' || true
+          grep -qE '^CONFIG_PSTORE_RAM=y' .config || { echo "ERROR: PSTORE_RAM no quedó =y" >&2; exit 1; }
+          grep -qE '^CONFIG_PSTORE_CONSOLE=y' .config || { echo "ERROR: PSTORE_CONSOLE no quedó =y" >&2; exit 1; }
+          grep -qE '^CONFIG_PSTORE_PMSG=y' .config || { echo "ERROR: PSTORE_PMSG no quedó =y" >&2; exit 1; }
+          echo "PSTORE RAM/CONSOLE/PMSG OK"
+          echo "== verify RMTFS =="
+          grep -E '^CONFIG_QCOM_RMTFS_MEM' .config || true
+          grep -qE '^CONFIG_QCOM_RMTFS_MEM=y' .config || { echo "ERROR: QCOM_RMTFS_MEM no =y" >&2; exit 1; }
+          echo "RMTFS OK"
+
+      - name: Compilar kernel 6.1 Etapa 2
+        run: |
+          set -Eeuo pipefail
+          cd kernel61
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+            -j"$(nproc)" Image.gz dtbs > /tmp/k61-build.log 2>&1 || {
+            echo "ERROR: build kernel 6.1 falló (log al final)"; tail -80 /tmp/k61-build.log; exit 1; }
+          ls -la arch/arm64/boot/Image.gz
+          DTB=$(find arch/arm64/boot/dts -name 'sm6125-xiaomi-laurel_sprout.dtb' | head -n1)
+          if [[ -z "$DTB" ]]; then
+            echo "ERROR: no se generó sm6125-xiaomi-laurel_sprout.dtb" >&2
+            exit 1
+          fi
+          echo "DTB: $DTB"
+          cp arch/arm64/boot/Image.gz /tmp/k61-Image.gz
+          cp "$DTB" /tmp/k61-dtb.dtb
+          cp .config /tmp/k61-config
+
+      - name: Decompilar DTB y validar nodo ramoops + reserved-memory + wcn3990 + rmtfs
+        run: |
+          set -Eeuo pipefail
+          DTB=/tmp/k61-dtb.dtb
+          dtc -I dtb -O dts -o /tmp/final.dts "$DTB" 2>/tmp/final-dtc.log || { echo "dtc falló"; exit 1; }
+          python3 - <<'PY'
+          dts = open('/tmp/final.dts').read()
+          # 1. debe existir /reserved-memory (guion)
+          if 'reserved-memory' not in dts:
+              raise SystemExit('ERROR: sin nodo /reserved-memory (guion) en el DTB')
+          # 2. no debe existir reserved_memory (guion bajo) como raíz
+          if 'reserved_memory' in dts:
+              raise SystemExit('ERROR: quedó reserved_memory (guion bajo) en el DTB')
+          # 3. ramoops presente
+          if 'ramoops@' not in dts:
+              raise SystemExit('ERROR: sin nodo ramoops en el DTB')
+          # 4. wcn3990 (parche 0001)
+          if 'wcn3990' not in dts:
+              print('AVISO: sin wcn3990 en DTB')
+          # 5. rmtfs-mem (parche 0004)
+          if 'rmtfs-mem' not in dts:
+              print('AVISO: sin rmtfs-mem en DTB')
+          print('DTB OK: reserved-memory (guion) + ramoops presente; sin reserved_memory (guion bajo)')
+          PY
+
+      - name: Descargar boot funcional (run 21) y extraer ramdisk
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: linux61-devtools
+          path: /tmp/devtools
+          run-id: ${{ github.event.inputs.rootfs_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Extraer ramdisk del boot funcional
+        run: |
+          set -Eeuo pipefail
+          BOOT=$(find /tmp/devtools -type f -name boot.img -print -quit)
+          RAMDISK=$(find /tmp/devtools -type f -name 'initramfs*' -print -quit)
+          test -n "$BOOT"
+          echo "BOOT=$BOOT"
+          echo "RAMDISK_ARTIFACT=$RAMDISK"
+          # El boot.img del export-resolved contiene el ramdisk empaquetado;
+          # extraerlo del propio boot.img (fuente de verdad, sin asumir el artefacto).
+          python3 - "$BOOT" <<'PY'
+          import struct, sys
+          from pathlib import Path
+          boot = Path(sys.argv[1]).read_bytes()
+          if boot[:8] != b'ANDROID!':
+              raise SystemExit('ERROR: no es boot.img ANDROID!')
+          ksz, kaddr, rsz, raddr, ssz, saddr, tags, page, version, osver = struct.unpack_from('<10I', boot, 8)
+          if version != 0 or page != 4096:
+              raise SystemExit(f'ERROR: boot no es v0/page4096 (version={version} page={page})')
+          koff = page
+          roff = page + ((ksz + page - 1) // page) * page
+          Path('/tmp/source-ramdisk').write_bytes(boot[roff:roff + rsz])
+          print(f'page={page} ksz={ksz} rsz={rsz} koff={koff} roff={roff}')
+          print('ramdisk extraído:', rsz, 'bytes')
+          PY
+          file /tmp/source-ramdisk
+          # validar ramdisk: cpio magia
+          python3 - <<'PY'
+          from pathlib import Path
+          d = Path('/tmp/source-ramdisk').read_bytes()
+          # puede ser cpio (070701) o gzip sobre cpio o lz4/xz
+          magics = {'cpio-newc': d[6:11], 'gzip': d[:2], 'lz4': d[:4], 'xz': d[:6], 'zstd': d[:4]}
+          print('primeros bytes:', d[:16])
+          if d[:2] == b'\x1f\x8b':
+              print('formato: gzip cpio')
+          elif d[6:13] == b'070701':
+              print('formato: cpio newc')
+          else:
+              print('NOTA: formato desconocido; se replicará tal cual')
+          PY
+
+      - name: Ensamblar boot v0 Etapa 2
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/boot-out
+          python3 scripts/build-boot-image.py \
+            --kernel /tmp/k61-Image.gz \
+            --ramdisk /tmp/source-ramdisk \
+            --dtb /tmp/k61-dtb.dtb \
+            --out /tmp/boot-out/boot-linux61-stage2.img \
+            --header-version 0 --append-dtb --base 0x0 --page-size 4096 \
+            --kernel-offset 0x8000 --ramdisk-offset 0x1000000 --tags-offset 0x100 \
+            --cmdline 'clk_ignore_unused' \
+            --os-version 0.0.0 --os-patch-level 2000-00
+
+      - name: Validar boot final (estructura + cmdline + identificadores)
+        run: |
+          set -Eeuo pipefail
+          BOOT=/tmp/boot-out/boot-linux61-stage2.img
+          python3 - "$BOOT" <<'PY'
+          import hashlib, struct, sys
+          boot = open(sys.argv[1], 'rb').read()
+          if boot[:8] != b'ANDROID!': raise SystemExit('bad magic')
+          ksz, kaddr, rsz, raddr, ssz, saddr, tags, page, version, osver = struct.unpack_from('<10I', boot, 8)
+          if version != 0 or page != 4096: raise SystemExit('expected boot v0/page4096')
+          cmdline = boot[64:576].split(b'\0', 1)[0].decode('ascii', 'replace')
+          expected = 'clk_ignore_unused'
+          if cmdline != expected:
+              raise SystemExit(f'ERROR: cmdline inesperado [{cmdline!r}] esperado [{expected!r}]')
+          if len(boot) > 0x4000000: raise SystemExit('boot.img > 64 MiB')
+          # payload: primer bloque = Image.gz + DTB appendado
+          kernel = boot[page:page + ksz]
+          open('/tmp/boot-out/kernel-with-dtb', 'wb').write(kernel)
+          open('/tmp/boot-out/ramdisk', 'wb').write(boot[page + ((ksz + page - 1) // page) * page : page + ((ksz + page - 1) // page) * page + rsz])
+          print('cmdline OK:', cmdline)
+          print('boot_sha256=', hashlib.sha256(boot).hexdigest())
+          print('kernel+dtb', len(kernel), 'ramdisk', rsz, 'total', len(boot))
+          PY
+          gzip -t /tmp/boot-out/kernel-with-dtb || true
+          # separar Image.gz puro y DTB
+          python3 - /tmp/boot-out/kernel-with-dtb <<'PY'
+          import struct, sys
+          from pathlib import Path
+          k = Path(sys.argv[1]).read_bytes()
+          mdt = b'\xd0\x0d\xfe\xed'
+          pos = k.rfind(mdt)
+          if pos <= 0: raise SystemExit('ERROR: DTB appendado no hallado')
+          sz = struct.unpack_from('>I', k, pos+4)[0]
+          Path('/tmp/boot-out/kernel.gz').write_bytes(k[:pos])
+          Path('/tmp/boot-out/final.dtb').write_bytes(k[pos:pos+sz])
+          print(f'kernel.gz={pos} dtb={sz}')
+          PY
+          cmp /tmp/boot-out/final.dtb /tmp/k61-dtb.dtb
+          echo "final.dtb == k61-dtb.dtb (byte-idéntico)"
+          cmp /tmp/boot-out/kernel.gz /tmp/k61-Image.gz
+          echo "kernel.gz del boot == Image.gz fuente (byte-idéntico)"
+
+      - name: Validar DTB final (ramoops bajo reserved-memory con guion)
+        run: |
+          set -Eeuo pipefail
+          DTB=/tmp/boot-out/final.dtb
+          dtc -I dtb -O dts -o /tmp/boot-out/final.dts "$DTB" 2>/tmp/boot-final-dtc.log || { echo "dtc falló"; exit 1; }
+          echo "== validar DTB final =="
+          python3 - <<'PY'
+          import re, sys
+          dts = open('/tmp/boot-out/final.dts').read()
+          # El nodo ramoops debe existir como hijo de /reserved-memory (guion)
+          m = re.search(r'reserved-memory\s*\{', dts)
+          if not m:
+              raise SystemExit('ERROR: no existe /reserved-memory (guion)')
+          seg = dts[m.start():]
+          if 'ramoops@' not in seg[:6000]:
+              raise SystemExit('ERROR: ramoops no es hijo inmediato de /reserved-memory')
+          print('OK: reserved-memory con guion y ramoops hijo directo')
+          if 'reserved_memory' in dts:
+              raise SystemExit('ERROR: aún existe reserved_memory (guion bajo)')
+          print('OK: no hay reserved_memory (guion bajo) en el DTB')
+          # pmsg-size (no msg-size)
+          for bad in ['msg-size']:
+              if re.search(r'^\s*'+bad, dts, re.M):
+                  raise SystemExit(f'ERROR: {bad} presente (debe ser pmsg-size)')
+          if 'pmsg-size = <0x20000>' not in dts:
+              raise SystemExit('ERROR: pmsg-size no está como <0x20000>')
+          print('OK: pmsg-size = <0x20000> (msg-size corregido)')
+          PY
+
+      - name: Verificar config final (PSTORE_RAM + RMTFS + ATH10K_SNOC)
+        run: |
+          set -Eeuo pipefail
+          grep -qE '^CONFIG_PSTORE_RAM=y' /tmp/k61-config || { echo "ERROR: falta PSTORE_RAM=y" >&2; exit 1; }
+          grep -qE '^CONFIG_PSTORE_CONSOLE=y' /tmp/k61-config || { echo "ERROR: falta PSTORE_CONSOLE=y" >&2; exit 1; }
+          grep -qE '^CONFIG_PSTORE_PMSG=y' /tmp/k61-config || { echo "ERROR: falta PSTORE_PMSG=y" >&2; exit 1; }
+          grep -qE '^CONFIG_QCOM_RMTFS_MEM=y' /tmp/k61-config || { echo "ERROR: falta QCOM_RMTFS_MEM=y" >&2; exit 1; }
+          grep -qE '^CONFIG_ATH10K_SNOC=m' /tmp/k61-config || { echo "AVISO: ATH10K_SNOC no =m" >&2; }
+          grep -qE '^CONFIG_QCOM_WCNSS_PIL=m' /tmp/k61-config || { echo "AVISO: WCNSS_PIL no =m" >&2; }
+          grep -E '^CONFIG_(PSTORE_RAM|PSTORE_CONSOLE|PSTORE_PMSG|QCOM_RMTFS_MEM|ATH10K_SNOC|QCOM_WCNSS_PIL|PSTORE)=' /tmp/k61-config
+          echo "Config final OK"
+
+      - name: Generar SHA256SUMS y manifest
+        run: |
+          set -Eeuo pipefail
+          cp /tmp/k61-config /tmp/boot-out/kernel.config
+          cp /tmp/apply-diff.log /tmp/boot-out/apply-diff.log
+          (cd /tmp/boot-out && sha256sum * > SHA256SUMS)
+          KERNSRC=$(sha256sum /tmp/boot-out/kernel.gz | cut -d' ' -f1)
+          DTBFINAL=$(sha256sum /tmp/boot-out/final.dtb | cut -d' ' -f1)
+          BOOTSHA=$(sha256sum /tmp/boot-out/boot-linux61-stage2.img | cut -d' ' -f1)
+          RAMD=$(sha256sum /tmp/boot-out/ramdisk | cut -d' ' -f1)
+          jq -n --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg run "${{ github.event.inputs.rootfs_run_id }}" \
+            --arg kcommit "77de535b8dbd8f483b5802c8937cb714bab5b485" \
+            --arg cmdline "clk_ignore_unused" \
+            --arg ksrc "$KERNSRC" --arg dfinal "$DTBFINAL" --arg bsha "$BOOTSHA" --arg rsha "$RAMD" \
+            '{artifact:"boot-linux61-stage2",
+              stage:"2-reserved-memory-rmtfs-ramoops",
+              kernel_commit:$kcommit,
+              source_config:"pmaports@7aaee51a config-postmarketos-qcom-sm6125.aarch64 sha256 08bcee71...",
+              patches:["0001-dts-laurel-wcn3990-first-probe","0004-dts-sm6125-add-rmtfs-mem","0005-dts-sm6125-laurel-fix-reserved-memory-ramoops"],
+              config_changes:["CONFIG_PSTORE_RAM=y","CONFIG_PSTORE_CONSOLE=y","CONFIG_PSTORE_PMSG=y"],
+              cmdline:$cmdline,
+              sha256:{boot:$bsha, kernel_gz:$ksrc, final_dtb:$dfinal, ramdisk:$rsha},
+              fixes:{reserved_memory_underscore:"renamed to reserved-memory (hyphen), kernel now processes ramoops",
+                     ramoops_binding:"msg-size -> pmsg-size <0x20000>, unit-address aligned"},
+              doksay_true:false,
+              wifi_status:"not-demonstrated (parche 0001 presente, firmware ausente)",
+              ramoops_status:"configured (kernel PSTORE_RAM=y + nodo en DTB)",
+              rmtfs_status:"configured (driver =y + nodo en DTB, sin userspace rmtfs)",
+              mpss_status:"disabled (0002/0003 NO aplicados; sin firmware de modem)",
+              physical_status:"boot-untested",
+              generated_at:$date}' > /tmp/boot-out/manifest.json
+          cat /tmp/boot-out/SHA256SUMS
+          cat /tmp/boot-out/manifest.json
+
+      - name: Gates de manifiesto Etapa 2 (bloqueantes)
+        run: |
+          set -Eeuo pipefail
+          M=/tmp/boot-out/manifest.json
+          jq -e '.ramoops_status == "configured (kernel PSTORE_RAM=y + nodo en DTB)"' "$M" >/dev/null || { echo "FALLO: ramoops no configurado" >&2; exit 1; }
+          jq -e '.mpss_status == "disabled (0002/0003 NO aplicados; sin firmware de modem)"' "$M" >/dev/null || { echo "FALLO: mpss debe estar disabled" >&2; exit 1; }
+          jq -e '.physical_status == "boot-untested"' "$M" >/dev/null || { echo "FALLO: boot-untested esperado" >&2; exit 1; }
+          echo "Gates de manifiesto OK"
+
+      - name: Subir artefacto Etapa 2
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: boot-linux61-stage2
+          path: /tmp/boot-out/
+          retention-days: 7
+
+      - name: Subir logs siempre
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux61-stage2-logs
+          path: |
+            /tmp/k61-build.log
+            /tmp/k61-olddefconfig.log
+            /tmp/apply-diff.log
+            /tmp/final-dtc.log
+            /tmp/boot-final-dtc.log
+          retention-days: 3
+          if-no-files-found: ignore

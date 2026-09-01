@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmos-laurel-sprout <dev@laurel.invalid>
+Date: 2026-09-01
+Subject: [PATCH] arm64: dts: sm6125: laurel: fix reserved-memory node name and ramoops binding
+
+Downstream-only fix for the frozen 6.1 fork at
+77de535b8dbd8f483b5802c8937cb714bab5b485.
+
+The board DTS defined the reserved memory node as `reserved_memory`
+(underscore). The kernel (drivers/of/of_reserved_mem.c) only recognizes
+`/reserved-memory` (hyphen) as the reserved-memory binding container.
+Nodes declared under `/reserved_memory` are never processed by
+of_reserved_mem, so ramoops/pstore, debug_mem, last_log_mem and
+cmdline_mem were silently ignored at runtime (validated: /proc/iomem and
+/proc/device-tree/reserved-memory expose the sm6125.dtsi regions but not
+these board regions, and /sys/fs/pstore stays empty even though a ramoops
+node exists in the built DTB).
+
+Fix:
+- rename node `reserved_memory` -> `reserved-memory` so the kernel
+  processes the board reserved regions as direct children of the
+  standard /reserved-memory container;
+- fix the ramoops child: the binding
+  (Documentation/devicetree/bindings/reserved-memory/ramoops.yaml) has no
+  `msg-size` property; the correct property is `pmsg-size` with a single
+  cell.  Update the node accordingly.
+
+While here, align the node unit-address with the actual reg base
+(cosmetic; dtc warns when the node name unit address does not match reg).
+
+Signed-off-by: pmos-laurel-sprout <dev@laurel.invalid>
+---
+ arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
+index 8c3f573..1f6a2b0 100644
+--- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
++++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
+@@ -42,7 +42,7 @@
+ 		};
+ 	};
+ 
+-	reserved_memory {
++	reserved-memory {
+ 		#address-cells = <2>;
+ 		#size-cells = <2>;
+ 		debug_mem: memory@ffb00000 {
+@@ -55,13 +55,14 @@
+ 			no-map;
+ 		};
+ 
+-		pstore_mem: ramoops@ffc00000 {
++		pstore_mem: ramoops@ffc40000 {
+ 			compatible = "ramoops";
+ 			reg = <0x0 0xffc40000 0x0 0xc0000>;
+ 			record-size = <0x1000>;
+ 			console-size = <0x40000>;
+-			msg-size = <0x20000 0x20000>;
++			pmsg-size = <0x20000>;
+ 		};
+ 
+-		cmdline_mem: memory@ffd00000 {
++		cmdline_mem: memory@ffd40000 {
+ 			reg = <0x0 0xffd40000 0x0 0x1000>;
+ 			no-map;
+ 		};
+-- 
+2.39.2 (Apple Git-145)
