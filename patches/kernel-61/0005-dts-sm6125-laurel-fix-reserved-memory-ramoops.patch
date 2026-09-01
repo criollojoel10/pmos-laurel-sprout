@@ -8,8 +8,8 @@ Downstream-only fix for the frozen 6.1 fork at
 
 The board DTS defined the reserved memory node as `reserved_memory`
 (underscore). The kernel (drivers/of/of_reserved_mem.c) only recognizes
-`/reserved-memory` (hyphen) as the reserved-memory binding container.
-Nodes declared under `/reserved_memory` are never processed by
+/reserved-memory (hyphen) as the reserved-memory binding container.
+Nodes declared under /reserved_memory are never processed by
 of_reserved_mem, so ramoops/pstore, debug_mem, last_log_mem and
 cmdline_mem were silently ignored at runtime (validated: /proc/iomem and
 /proc/device-tree/reserved-memory expose the sm6125.dtsi regions but not
@@ -30,23 +30,21 @@ While here, align the node unit-address with the actual reg base
 
 Signed-off-by: pmos-laurel-sprout <dev@laurel.invalid>
 ---
- arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
-index 8c3f573..1f6a2b0 100644
 --- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
 +++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dts
-@@ -42,7 +42,7 @@
- 		};
+@@ -39,6 +39,6 @@
+ 		id-gpio = <&tlmm 102 GPIO_ACTIVE_HIGH>;
  	};
  
 -	reserved_memory {
 +	reserved-memory {
  		#address-cells = <2>;
  		#size-cells = <2>;
- 		debug_mem: memory@ffb00000 {
-@@ -55,13 +55,14 @@
+@@ -52,13 +52,13 @@
  			no-map;
  		};
  
@@ -63,7 +61,5 @@ index 8c3f573..1f6a2b0 100644
 -		cmdline_mem: memory@ffd00000 {
 +		cmdline_mem: memory@ffd40000 {
  			reg = <0x0 0xffd40000 0x0 0x1000>;
- 			no-map;
- 		};
 -- 
 2.39.2 (Apple Git-145)
