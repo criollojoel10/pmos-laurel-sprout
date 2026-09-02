@@ -1,0 +1,473 @@
+# 23-build-linux61-wifi-fw
+#
+# ARREFACTO COORDINADO DE PRUEBA WiFi (WCN3990/SNOC) para SM6125 (laurel_sprout).
+# Produce DOS artefactos que DEBEN flashearse juntos para la siguiente prueba
+# física de la cadena WiFi (FASE 8, autorización explícita):
+#
+#   1. boot-linux61-wifi.img  — boot v0 (kernel 6.1 histórico) + DTB con los
+#      4 parches downstream: 0001 (wcn3990 first-probe), 0002 (MPSS transport),
+#      0003 (MPSS enable "okay"), 0004 (qcom,rmtfs-mem). cmdline
+#      "clk_ignore_unused consoleblank=0". Es una reproducción byte-consistente
+#      del boot del workflow 20, etiquetado para la prueba WiFi.
+#
+#   2. xiaomi-laurel-wifi.img — rootfs devtools (workflow 21) con el firmware
+#      WCN3990 redistribuible inyectado en p2:
+#        lib/firmware/ath10k/WCN3990/hw1.0/firmware-5.bin
+#        lib/firmware/ath10k/WCN3990/hw1.0/board-2.bin
+#
+# HONESTIDAD (ver manifest.json): este artefacto provee el FIRMWARE WCN3990
+# redistribuible y el DTB con MPSS + rmtfs-mem "okay", pero el boot NO
+# garantiza WiFi: faltan aún el firmware MPSS propietario (provisión privada,
+# nunca se publica) y el userspace (rmtfs/pd-mapper/tqftpserv), y la entrada de
+# board-id de laurel en board-2.bin NO está demostrada en runtime. Estados:
+# physical_status "boot-untested", wifi_status "not-demonstrated",
+# firmware_wcn3990_in_rootfs true, mpss_firmware_in_rootfs false,
+# userspace_mpss_ready false.
+#
+# Reglas: workflow_dispatch manual. NO flashea, NO adb, NO escribe el teléfono,
+# NO sube firmware propietario. Solo valida DTB/empaquetado + inyecta firmware
+# redistribuible en el rootfs privado (artefacto de CI, no se combina con NINGÚN
+# binario propietario). Permisos mínimos.
+
+name: 23-build-linux61-wifi-fw
+
+on:
+  workflow_dispatch:
+    inputs:
+      devtools_run_id:
+        description: >-
+          Run ID del artefacto linux61-devtools (única fuente VIVA: contiene
+          boot.img con el kernel/ramdisk históricos para el boot, y el rootfs
+          donde se inyecta el firmware).
+        required: true
+        default: "33434873426"
+      linux_firmware_commit:
+        description: Commit fijado de linux-firmware para firmware-5.bin y board-2.bin
+        required: true
+        default: "e3c0c4b70f50ae77bea557b4a44be04413d3f3ed"
+      upload_artifacts:
+        description: Subir artefactos (boot + rootfs con firmware)
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: linux61-wifi-fw
+  cancel-in-progress: true
+
+jobs:
+  wifi-boot:
+    name: Boot WiFi (MPSS okay + rmtfs-mem) v0
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      boot_sha: ${{ steps.final.outputs.boot_sha }}
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          df -h
+          free -h
+          uname -a
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+
+      - name: Dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq device-tree-compiler flex bison bc libssl-dev libelf-dev python3 gzip cpio file jq
+
+      - name: Descargar fuente boot/ramdisk (artefacto linux61-devtools vivo)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: linux61-devtools
+          path: /tmp/devtools
+          run-id: ${{ github.event.inputs.devtools_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Extraer kernel/ramdisk del boot
+        run: |
+          set -Eeuo pipefail
+          # El artefacto devtools (workflow 21 export-resolved) incluye el boot.img
+          # funcional con el kernel 6.1 fork + DTB histórica; de ahí se extraen
+          # el Image.gz y el ramdisk byte-idénticos para el rebuild WiFi.
+          BOOT=$(find /tmp/devtools -type f -name boot.img -print -quit)
+          test -n "$BOOT"
+          echo "boot fuente: $BOOT"
+          sha256sum "$BOOT"
+          mkdir -p /tmp/source-out /tmp/boot-out
+          python3 - "$BOOT" <<'PY'
+          import struct, sys
+          from pathlib import Path
+          boot = Path(sys.argv[1]).read_bytes()
+          ksz, _, rsz, _, _, _, _, page, version, _ = struct.unpack_from('<10I', boot, 8)
+          if version != 0 or page != 4096:
+              raise SystemExit('ERROR: no es boot v0/page4096')
+          kernel = boot[page:page + ksz]
+          roff = page + ((ksz + page - 1) // page) * page
+          ramdisk = boot[roff:roff + rsz]
+          Path('/tmp/source-out/kernel-source-with-historical-dtb').write_bytes(kernel)
+          Path('/tmp/source-out/ramdisk').write_bytes(ramdisk)
+          print('region kernel historica:', len(kernel), 'bytes; ramdisk:', len(ramdisk), 'bytes')
+          PY
+          python3 scripts/split-appended-dtb.py \
+            --input /tmp/source-out/kernel-source-with-historical-dtb \
+            --kernel-out /tmp/source-out/kernel.gz \
+            --dtb-out /tmp/source-out/historical-source.dtb \
+            --report /tmp/source-out/split-report.json
+          gzip -t /tmp/source-out/kernel.gz
+          cp /tmp/source-out/kernel.gz /tmp/kernel.gz
+          cp /tmp/source-out/ramdisk /tmp/ramdisk
+          stat -c '%n %s bytes' /tmp/source-out/kernel-source-with-historical-dtb /tmp/source-out/kernel.gz /tmp/source-out/ramdisk
+
+      - name: Clonar kernel 6.1 fijado
+        run: |
+          set -Eeuo pipefail
+          git clone --filter=blob:none --no-checkout https://gitlab.com/sm6125-mainline/linux.git kernel61
+          git -C kernel61 fetch --depth 1 origin 77de535b8dbd8f483b5802c8937cb714bab5b485
+          git -C kernel61 checkout -q 77de535b8dbd8f483b5802c8937cb714bab5b485
+          git -C kernel61 rev-parse HEAD > /tmp/kernel-commit.txt
+          cat /tmp/kernel-commit.txt
+
+      - name: Aplicar parches 0001..0004 en orden estricto
+        run: |
+          set -Eeuo pipefail
+          P1="$GITHUB_WORKSPACE/patches/kernel-61/0001-dts-laurel-wcn3990-first-probe.patch"
+          P2="$GITHUB_WORKSPACE/patches/kernel-61/0002-dts-sm6125-add-mpss-transport-v2.patch"
+          P3="$GITHUB_WORKSPACE/patches/kernel-61/0003-dts-laurel-enable-mpss.patch"
+          P4="$GITHUB_WORKSPACE/patches/kernel-61/0004-dts-sm6125-add-rmtfs-mem.patch"
+          test -f "$P1" && test -f "$P2" && test -f "$P3" && test -f "$P4"
+          test "$(grep -Ec '^\+[[:space:]]*&remoteproc_mpss[[:space:]]*\{' "$P3" || true)" -eq 1
+          test "$(grep -Ec '^\+[[:space:]]*status[[:space:]]*=[[:space:]]*"okay";' "$P3" || true)" -eq 1
+          test "$(grep -Ec '^\+[[:space:]]*rmtfs_mem: rmtfs-mem[[:space:]]*\{' "$P4" || true)" -eq 1
+          test "$(grep -Ec '^\+[[:space:]]*qcom,client-id[[:space:]]*=[[:space:]]*<1>;' "$P4" || true)" -eq 1
+          test "$(grep -Ec '^\+[[:space:]]*reg[[:space:]]*=' "$P4" || true)" -eq 0
+          for P in "$P1" "$P2" "$P3" "$P4"; do
+            git -C kernel61 apply --check "$P"
+            git -C kernel61 apply "$P"
+          done
+          { echo "== git diff --stat =="; git -C kernel61 diff --stat; echo "== diff --check =="; git -C kernel61 diff --check; } | tee /tmp/apply-diff.log
+
+      - name: Verificar fuentes tras parches (MPSS okay + rmtfs-mem)
+        run: |
+          set -Eeuo pipefail
+          bash scripts/verify-wcn3990-mpss-v2.sh --tree kernel61 --expect-mpss okay --out /tmp/source-verify
+          cat /tmp/source-verify/mpss-v2-verification.md
+          bash scripts/verify-rmtfs-mem.sh --tree kernel61 --out /tmp/source-verify-rmtfs
+          cat /tmp/source-verify-rmtfs/rmtfs-verification.md
+
+      - name: Construir DTB
+        run: |
+          set -Eeuo pipefail
+          make -C kernel61 ARCH=arm64 defconfig >/tmp/dtb-defconfig.log 2>&1
+          make -C kernel61 ARCH=arm64 dtbs -j"$(nproc)" >/tmp/dtb-build.log 2>&1
+          DTB=$(find kernel61/arch/arm64/boot/dts -name sm6125-xiaomi-laurel_sprout.dtb -print -quit)
+          test -n "$DTB"
+          cp "$DTB" /tmp/new-wifi.dtb
+          sha256sum /tmp/new-wifi.dtb
+
+      - name: Ensamblar boot v0 Wi-Fi
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/boot-out
+          python3 scripts/build-boot-image.py \
+            --kernel /tmp/kernel.gz \
+            --ramdisk /tmp/ramdisk \
+            --dtb /tmp/new-wifi.dtb \
+            --out /tmp/boot-out/boot-linux61-wifi.img \
+            --header-version 0 --append-dtb --base 0x0 --page-size 4096 \
+            --kernel-offset 0x8000 --ramdisk-offset 0x1000000 --tags-offset 0x100 \
+            --cmdline 'clk_ignore_unused consoleblank=0' \
+            --os-version 1.0.0 --os-patch-level 2026-08
+
+      - name: Validar boot final y generar manifest
+        id: final
+        run: |
+          set -Eeuo pipefail
+          BOOT=/tmp/boot-out/boot-linux61-wifi.img
+          python3 - "$BOOT" <<'PY'
+          import hashlib, struct, sys
+          boot = open(sys.argv[1], 'rb').read()
+          if boot[:8] != b'ANDROID!': raise SystemExit('bad magic')
+          ks, _, rs, _, _, _, _, page, ver, _ = struct.unpack_from('<10I', boot, 8)
+          if ver != 0 or page != 4096: raise SystemExit('expected v0/page4096')
+          cmdline = boot[64:576].split(b'\0', 1)[0].decode('ascii', 'replace')
+          if cmdline != 'clk_ignore_unused consoleblank=0':
+              raise SystemExit(f'bad cmdline [{cmdline!r}]')
+          if len(boot) > 0x4000000: raise SystemExit('boot > 64 MiB')
+          k = boot[page:page + ks]
+          open('/tmp/boot-out/kernel-with-wifi-dtb', 'wb').write(k)
+          open('/tmp/boot-out/ramdisk', 'wb').write(boot[page + ((ks + page - 1) // page) * page: page + ((ks + page - 1) // page) * page + rs])
+          open('/tmp/validated-cmdline.txt', 'w').write(cmdline)
+          print('cmdline OK:', cmdline)
+          print('boot_sha256=', hashlib.sha256(boot).hexdigest())
+          PY
+          python3 scripts/split-appended-dtb.py \
+            --input /tmp/boot-out/kernel-with-wifi-dtb \
+            --kernel-out /tmp/boot-out/kernel.gz \
+            --dtb-out /tmp/boot-out/final-wifi.dtb \
+            --report /tmp/boot-out/split-report-final.json
+          gzip -t /tmp/boot-out/kernel.gz
+          cmp /tmp/boot-out/final-wifi.dtb /tmp/new-wifi.dtb
+          echo "final-wifi.dtb == new-wifi.dtb"
+          cmp /tmp/boot-out/kernel.gz /tmp/source-out/kernel.gz
+          echo "kernel.gz == fuente"
+          dtc -I dtb -O dts -o /tmp/boot-out/final-wifi.dts /tmp/boot-out/final-wifi.dtb 2>/tmp/final-dtc.log
+          python3 scripts/validate-mpss-v2-final.py --dts /tmp/boot-out/final-wifi.dts --expect-mpss okay
+          bash scripts/verify-wcn3990-mpss-v2.sh --final-dts /tmp/boot-out/final-wifi.dts --expect-mpss okay --out /tmp/final-verify
+          cat /tmp/final-verify/mpss-v2-verification.md
+          bash scripts/verify-rmtfs-mem.sh --final-dts /tmp/boot-out/final-wifi.dts --out /tmp/final-verify-rmtfs
+          cat /tmp/final-verify-rmtfs/rmtfs-verification.md
+          (cd /tmp/boot-out && sha256sum -- * > SHA256SUMS)
+          BOOTSHA=$(sha256sum /tmp/boot-out/boot-linux61-wifi.img | cut -d' ' -f1)
+          echo "boot_sha=$BOOTSHA" >> "$GITHUB_OUTPUT"
+          jq -n \
+            --arg run "${{ github.event.inputs.devtools_run_id }}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg kcommit "$(cat /tmp/kernel-commit.txt)" \
+            --arg cmdline "$(cat /tmp/validated-cmdline.txt)" \
+            --arg bsha "$BOOTSHA" \
+            '{artifact:"boot-linux61-wifi", source_rootfs_run:$run,
+              kernel_commit:$kcommit,
+              patches:["0001-dts-laurel-wcn3990-first-probe","0002-dts-sm6125-add-mpss-transport-v2","0003-dts-laurel-enable-mpss","0004-dts-sm6125-add-rmtfs-mem"],
+              cmdline:$cmdline,
+              sha256:{boot:$bsha},
+              mpss_status:"okay", rmtfs_mem_in_dtb:true, boot_enabled:true,
+              wifi_status:"not-demonstrated", physical_status:"boot-untested",
+              status:"configured-ci-ready",
+              risk:"MPSS enabled + rmtfs declared; requiere firmware MPSS privado + userspace para WiFi real",
+              generated_at:$date}' > /tmp/boot-out/manifest.json
+          cat /tmp/boot-out/manifest.json
+          jq -e '.wifi_status == "not-demonstrated"' /tmp/boot-out/manifest.json >/dev/null
+          jq -e '.physical_status == "boot-untested"' /tmp/boot-out/manifest.json >/dev/null
+          jq -e '.mpss_status == "okay"' /tmp/boot-out/manifest.json >/dev/null
+          echo "Gates boot OK"
+
+      - name: Subir artefacto boot WiFi
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: boot-linux61-wifi
+          path: /tmp/boot-out/
+          retention-days: 7
+
+      - name: Subir logs boot
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux61-wifi-boot-logs
+          path: |
+            /tmp/*.log
+            /tmp/source-verify/*
+            /tmp/source-verify-rmtfs/*
+            /tmp/final-verify/*
+            /tmp/final-verify-rmtfs/*
+          retention-days: 3
+          if-no-files-found: ignore
+
+  wifi-rootfs:
+    needs: wifi-boot
+    name: Rootfs devtools + firmware WCN3990
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          df -h
+          free -h
+          uname -a
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+
+      - name: Dependencias
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3 git e2fsprogs android-sdk-libsparse-utils curl jq file
+          # android-sdk-libsparse-utils provee simg2img y img2simg
+          command -v simg2img && command -v img2simg
+
+      - name: Descargar rootfs devtools base
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: linux61-devtools
+          path: /tmp/devtools
+          run-id: ${{ github.event.inputs.devtools_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Localizar sparse y convertir a raw MBR
+        run: |
+          set -Eeuo pipefail
+          SPARSE=$(find /tmp/devtools -type f \( -name 'xiaomi-laurel-ssh.img*' -o -name 'xiaomi-laurel-ssh.raw*' \) -print -quit)
+          echo "SPARSE=$SPARSE"
+          test -n "$SPARSE"
+          case "$SPARSE" in
+            *.xz) xz -dk "$SPARSE" && SPARSE="${SPARSE%.xz}" ;;
+          esac
+          file "$SPARSE"
+          # sparse -> raw
+          # El artefacto linux61-devtools sube la imagen raw (xiaomi-laurel-ssh.raw)
+          # además de la sparse (.img). Preferir la raw directa; si solo hay
+          # sparse, simg2img la convierte. Simg2img está disponible (workflow 21
+          # lo usa dentro del chroot; en el host Ubuntu se instala android-sdk-libsparse-utils).
+          case "$SPARSE" in
+            *.img)
+              command -v simg2img || { echo "ERROR: simg2img no instalado"; exit 1; }
+              simg2img "$SPARSE" /tmp/rootfs.raw
+              ;;
+            *)
+              cp "$SPARSE" /tmp/rootfs.raw
+              ;;
+          esac
+          test -f /tmp/rootfs.raw
+          stat -c 'raw size=%s bytes' /tmp/rootfs.raw
+          file /tmp/rootfs.raw
+
+      - name: Descargar firmware WCN3990 redistribuible (linux-firmware fijado)
+        run: |
+          set -Eeuo pipefail
+          COMMIT=${{ github.event.inputs.linux_firmware_commit }}
+          git clone --filter=blob:none --no-checkout https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git lfw
+          git -C lfw fetch --depth 1 origin "$COMMIT" 2>&1 | tail -3 || \
+            git -C lfw fetch --filter=blob:none origin "$COMMIT" 2>&1 | tail -3
+          git -C lfw checkout -q "$COMMIT"
+          test "$(git -C lfw rev-parse HEAD)" = "$(git -C lfw rev-parse "$COMMIT")"
+          echo "$COMMIT" > /tmp/lf-commit.txt
+          FW=lfw/ath10k/WCN3990/hw1.0/firmware-5.bin
+          BRD=lfw/ath10k/WCN3990/hw1.0/board-2.bin
+          test -f "$FW" && test -f "$BRD"
+          echo "firmware-5.bin:"; sha256sum "$FW"
+          echo "board-2.bin:";   sha256sum "$BRD"
+          # SHA-256 esperados en linux-firmware @ e3c0c4b7 (matriz firmware)
+          echo "fef6539e0127579536bc977be57a90d018b83f2931fedc3a8870fbe38d6c4127  $FW" | sha256sum -c -
+          echo "c49d2f1894de6edc0ab0c8c9a17ca0328703747c49b6e9428f1de501c2c02c1d  $BRD" | sha256sum -c -
+
+      - name: Armar arbol firmware e inyectar en p2 del rootfs
+        run: |
+          set -Eeuo pipefail
+          # Verificar firma MBR y fijar sector (deviceinfo la define en 512).
+          python3 -c "assert open('/tmp/rootfs.raw','rb').read(512)[510:512]==b'\\x55\\xaa','no MBR'"
+          SECTOR=512
+          # arbol "root/" interpretado como "/"
+          mkdir -p /tmp/fwroot/lib/firmware/ath10k/WCN3990/hw1.0
+          cp lfw/ath10k/WCN3990/hw1.0/firmware-5.bin /tmp/fwroot/lib/firmware/ath10k/WCN3990/hw1.0/
+          cp lfw/ath10k/WCN3990/hw1.0/board-2.bin    /tmp/fwroot/lib/firmware/ath10k/WCN3990/hw1.0/
+          # NOTA: el symlink wlanmdsp en hw1.0 NO se usa para WiFi; se omite.
+          find /tmp/fwroot -type f
+          cp /tmp/rootfs.raw /tmp/rootfs-fw.raw
+          sudo python3 scripts/inject-firmware-rootfs.py /tmp/rootfs-fw.raw "$SECTOR" /tmp/fwroot
+          # validar fs de p2 tras inyección
+          sudo e2fsck -f -n /tmp/rootfs-fw.raw
+
+      - name: Verificar firmware en p2, sparse y límite
+        run: |
+          set -Eeuo pipefail
+          # Volcar las particiones p1/p2 de la raw con firmware para auditoría.
+          python3 -c '
+          import struct, subprocess
+          raw="/tmp/rootfs-fw.raw"
+          d=open(raw,"rb").read(512)
+          assert d[510:512]==b"\x55\xaa"
+          sec=512
+          for i in range(4):
+              e=d[446+i*16:446+i*16+16]
+              _,_,pt,_,start,size=struct.unpack("<B3sB3sII",e)
+              if pt==0 or size==0: continue
+              out=f"/tmp/chk-part{i+1}.img"
+              subprocess.run(["dd","if="+raw,"of="+out,"bs="+str(sec),"skip="+str(start),"count="+str(size),"status=none"],check=True)
+              print(f"p{i+1} type=0x{pt:02x} start={start} size={size}")
+          '
+          echo "== auditoria firmware en p2 =="
+          for f in /lib/firmware/ath10k/WCN3990/hw1.0/firmware-5.bin /lib/firmware/ath10k/WCN3990/hw1.0/board-2.bin; do
+            debugfs -R "stat $f" /tmp/chk-part2.img 2>/dev/null | grep -q 'Type: regular' || { echo "FALTA $f"; exit 1; }
+            echo "OK $f"
+          done
+          echo "== tamaños inyectados ==="
+          debugfs -R "stat /lib/firmware/ath10k/WCN3990/hw1.0/firmware-5.bin" /tmp/chk-part2.img 2>/dev/null | grep Size
+          debugfs -R "stat /lib/firmware/ath10k/WCN3990/hw1.0/board-2.bin" /tmp/chk-part2.img 2>/dev/null | grep Size
+          # shasum dentro de ext4 (debugfs con out_file para volcar y comparar)
+          for f in firmware-5.bin board-2.bin; do
+            debugfs -R "dump /lib/firmware/ath10k/WCN3990/hw1.0/$f /tmp/dump-$f" /tmp/chk-part2.img 2>/dev/null
+            H1=$(sha256sum "lfw/ath10k/WCN3990/hw1.0/$f" | awk '{print $1}')
+            H2=$(sha256sum "/tmp/dump-$f" | awk '{print $1}')
+            test "$H1" = "$H2" || { echo "SHA MISMATCH $f"; exit 1; }
+            echo "OK $f sha256=$H1 (coincide con linux-firmware)"
+          done
+          # sparse final
+          mkdir -p /tmp/rootfs-out
+          cp /tmp/rootfs-fw.raw /tmp/rootfs-out/xiaomi-laurel-wifi.raw
+          # img2simg si disponible, si no dejar raw
+          if command -v img2simg >/dev/null 2>&1; then
+            img2simg /tmp/rootfs-fw.raw /tmp/rootfs-out/xiaomi-laurel-wifi.img
+          else
+            echo "img2simg no disponible; se sube raw"
+            cp /tmp/rootfs-fw.raw /tmp/rootfs-out/xiaomi-laurel-wifi.img
+          fi
+          SIZE=$(stat -c %s /tmp/rootfs-out/xiaomi-laurel-wifi.img)
+          LIMIT=$((0xC0000000))
+          echo "wifi rootfs size=$SIZE bytes (límite $LIMIT)"
+          [[ $SIZE -le $LIMIT ]] || { echo "ERROR: excede system_b"; exit 1; }
+          cp /tmp/lf-commit.txt /tmp/rootfs-out/linux-firmware-commit.txt
+          (cd /tmp/rootfs-out && sha256sum * > SHA256SUMS)
+          cat /tmp/rootfs-out/SHA256SUMS
+
+      - name: Manifest rootfs WiFi
+        run: |
+          set -Eeuo pipefail
+          IMGSHA=$(sha256sum /tmp/rootfs-out/xiaomi-laurel-wifi.img | awk '{print $1}')
+          jq -n \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg base "${{ github.event.inputs.devtools_run_id }}" \
+            --arg lfc "$(cat /tmp/lf-commit.txt)" \
+            --arg img "$IMGSHA" \
+            '{artifact:"xiaomi-laurel-wifi", base_rootfs_run:$base,
+              source:"linux61-devtools (mi A3 devtools)",
+              firmware:[
+                "lib/firmware/ath10k/WCN3990/hw1.0/firmware-5.bin",
+                "lib/firmware/ath10k/WCN3990/hw1.0/board-2.bin"
+              ],
+              linux_firmware_commit:$lfc,
+              sha256:{image:$img},
+              firmware_wcn3990_in_rootfs:true,
+              mpss_firmware_in_rootfs:false,
+              userspace_mpss_ready:false,
+              wifi_status:"not-demonstrated", physical_status:"boot-untested",
+              status:"configured-ci-ready",
+              risk:"firmware WCN3990 presente; faltan firmware MPSS privado + userspace (rmtfs/pd-mapper/tqftpserv) para WiFi real",
+              generated_at:$date}' > /tmp/rootfs-out/manifest.json
+          cat /tmp/rootfs-out/manifest.json
+          jq -e '.firmware_wcn3990_in_rootfs == true' /tmp/rootfs-out/manifest.json >/dev/null
+          jq -e '.mpss_firmware_in_rootfs == false' /tmp/rootfs-out/manifest.json >/dev/null
+          jq -e '.wifi_status == "not-demonstrated"' /tmp/rootfs-out/manifest.json >/dev/null
+          echo "Gates rootfs OK"
+
+      - name: Subir artefacto rootfs WiFi
+        if: ${{ github.event.inputs.upload_artifacts != 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: xiaomi-laurel-wifi
+          path: /tmp/rootfs-out/
+          retention-days: 7
+
+      - name: Subir logs rootfs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux61-wifi-rootfs-logs
+          path: |
+            /tmp/*.log
+            /tmp/rootfs-out/SHA256SUMS
+          retention-days: 3
+          if-no-files-found: ignore

@@ -61,6 +61,7 @@ rootfs*/
 *.log
 *.log.*
 session-*.md
+logs/
 
 # OS noise
 .DS_Store
