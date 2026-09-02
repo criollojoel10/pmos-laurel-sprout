@@ -310,30 +310,31 @@ jobs:
       - name: Localizar sparse y convertir a raw MBR
         run: |
           set -Eeuo pipefail
-          SPARSE=$(find /tmp/devtools -type f \( -name 'xiaomi-laurel-ssh.img*' -o -name 'xiaomi-laurel-ssh.raw*' \) -print -quit)
-          echo "SPARSE=$SPARSE"
-          test -n "$SPARSE"
-          case "$SPARSE" in
-            *.xz) xz -dk "$SPARSE" && SPARSE="${SPARSE%.xz}" ;;
-          esac
+          # El artefacto linux61-devtools (workflow 21) sube en /tmp/artifacts
+          # la imagen MBR COMPLETA como sparse (xiaomi-laurel-ssh.img) y su
+          # comprimido (.img.xz), ya descomprimido y todo. Preferimos leer
+          # directamente desde el .xz (stream) para evitar colisiones de
+          # nombre con el .img ya presente y obtener SIEMPRE el sparse, que
+          # luego convertimos a raw con simg2img.
+          XZ=$(find /tmp/devtools -type f -name 'xiaomi-laurel-ssh.img.xz' -print -quit)
+          echo "XZ=$XZ"
+          test -n "$XZ"
+          SPARSE=/tmp/sparse.data
+          xz -dc "$XZ" > "$SPARSE"
+          test -s "$SPARSE"
           file "$SPARSE"
-          # sparse -> raw
-          # El artefacto linux61-devtools sube la imagen raw (xiaomi-laurel-ssh.raw)
-          # además de la sparse (.img). Preferir la raw directa; si solo hay
-          # sparse, simg2img la convierte. Simg2img está disponible (workflow 21
-          # lo usa dentro del chroot; en el host Ubuntu se instala android-sdk-libsparse-utils).
-          case "$SPARSE" in
-            *.img)
-              command -v simg2img || { echo "ERROR: simg2img no instalado"; exit 1; }
-              simg2img "$SPARSE" /tmp/rootfs.raw
-              ;;
-            *)
-              cp "$SPARSE" /tmp/rootfs.raw
-              ;;
-          esac
+          command -v simg2img || { echo "ERROR: simg2img no instalado"; exit 1; }
+          simg2img "$SPARSE" /tmp/rootfs.raw
           test -f /tmp/rootfs.raw
           stat -c 'raw size=%s bytes' /tmp/rootfs.raw
           file /tmp/rootfs.raw
+          # Verificación estricta de la firma MBR 0x55aa antes de inyectar
+          python3 - <<'PY'
+          import sys
+          mbr = open("/tmp/rootfs.raw", "rb").read(512)
+          assert mbr[510:512] == b"\x55\xaa", "ERROR: no es MBR (falta firma 0x55aa)"
+          print("OK: /tmp/rootfs.raw es imagen MBR valida (0x55aa)")
+          PY
 
       - name: Descargar firmware WCN3990 redistribuible (linux-firmware fijado)
         run: |
@@ -368,8 +369,23 @@ jobs:
           find /tmp/fwroot -type f
           cp /tmp/rootfs.raw /tmp/rootfs-fw.raw
           sudo python3 scripts/inject-firmware-rootfs.py /tmp/rootfs-fw.raw "$SECTOR" /tmp/fwroot
-          # validar fs de p2 tras inyección
-          sudo e2fsck -f -n /tmp/rootfs-fw.raw
+          # validar fs de p2 tras inyección (extraemos p2 de la MBR y lo
+          # revisamos como partición, no como disco completo)
+          python3 -c '
+          import struct, subprocess
+          raw="/tmp/rootfs-fw.raw"
+          d=open(raw,"rb").read(512)
+          assert d[510:512]==b"\x55\xaa"
+          sec=512
+          for i in range(4):
+              e=d[446+i*16:446+i*16+16]
+              _,_,pt,_,start,size=struct.unpack("<B3sB3sII",e)
+              if pt==0 or size==0: continue
+              if i+1==2:
+                  subprocess.run(["dd","if="+raw,"of=/tmp/chk-inject-p2.img","bs="+str(sec),"skip="+str(start),"count="+str(size),"status=none"],check=True)
+                  print(f"p2 type=0x{pt:02x} start={start} size={size} -> /tmp/chk-inject-p2.img")
+          '
+          sudo e2fsck -f -n /tmp/chk-inject-p2.img
 
       - name: Verificar firmware en p2, sparse y límite
         run: |
