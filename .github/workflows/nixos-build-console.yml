@@ -43,7 +43,7 @@ jobs:
 
       # DeterminateSystems/nix-installer-action@v16
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25
         with:
           daemon: true
           extra-conf: |
@@ -138,7 +138,7 @@ jobs:
 
       # DeterminateSystems/nix-installer-action@v16
       - name: Install Nix (for nix-store --import)
-        uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25
         with:
           extra-conf: |
             experimental-features = nix-command flakes

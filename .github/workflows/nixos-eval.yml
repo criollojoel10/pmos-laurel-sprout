@@ -46,7 +46,7 @@ jobs:
 
       - name: Install Nix
         # DeterminateSystems/nix-installer-action@v16
-        uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25
         with:
           daemon: true
           extra-conf: |
