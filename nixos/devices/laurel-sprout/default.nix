@@ -37,10 +37,7 @@
     # modules.tar.zst del artefacto 6.1 (initramfs diagnóstico), no desde
     # linuxPackages.
     initrd = {
-      availableKernelModules = [
-        "usb_configfs"
-        "libcomposite"
-      ];
+      availableKernelModules = [ ];
     };
 
     # Kernel command line
