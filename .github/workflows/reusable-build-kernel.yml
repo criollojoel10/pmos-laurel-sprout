@@ -76,7 +76,7 @@ jobs:
           sudo apt-get install -y -qq \
             crossbuild-essential-arm64 device-tree-compiler \
             flex bison libssl-dev libelf-dev bc python3 \
-            cpio zstd xz-utils kmod
+            cpio zstd xz-utils kmod ccache
 
       - name: Determine kernel commit
         id: kcommit
@@ -92,6 +92,16 @@ jobs:
           fi
           echo "commit=$KC" >> "$GITHUB_OUTPUT"
           echo "Using kernel commit: $KC"
+
+      - name: Restore ccache
+        # actions/cache@v4.2.2 (pinned por SHA)
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ inputs.kernel_source }}-${{ steps.kcommit.outputs.commit }}-${{ hashFiles('configs/kernel/linux61.config') }}
+          restore-keys: |
+            ccache-${{ inputs.kernel_source }}-${{ steps.kcommit.outputs.commit }}-
+            ccache-${{ inputs.kernel_source }}-
 
       - name: Clone kernel source (shallow at pinned commit)
         run: |
@@ -242,6 +252,14 @@ jobs:
             echo "Tree still clean after build"
           fi
           echo "::endgroup::"
+
+      - name: Save ccache
+        if: success()
+        # actions/cache@v4.2.2 (pinned por SHA)
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ inputs.kernel_source }}-${{ steps.kcommit.outputs.commit }}-${{ hashFiles('configs/kernel/linux61.config') }}
 
       - name: Compress modules and DTB
         run: |

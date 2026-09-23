@@ -69,6 +69,11 @@ info "vamos a compilar con $(( NPROC > 0 ? NPROC : 1 )) hilos"
 CROSS=""
 if command -v aarch64-linux-gnu-gcc >/dev/null 2>&1; then
   CROSS="aarch64-linux-gnu-"
+  # ccache: acelera re-runs con el commit del kernel pineado (cache casi total).
+  if command -v ccache >/dev/null 2>&1; then
+    CROSS="ccache $CROSS"
+    info "ccache habilitado para el cross-compiler"
+  fi
   info "cross-compilando con $CROSS"
 else
   info "sin toolchain cross; compilando nativo"

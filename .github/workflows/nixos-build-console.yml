@@ -50,6 +50,10 @@ jobs:
             experimental-features = nix-command flakes
             extra-platforms = aarch64-linux
 
+      # DeterminateSystems/magic-nix-cache-action@v15 (pinned por SHA)
+      - name: Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7
+
       - name: Verify committed flake.lock (flake.lock is REQUIRED, never auto-updated)
         run: |
           set -Eeuo pipefail
@@ -142,6 +146,10 @@ jobs:
         with:
           extra-conf: |
             experimental-features = nix-command flakes
+
+      # DeterminateSystems/magic-nix-cache-action@v15 (pinned por SHA)
+      - name: Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7
 
       - name: Assemble and validate rootfs tree
         run: |
