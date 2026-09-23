@@ -24,23 +24,22 @@
     loader.generic-extlinux-compatible.enable = true;
 
     # Initrd
+    #
+    # NOTA (kernel 6.1 @77de535b, el que SÍ arranca en este device): los
+    # drivers críticos para el arranque van BUILT-IN (=y) y NO son módulos:
+    #   SERIAL_MSM, SERIAL_QCOM_GENI, USB_DWC3, USB_DWC3_QCOM,
+    #   USB_CONFIGFS_RNDIS, SCSI_UFSHCD, SCSI_UFS_QCOM, PHY_QCOM_QMP,
+    #   PHY_QCOM_QUSB2.
+    # Por eso `availableKernelModules` queda vacío: no hay que cargar nada
+    # para montar el rootfs UFS (el boot.kernelPackages es SOLO userspace y
+    # no aporta módulos del kernel de arranque). RNDIS via configfs requiere
+    # los módulos `usb_configfs`/`libcomposite`, que se cargan desde el
+    # modules.tar.zst del artefacto 6.1 (initramfs diagnóstico), no desde
+    # linuxPackages.
     initrd = {
       availableKernelModules = [
-        # En linux >= 6.7 el módulo QCOM UFS es `ufs_qcom` (renombrado desde
-        # `ufshcd-qcom`, drivers/ufs/host/ufs-qcom.ko).
-        "ufs_qcom"
-        # En linux >= 6.4 el core de dwc3 es el módulo `dwc3` (renombrado
-        # desde `usb_dwc3`); la capa de glue Qualcomm es `dwc3_qcom`.
-        "dwc3"
-        "dwc3_qcom"
-        "phy_qcom_qusb2"
-        # En linux >= 6.6 el QMP PHY de Qualcomm se dividió en varios módulos;
-        # `phy_qcom_qmp` ya no existe como módulo y rompe el módulo-shrunk
-        # del initrd (modprobe FATAL: not found).
-        "phy_qcom_qmp_combo"
-        "phy_qcom_qmp_pcie"
-        "phy_qcom_qmp_ufs"
-        "phy_qcom_qmp_usb"
+        "usb_configfs"
+        "libcomposite"
       ];
     };
 

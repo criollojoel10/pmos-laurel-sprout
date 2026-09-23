@@ -220,13 +220,13 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-  # Fase 3D: kernel v7.1 compartido (NO reconstruir por iteración de rootfs)
+  # Fase 3D: kernel compartido (NO reconstruir por iteración de rootfs)
   build-kernel:
-    name: "Build shared kernel v7.1 (for NixOS boot.img)"
+    name: "Build shared kernel 6.1 (for NixOS boot.img)"
     uses: ./.github/workflows/reusable-build-kernel.yml
     with:
       build_variant: release
-      kernel_source: linux-mainline-v7.1
+      kernel_source: sm6125-mainline-linux
 
   # Fase 3D: busybox estático ARM64 para el initramfs
   build-busybox:

@@ -97,14 +97,19 @@ jobs:
         run: |
           set -Eeuo pipefail
           KC="${{ steps.kcommit.outputs.commit }}"
-          git clone --filter=blob:none --no-checkout \
-            https://github.com/torvalds/linux.git kernel
+          KURL="$(jq -r ".sources[] | select(.name==\"${{ inputs.kernel_source }}\") | .url // empty" sources.lock.json || true)"
+          if [[ -z "$KURL" || "$KURL" == "null" ]]; then
+            KURL="https://github.com/torvalds/linux.git"
+          fi
+          echo "Kernel URL: $KURL"
+          git clone --filter=blob:none --no-checkout "$KURL" kernel
           cd kernel
           git fetch --depth 1 origin "$KC"
           git checkout -q "$KC"
           echo "Tree at: $(git rev-parse HEAD)"
 
       - name: Apply downstream patches
+        if: ${{ inputs.kernel_source != 'sm6125-mainline-linux' }}
         run: |
           set -Eeuo pipefail
           bash scripts/apply-kernel-patches.sh kernel
@@ -140,6 +145,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Prepare Kconfig fragments
+        if: ${{ inputs.kernel_source != 'sm6125-mainline-linux' }}
         run: |
           set -Eeuo pipefail
           VARIANT="${{ inputs.build_variant || 'debug' }}"
@@ -152,7 +158,8 @@ jobs:
           echo "$FRAGS" > /tmp/frags.txt
           cat /tmp/frags.txt
 
-      - name: Build kernel
+      - name: Build kernel (mainline with fragments)
+        if: ${{ inputs.kernel_source != 'sm6125-mainline-linux' }}
         run: |
           set -Eeuo pipefail
           VARIANT="${{ inputs.build_variant || 'debug' }}"
@@ -164,7 +171,18 @@ jobs:
             --deny-list configs/kernel/laurel-deny.fragment \
             --out /tmp/kernel-out
 
+      - name: Build kernel (sm6125-mainline-linux 6.1 full config)
+        if: ${{ inputs.kernel_source == 'sm6125-mainline-linux' }}
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build-kernel.sh \
+            --tree kernel \
+            --variant "${{ inputs.build_variant || 'debug' }}" \
+            --full-config configs/kernel/linux61.config \
+            --out /tmp/kernel-out
+
       - name: Verify Kconfig
+        if: ${{ inputs.kernel_source != 'sm6125-mainline-linux' }}
         run: |
           set -Eeuo pipefail
           VARIANT="${{ inputs.build_variant || 'debug' }}"
@@ -258,20 +276,28 @@ jobs:
           print(json.dumps(entries))
           " 2>/dev/null || echo "[]")
           fi
+          if [[ "${{ inputs.kernel_source }}" == "sm6125-mainline-linux" ]]; then
+            UPSTREAM_REPO="https://gitlab.com/sm6125-mainline/linux"
+            UPSTREAM_TAG="v6.1-sm6125"
+          else
+            UPSTREAM_REPO="https://github.com/torvalds/linux"
+            UPSTREAM_TAG="v7.1"
+          fi
           jq -n \
             --arg variant "${{ inputs.build_variant || 'debug' }}" \
             --arg commit "${{ steps.kcommit.outputs.commit }}" \
             --arg patched "${{ steps.patched.outputs.patched_commit }}" \
             --arg version "${{ steps.kversion.outputs.version }}" \
             --arg source "${{ inputs.kernel_source }}" \
-            --arg tag "v7.1" \
+            --arg tag "$UPSTREAM_TAG" \
+            --arg repo "$UPSTREAM_REPO" \
             --arg describe "${{ steps.patched.outputs.git_describe }}" \
             --argjson dirty "${{ steps.patched.outputs.is_dirty }}" \
             --argjson patches "$PATCHES_JSON" \
             '{
               artifact: "kernel",
               variant: $variant,
-              upstream_repo: "https://github.com/torvalds/linux",
+              upstream_repo: $repo,
               upstream_tag: $tag,
               upstream_commit: $commit,
               patched_commit: $patched,

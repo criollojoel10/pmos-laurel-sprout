@@ -25,6 +25,7 @@ TREE=""
 VARIANT="debug"
 FRAGMENTS=()
 DENY_LIST=""
+FULL_CONFIG=""
 OUT=""
 
 usage() {
@@ -38,6 +39,7 @@ while (( $# > 0 )); do
     --variant) VARIANT="$2"; shift 2 ;;
     --fragments) shift; while (( $# > 0 )) && [[ "$1" != -* ]]; do FRAGMENTS+=("$1"); shift; done ;;
     --deny-list) DENY_LIST="$2"; shift 2 ;;
+    --full-config) FULL_CONFIG="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     *) usage ;;
   esac
@@ -72,36 +74,48 @@ else
   info "sin toolchain cross; compilando nativo"
 fi
 
-# Defconfig objetivo: en mainline v7.1 (torvalds) la base arm64 es "defconfig";
-# los forks sm61x5-mainline añaden qcom_defconfig/sm6125_defconfig.
-DEFCONFIG="defconfig"
-if [[ -f "arch/arm64/configs/sm6125_defconfig" ]]; then
-  DEFCONFIG="sm6125_defconfig"
-elif [[ -f "arch/arm64/configs/qcom_defconfig" ]]; then
-  DEFCONFIG="qcom_defconfig"
-fi
-info "defconfig: $DEFCONFIG"
-
-make ARCH=arm64 CROSS_COMPILE="$CROSS" "$DEFCONFIG" 2>&1 | tee "$OUT/kconfig-setup.log"
-
-# Aplicar fragmentos con merge_config de scripts/kconfig.
-# Las rutas relativas se interpretan desde la raíz del repo.
-FRAG_OPTS=()
-for f in "${FRAGMENTS[@]:-}"; do
-  if [[ "$f" != /* && -f "$REPO_ROOT/$f" ]]; then
-    f="$REPO_ROOT/$f"
+if [[ -n "$FULL_CONFIG" ]]; then
+  # Config COMPLETA congelada (p. ej. fork 6.1). Se usa tal cual, sin
+  # defconfig ni fragmentos (estos son específicos del árbol 7.1).
+  if [[ "$FULL_CONFIG" != /* && -f "$REPO_ROOT/$FULL_CONFIG" ]]; then
+    FULL_CONFIG="$REPO_ROOT/$FULL_CONFIG"
   fi
-  [[ -f "$f" ]] || { echo "ERROR: fragmento no existe: $f" >&2; exit 1; }
-  FRAG_OPTS+=("$f")
-done
+  [[ -f "$FULL_CONFIG" ]] || { echo "ERROR: full-config no existe: $FULL_CONFIG" >&2; exit 1; }
+  info "usando config completa: $FULL_CONFIG"
+  cp "$FULL_CONFIG" .config
+  make ARCH=arm64 CROSS_COMPILE="$CROSS" olddefconfig 2>&1 | tee "$OUT/kconfig-setup.log"
+else
+  # Defconfig objetivo: en mainline v7.1 (torvalds) la base arm64 es "defconfig";
+  # los forks sm61x5-mainline añaden qcom_defconfig/sm6125_defconfig.
+  DEFCONFIG="defconfig"
+  if [[ -f "arch/arm64/configs/sm6125_defconfig" ]]; then
+    DEFCONFIG="sm6125_defconfig"
+  elif [[ -f "arch/arm64/configs/qcom_defconfig" ]]; then
+    DEFCONFIG="qcom_defconfig"
+  fi
+  info "defconfig: $DEFCONFIG"
 
-if (( ${#FRAG_OPTS[@]} > 0 )); then
-  info "aplicando fragmentos: ${FRAG_OPTS[*]}"
-  ./scripts/kconfig/merge_config.sh \
-    -O . \
-    -m arch/arm64/configs/"$DEFCONFIG" \
-    "${FRAG_OPTS[@]}" 2>&1 | tee "$OUT/kconfig-merge.log"
-  make ARCH=arm64 CROSS_COMPILE="$CROSS" olddefconfig 2>&1 | tee -a "$OUT/kconfig-merge.log"
+  make ARCH=arm64 CROSS_COMPILE="$CROSS" "$DEFCONFIG" 2>&1 | tee "$OUT/kconfig-setup.log"
+
+  # Aplicar fragmentos con merge_config de scripts/kconfig.
+  # Las rutas relativas se interpretan desde la raíz del repo.
+  FRAG_OPTS=()
+  for f in "${FRAGMENTS[@]:-}"; do
+    if [[ "$f" != /* && -f "$REPO_ROOT/$f" ]]; then
+      f="$REPO_ROOT/$f"
+    fi
+    [[ -f "$f" ]] || { echo "ERROR: fragmento no existe: $f" >&2; exit 1; }
+    FRAG_OPTS+=("$f")
+  done
+
+  if (( ${#FRAG_OPTS[@]} > 0 )); then
+    info "aplicando fragmentos: ${FRAG_OPTS[*]}"
+    ./scripts/kconfig/merge_config.sh \
+      -O . \
+      -m arch/arm64/configs/"$DEFCONFIG" \
+      "${FRAG_OPTS[@]}" 2>&1 | tee "$OUT/kconfig-merge.log"
+    make ARCH=arm64 CROSS_COMPILE="$CROSS" olddefconfig 2>&1 | tee -a "$OUT/kconfig-merge.log"
+  fi
 fi
 
 cp .config "$OUT/kernel.config"
@@ -144,13 +158,21 @@ cp arch/arm64/boot/Image "$OUT/Image"
 cp arch/arm64/boot/Image.gz "$OUT/Image.gz" 2>/dev/null || true
 cp System.map "$OUT/System.map"
 
-# DTB laurel_sprout
-DTB="arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dtb"
-if [[ -f "$DTB" ]]; then
+# DTB laurel_sprout. El fork 6.1 lo genera con guión bajo en laurel_sprout;
+# mainline 7.1 con guión. Se copia siempre al nombre canónico con guión.
+DTB_CANDIDATES=(
+  "arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dtb"
+  "arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel_sprout.dtb"
+)
+DTB=""
+for c in "${DTB_CANDIDATES[@]}"; do
+  if [[ -f "$c" ]]; then DTB="$c"; break; fi
+done
+if [[ -n "$DTB" ]]; then
   cp "$DTB" "$OUT/sm6125-xiaomi-laurel-sprout.dtb"
-  info "DTB laurel copiado"
+  info "DTB laurel copiado ($DTB)"
 else
-  info "AVISO: $DTB no generado en esta variante"
+  info "AVISO: DTB laurel no generado en esta variante"
 fi
 
 # Manifiesto de módulos
