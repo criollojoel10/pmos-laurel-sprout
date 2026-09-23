@@ -308,6 +308,15 @@ jobs:
           gzip -dc /tmp/initramfs-out/initramfs.cpio.gz | cpio -t | sort > /tmp/initramfs-file-list.txt
           grep -qE '(^|/)init$' /tmp/initramfs-file-list.txt || { echo "FALLO: init ausente en initramfs" >&2; sed -n '1,20p' /tmp/initramfs-file-list.txt >&2; exit 1; }
           grep -qE '(^|/)busybox$' /tmp/initramfs-file-list.txt || { echo "FALLO: busybox ausente en initramfs" >&2; sed -n '1,20p' /tmp/initramfs-file-list.txt >&2; exit 1; }
+          rm -rf /tmp/initramfs-audit
+          mkdir -p /tmp/initramfs-audit
+          gzip -dc /tmp/initramfs-out/initramfs.cpio.gz | (cd /tmp/initramfs-audit && cpio -idmu) >/dev/null 2>&1
+          INTERP="$(sed -n '1s/^#!//p' /tmp/initramfs-audit/init | awk '{print $1}')"
+          echo "intérprete de /init: $INTERP"
+          [ -n "$INTERP" ] || { echo "FALLO: /init sin shebang" >&2; exit 1; }
+          [ -e "/tmp/initramfs-audit${INTERP}" ] || { echo "FALLO: intérprete $INTERP de /init no existe en el initramfs (kernel panic error -2)" >&2; exit 1; }
+          find /tmp/initramfs-audit -xtype l ! -path '*/lib/modules/*/build' ! -path '*/lib/modules/*/source' -print | grep -q . && { echo "FALLO: symlinks rotos en initramfs:" >&2; find /tmp/initramfs-audit -xtype l ! -path '*/lib/modules/*/build' ! -path '*/lib/modules/*/source' -print >&2; exit 1; }
+          echo "GATE_INIT_SAFE
           find /tmp/initramfs-out/lib/modules -name 'modules.dep' | grep -q . || { echo "FALLO: sin modules.dep (modprobe no resolvería)" >&2; exit 1; }
           MOD_COUNT="$(grep -cE 'lib/modules' /tmp/initramfs-file-list.txt || true)"
           [ "$MOD_COUNT" -gt 0 ] || { echo "FALLO: initramfs sin módulos del kernel" >&2; exit 1; }

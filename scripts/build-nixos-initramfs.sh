@@ -56,6 +56,11 @@ OUT="$(readlink -f "$OUT")"
 # ── 1. busybox + módulos ───────────────────────────────────────────────────
 cp "$BUSYBOX" "$OUT/busybox"
 chmod 755 "$OUT/busybox"
+# El kernel resuelve el intérprete del shebang `#!/bin/busybox sh` de /init
+# ANTES de que la shell arranque; sin /bin/busybox ejecutar /init falla con
+# ENOENT (-2) y el arranque termina en kernel panic.
+mkdir -p "$OUT/bin"
+ln -s ../busybox "$OUT/bin/busybox"
 mkdir -p "$OUT/lib/modules"
 tar --zstd -xf "$MODULES" -C "$OUT/lib/modules"
 REL="$(ls "$OUT/lib/modules")"
