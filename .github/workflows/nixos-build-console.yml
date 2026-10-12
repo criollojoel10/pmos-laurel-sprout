@@ -135,7 +135,7 @@ jobs:
 
       - name: Download closure export
         # actions/download-artifact@v4.3.3
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: nixos-console-closure
           path: artifacts/nixos-console
@@ -196,7 +196,7 @@ jobs:
 
       - name: Download rootfs tree (3B)
         # actions/download-artifact@v4.3.3
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: nixos-console-rootfs-tree
           path: artifacts-3b
@@ -278,21 +278,21 @@ jobs:
 
       - name: Download kernel (v7.1 shared)
         # actions/download-artifact@v4.3.3
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: kernel-release
           path: /tmp/kernel-artifact
 
       - name: Download busybox (aarch64)
         # actions/download-artifact@v4.3.3
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: nixos-console-busybox
           path: /tmp/busybox
 
       - name: Download rootfs tree (3B) for systemPath
         # actions/download-artifact@v4.3.3
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: nixos-console-rootfs-tree
           path: artifacts-3b
@@ -416,19 +416,19 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Download closure (3A)
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: nixos-console-closure
           path: artifacts-3a
 
       - name: Download rootfs image (3C)
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: nixos-console-rootfs-image
           path: artifacts-3c
 
       - name: Download boot image (3D)
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: nixos-console-boot
           path: artifacts-3d

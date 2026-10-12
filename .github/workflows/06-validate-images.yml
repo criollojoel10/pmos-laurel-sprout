@@ -55,7 +55,7 @@ jobs:
           fetch-depth: 0
       - name: Descargar artifact de kernel
         if: ${{ github.event.inputs.kernel_run_id != '' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: ${{ github.event.inputs.kernel_artifact }}
           path: artifacts/kernel
@@ -63,7 +63,7 @@ jobs:
           run-id: ${{ github.event.inputs.kernel_run_id }}
       - name: Descargar artifact de consola
         if: ${{ github.event.inputs.console_run_id != '' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: ${{ github.event.inputs.console_artifact }}
           path: artifacts/console
@@ -71,7 +71,7 @@ jobs:
           run-id: ${{ github.event.inputs.console_run_id }}
       - name: Descargar artifact de Plasma
         if: ${{ github.event.inputs.plasma_run_id != '' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: ${{ github.event.inputs.plasma_artifact }}
           path: artifacts/plasma
