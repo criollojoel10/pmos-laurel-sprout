@@ -386,7 +386,7 @@ jobs:
           ls -la /tmp/artifacts/
       - name: Subir artefactos
         if: ${{ github.event.inputs.upload_artifacts != 'false' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: historical-rootfs
           path: |
@@ -395,7 +395,7 @@ jobs:
           retention-days: 3
       - name: Subir logs de diagnóstico (siempre)
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: historical-rootfs-logs
           path: |

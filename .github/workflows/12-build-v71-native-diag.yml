@@ -153,7 +153,7 @@ jobs:
           cat SHA256SUMS manifest.json
       - name: Empaquetar salida
         if: ${{ github.event.inputs.upload_artifacts != 'false' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: boot-laurel-v71-native-diag
           path: |
@@ -167,7 +167,7 @@ jobs:
           retention-days: 7
       - name: Subir logs de diagnóstico (siempre)
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: v71-native-diag-logs
           path: |
