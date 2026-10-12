@@ -253,7 +253,7 @@ jobs:
 
       - name: Subir artefacto boot WiFi
         if: ${{ github.event.inputs.upload_artifacts != 'false' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: boot-linux61-wifi
           path: /tmp/boot-out/
@@ -261,7 +261,7 @@ jobs:
 
       - name: Subir logs boot
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: linux61-wifi-boot-logs
           path: |
@@ -471,7 +471,7 @@ jobs:
 
       - name: Subir artefacto rootfs WiFi
         if: ${{ github.event.inputs.upload_artifacts != 'false' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: xiaomi-laurel-wifi
           path: /tmp/rootfs-out/
@@ -479,7 +479,7 @@ jobs:
 
       - name: Subir logs rootfs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: linux61-wifi-rootfs-logs
           path: |

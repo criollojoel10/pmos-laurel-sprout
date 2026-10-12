@@ -127,14 +127,14 @@ jobs:
           cat SHA256SUMS
       - name: Upload kernel 6.1
         if: ${{ github.event.inputs.upload_artifacts != 'false' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: kernel-6-1-historical
           path: /tmp/k61-out/
           retention-days: 7
       - name: Subir logs de diagnóstico (siempre)
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: kernel-6-1-historical-logs
           path: |
@@ -212,7 +212,7 @@ jobs:
           cat manifest.json
       - name: Upload kernel 7.1
         if: ${{ github.event.inputs.upload_artifacts != 'false' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: kernel-7-1
           path: |
@@ -224,7 +224,7 @@ jobs:
           retention-days: 7
       - name: Subir logs de diagnóstico (siempre)
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: kernel-7-1-logs
           path: |
@@ -453,7 +453,7 @@ jobs:
           cat manifest.json
       - name: Empaquetar salida
         if: ${{ github.event.inputs.upload_artifacts != 'false' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: historical-boot-images-sedfix
           path: |
@@ -471,7 +471,7 @@ jobs:
           retention-days: 7
       - name: Subir logs de diagnóstico (siempre)
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: historical-boot-images-logs
           path: |
