@@ -12,9 +12,9 @@ teléfono** (AGENTS.md §0).
 | Fichero | Destino | Notas |
 |---|---|---|
 | `boot.img` | `boot_b` | kernel 7.2.3 + initramfs |
-| `rootfs.img` | `userdata` | rootfs postmarketOS (sector 4096) |
+| `rootfs.img.zst` | `userdata` | rootfs postmarketOS comprimida con zstd (~2.9 GB descomprimida, sector 4096) |
 | `vbmeta.img` | `vbmeta_b` | `avbtool make_vbmeta_image --flags 2 --padding_size 4096` |
-| `SHA256SUMS` | — | integridad |
+| `SHA256SUMS` | — | integridad (cubre `rootfs.img.zst`, no la descomprimida) |
 | `manifest.txt` | — | versiones y hashes del build |
 
 Se flashea al **slot b**; el Android stock del **slot a** no se toca.
@@ -40,6 +40,7 @@ fastboot getvar current-slot
 ```sh
 cd <dir-con-los-artefactos>
 sha256sum -c SHA256SUMS
+zstd -d rootfs.img.zst          # -> rootfs.img (~2.9 GB)
 
 fastboot flash vbmeta_b vbmeta.img
 fastboot erase dtbo_b

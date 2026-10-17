@@ -125,6 +125,15 @@ jobs:
             pmos-build \
             sh -ec "install -d -o build -g build /work /work/out \
               && sudo -u build -H bash /repo/scripts/build-pmos-laurel.sh ${args[*]}"
+      - name: Ajustar permisos del directorio de trabajo
+        # El contenedor corre como root y deja /work (bind mount) con dueño
+        # build/root; sin esto los pasos del runner no pueden escribir el log
+        # de validacion ni recomprimir la rootfs (fallo del run 38999461393:
+        # "tee: ... Permission denied").
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/pmos" 2>/dev/null || true
       - name: Validar artefactos
         env:
           UI: ${{ github.event.inputs.ui || 'plasma-mobile' }}
@@ -132,8 +141,22 @@ jobs:
           set -Eeuo pipefail
           docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" -v "$RUNNER_TEMP/pmos:/work" pmos-build \
             sh -ec "bash /repo/scripts/validate-pmos-laurel.sh --out /work/out --work /work --ui '$UI'" \
-            2>&1 | tee "$RUNNER_TEMP/pmos/validation.log" || {
-              echo "FALLO la validación de artefactos" >&2; exit 1; }
+            2>&1 | tee "$RUNNER_TEMP/pmos/validation.log"
+      - name: Comprimir la rootfs
+        # AGENTS.md §4: no se sube una rootfs sin comprimir (2.9 GB > limite
+        # practico de artefacto y descarga eterna desde el movil de origen).
+        run: |
+          set -Eeuo pipefail
+          OUT="$RUNNER_TEMP/pmos/out"
+          [ -f "$OUT/rootfs.img" ] || { echo "::error::falta rootfs.img"; exit 1; }
+          zstd -T0 -3 -q -f -o "$OUT/rootfs.img.zst" "$OUT/rootfs.img"
+          rm -f "$OUT/rootfs.img"
+          ( cd "$OUT" && sha256sum boot.img rootfs.img.zst > SHA256SUMS )
+          if [ -f "$OUT/vbmeta.img" ]; then
+            ( cd "$OUT" && sha256sum vbmeta.img >> SHA256SUMS )
+          fi
+          cat "$OUT/SHA256SUMS"
+          ls -la "$OUT"
       - name: Subir artefactos (si aplica)
         if: ${{ github.event.inputs.upload_artifacts == 'true' }}
         # actions/upload-artifact@v5
@@ -141,7 +164,11 @@ jobs:
         with:
           name: pmos-laurel-${{ github.event.inputs.ui || 'plasma-mobile' }}
           path: |
-            ${{ runner.temp }}/pmos/out/
+            ${{ runner.temp }}/pmos/out/boot.img
+            ${{ runner.temp }}/pmos/out/vbmeta.img
+            ${{ runner.temp }}/pmos/out/rootfs.img.zst
+            ${{ runner.temp }}/pmos/out/SHA256SUMS
+            ${{ runner.temp }}/pmos/out/*.txt
           retention-days: 7
           if-no-files-found: error
       - name: Subir logs de diagnóstico (siempre)
