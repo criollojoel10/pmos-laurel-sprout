@@ -183,32 +183,42 @@ jobs:
           fi
           got=$(md5sum < "$C/rom.tgz" | cut -c1-10)
           [ "$got" = "$ROM_MD5_PREFIX" ] || { echo "::error::md5 del ROM no coincide ($got)"; exit 1; }
+      - name: Construir la imagen de extraccion
+        # Se construye siempre: mas abajo tambien genera el vbmeta.img.
+        run: |
+          set -Eeuo pipefail
+          docker build -q -t pmos-fw kupfer-overlay/firmware/ >/dev/null
       - name: Extraer el firmware
         env:
           C: ${{ runner.temp }}/fwext
         run: |
           set -Eeuo pipefail
-          # Se usa una imagen minima (Alpine + android-tools + pil-squasher +
-          # python3) con el extractor oficial. El extractor monta las
-          # particiones stock en solo-lectura, de ahi --privileged.
-          docker build -q -t pmos-fw kupfer-overlay/firmware/ >/dev/null
-          docker run --privileged --rm \
-            -v "$C:/w" \
-            -v "$GITHUB_WORKSPACE/pmaports-overlay/firmware:/ext:ro" \
-            pmos-fw \
-            sh -ec '
-              set -e
-              cd /w
-              mkdir -p rom fwout
-              tar -xzf rom.tgz -C rom --strip-components=2 --wildcards "*/images/NON-HLOS.bin" "*/images/BTFM.bin" "*/images/vendor.img"
-              mv rom/NON-HLOS.bin rom/modem_a
-              mv rom/BTFM.bin rom/bluetooth_a
-              simg2img rom/vendor.img rom/vendor_a
-              rm -f rom/vendor.img
-              L=/w/rom FW=/w/fwout/fw sh /ext/extract-firmware.sh
-              tar -C /w/fwout -cf /w/fw.tar fw
-              rm -rf /w/rom /w/fwout /w/rom.tgz
-            '
+          # Imagen minima (Alpine + android-tools + pil-squasher + python3) con
+          # el extractor oficial. El extractor monta las particiones stock en
+          # solo-lectura, de ahi --privileged.
+          # Si la cache de GHA trajo fw.tar no existe rom.tgz y no hay nada que
+          # extraer: sin esta guarda el paso moriria en el primer tar.
+          if [ -s "$C/fw.tar" ]; then
+            echo "fw.tar presente (cache); se salta la extraccion"
+          else
+            docker run --privileged --rm \
+              -v "$C:/w" \
+              -v "$GITHUB_WORKSPACE/pmaports-overlay/firmware:/ext:ro" \
+              pmos-fw \
+              sh -ec '
+                set -e
+                cd /w
+                mkdir -p rom fwout
+                tar -xzf rom.tgz -C rom --strip-components=2 --wildcards "*/images/NON-HLOS.bin" "*/images/BTFM.bin" "*/images/vendor.img"
+                mv rom/NON-HLOS.bin rom/modem_a
+                mv rom/BTFM.bin rom/bluetooth_a
+                simg2img rom/vendor.img rom/vendor_a
+                rm -f rom/vendor.img
+                L=/w/rom FW=/w/fwout/fw sh /ext/extract-firmware.sh
+                tar -C /w/fwout -cf /w/fw.tar fw
+                rm -rf /w/rom /w/fwout /w/rom.tgz
+              '
+          fi
           CD="$HOME/.cache/kupferbootstrap/pkgbuilds/firmware/sm61x5-xiaomi-laurel"
           cp "$C/fw.tar" "$CD/fw.tar"
           # `tar -tf | head` muere con SIGPIPE (tar sigue escribiendo y head ya
