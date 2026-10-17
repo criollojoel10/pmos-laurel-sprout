@@ -126,8 +126,19 @@
   Tailscale y por LAN: `ssh begonia` (desde laurel) y `ssh laurel` (desde begonia/cachyos).
 - `sudo` sin contraseña configurado en laurel (`/etc/sudoers.d/zz-user-nopasswd`, que debe
   ordenar **después** de `sudoers.d/wheel` porque gana la última regla).
-- Aviso menor: el kernel no trae `CONFIG_NETFILTER_XT_*_CONNMARK` → Tailscale lo avisa pero
-  conecta igual (habría que añadirlo al config del kernel).
+- **Aviso de `connmark` — RESUELTO.** El kernel no traía `CONFIG_NETFILTER_XT_*_CONNMARK`,
+  así que `tailscaled` avisaba (`Extension connmark revision 0 not supported`) y no instalaba
+  sus reglas `-j CONNMARK`. Se compiló `xt_connmark.ko` contra el kernel exacto
+  (`make … net/netfilter/xt_connmark.ko`, vermagic `7.2.3-sm61x5 SMP preempt mod_unload aarch64`,
+  alias `ipt_connmark`/`ipt_CONNMARK`), se instaló en
+  `/usr/lib/modules/$(uname -r)/kernel/net/netfilter/` + `depmod`, y se reinició `tailscaled`.
+  **Verificado:** `tailscale status --json` → `"Health": []`, 0 avisos, reglas `CONNMARK`
+  presentes en el ruleset (`xt target "CONNMARK"`), autoload por alias OK, SSH intacto.
+  **Arreglo duradero:** las tres opciones se añadieron a
+  `kupfer-overlay/linux/sm61x5/extra_config` (reconstruir kernel); el parche inmediato
+  (módulo compilado) está documentado en `docs/KUPFER-BRINGUP.md` §7.
+  *(El test de persistencia con reinicio quedó sin confirmar: el teléfono no reapareció en
+  la red tras el reboot — ver nota al final del §7 de la guía.)*
 
 ## 8. Estado resultante
 

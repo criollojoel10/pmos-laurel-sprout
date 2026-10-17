@@ -24,3 +24,12 @@ CONFIG_CRYPTO_LZ4=y
 # CONFIG_MODULE_COMPRESS_XZ is not set
 # CONFIG_MODULE_COMPRESS_ZSTD is not set
 # CONFIG_MODULE_COMPRESS_ALL is not set
+
+# Tailscale instala reglas iptables con -j CONNMARK. El config base deja las tres
+# opciones apagadas, y entonces `tailscaled` avisa en cada health check
+# "Extension connmark revision 0 not supported" y NO instala las reglas de
+# connmark (begonia ya lo tiene en su kernel). Sin esto, el modulo xt_connmark
+# no existe y hay que compilarlo a mano contra el kernel exacto.
+CONFIG_NETFILTER_XT_CONNMARK=m
+CONFIG_NETFILTER_XT_MATCH_CONNMARK=m
+CONFIG_NETFILTER_XT_TARGET_CONNMARK=m

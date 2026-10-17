@@ -104,3 +104,57 @@ sudo tailscale up          # autorizar en el navegador
 
 Nota: `sudo` sin contraseña debe ir en un fichero que ordene **después** de
 `/etc/sudoers.d/wheel` (p.ej. `zz-user-nopasswd`); gana la última coincidencia.
+
+## 7. Aviso de Tailscale: `connmark`
+
+`tailscaled` instala reglas `iptables -j CONNMARK`; si el kernel no tiene el
+módulo, avisa en cada health check (*cosmético*, pero no instala esas reglas):
+
+```
+enabling connmark rules: ... -j CONNMARK --restore-mark ... exit status 2:
+Warning: Extension connmark revision 0 not supported, missing kernel module?
+```
+
+El config base deja las tres opciones apagadas. **Arreglo duradero:** añadirlas a
+`kupfer-overlay/linux/sm61x5/extra_config` (ya está) y reconstruir el kernel:
+
+```
+CONFIG_NETFILTER_XT_CONNMARK=m
+CONFIG_NETFILTER_XT_MATCH_CONNMARK=m
+CONFIG_NETFILTER_XT_TARGET_CONNMARK=m
+```
+
+**Sin reconstruir** (parche inmediato, el que se aplicó aquí): compilar el módulo
+contra el kernel exacto y dejarlo en el árbol de módulos:
+
+```sh
+# en el árbol del kernel (ver §5 para preparar .config/modules_prepare)
+./scripts/config --module NETFILTER_XT_CONNMARK --module NETFILTER_XT_MATCH_CONNMARK --module NETFILTER_XT_TARGET_CONNMARK
+make ARCH=arm64 LLVM=1 olddefconfig modules_prepare
+make ARCH=arm64 LLVM=1 KBUILD_MODPOST_WARN=1 net/netfilter/xt_connmark.ko
+# y en el dispositivo:
+sudo install -Dm644 xt_connmark.ko /usr/lib/modules/$(uname -r)/kernel/net/netfilter/xt_connmark.ko
+sudo depmod -a && sudo modprobe xt_connmark      # autoload por alias ipt_connmark
+sudo systemctl restart tailscaled
+```
+
+Verificación (en el dispositivo):
+
+```sh
+sudo tailscale status --json | grep '"Health"'   # -> "Health": []   (sin avisos)
+sudo tailscale status | grep -c connmark          # -> 0
+sudo nft list ruleset | grep -c CONNMARK          # reglas instaladas
+```
+
+`NF_CONNTRACK` debe estar `m`/`y` y `NF_CONNTRACK_MARK=y` (ya lo están en el
+config base).
+
+> **Nota (2026-10-17):** el fix se verificó en caliente (`"Health": []`, reglas
+> `CONNMARK` instaladas, autoload por alias, SSH intacto). El test de persistencia
+> con reinicio quedó **sin confirmar**: tras el `reboot` laurel no reapareció en la
+> red (ni Tailscale ni LAN, tampoco visto desde begonia), el mismo comportamiento
+> intermitente de red observado antes. Como el módulo vive en el árbol de módulos
+> con `depmod` y el alias `ipt_connmark` resuelve, debería autoloadear al aplicar
+> tailscaled sus reglas; conviene confirmarlo en el próximo arranque normal.
+> Ojo: el WCN3990 toma **MAC aleatoria en cada arranque**, así que DHCP puede dar
+> una IP distinta cada vez (comprobar la concesión real antes de asumir caída).
