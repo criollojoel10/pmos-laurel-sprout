@@ -177,39 +177,56 @@ patch_device_package() {
 fetch_firmware() {
   say "firmware del ROM oficial"
   local c="$WORK/cache"
+  local fwtar="$c/fw.tar"
+  local fwdir="$c/fw"
   mkdir -p "$c"
-  local rom="$c/rom.tgz"
-  if [[ ! -s "$rom" ]]; then
-    printf '[fw] descargando ROM (~2.4 GB)\n'
-    if command -v aria2c >/dev/null 2>&1; then
-      # El CDN de Xiaomi es lento con una sola conexión; aria2c con 16
-      # conexiones y reanudación (-c) lo acelera bastante.
-      aria2c -c -x 16 -s 16 -k 1M --file-allocation=none \
-        --summary-interval=60 --console-log-level=warn \
-        -d "$c" -o rom.tgz "$ROM_URL"
-    else
-      curl -fL -C - -o "$rom.part" "$ROM_URL"
-      mv "$rom.part" "$rom"
+
+  if [[ -s "$fwtar" ]]; then
+    # Cache de CI: el firmware extraído (~100 MB) evita volver a bajar 2.4 GB.
+    say "firmware desde caché ($(du -h "$fwtar" | cut -f1))"
+    rm -rf "$fwdir"
+    tar -C "$c" -xf "$fwtar"
+  else
+    local rom="$c/rom.tgz"
+    if [[ ! -s "$rom" ]]; then
+      printf '[fw] descargando ROM (~2.4 GB)\n'
+      if command -v aria2c >/dev/null 2>&1; then
+        # El CDN de Xiaomi es lento con una sola conexión; aria2c con 16
+        # conexiones y reanudación (-c) lo acelera bastante.
+        aria2c -c -x 16 -s 16 -k 1M --file-allocation=none \
+          --summary-interval=60 --console-log-level=warn \
+          -d "$c" -o rom.tgz "$ROM_URL"
+      else
+        curl -fL -C - -o "$rom.part" "$ROM_URL"
+        mv "$rom.part" "$rom"
+      fi
+      [[ -s "$rom" ]] || die "descarga del ROM vacía o fallida"
     fi
-    [[ -s "$rom" ]] || die "descarga del ROM vacía o fallida"
+    local got
+    got="$(md5sum < "$rom" | cut -c1-10)"
+    [[ "$got" == "$ROM_MD5_PREFIX" ]] || die "md5 del ROM no coincide ($got): borra $rom y reintenta"
+
+    local unpack="$c/rom"
+    rm -rf "$unpack" "$fwdir"
+    mkdir -p "$unpack"
+    tar -xzf "$rom" -C "$unpack" --strip-components=2 --wildcards \
+      '*/images/NON-HLOS.bin' '*/images/BTFM.bin' '*/images/vendor.img'
+    mv "$unpack/NON-HLOS.bin" "$unpack/modem_a"
+    mv "$unpack/BTFM.bin" "$unpack/bluetooth_a"
+    simg2img "$unpack/vendor.img" "$unpack/vendor_a"
+    rm -f "$unpack/vendor.img"
+
+    sudo -n env L="$unpack" FW="$fwdir/fw" \
+      sh "$REPO_ROOT/pmaports-overlay/firmware/extract-firmware.sh"
+    sudo -n chown -R "$(id -u):$(id -g)" "$fwdir"
+
+    # Guardar el firmware extraído (no el ROM) para la cache de CI y liberar
+    # los 2.4 GB del ROM, que ya no hacen falta.
+    rm -rf "$unpack"
+    tar -C "$c" -cf "$fwtar" fw
+    rm -f "$rom"
+    printf '[fw] caché creada (%s)\n' "$(du -h "$fwtar" | cut -f1)"
   fi
-  local got
-  got="$(md5sum < "$rom" | cut -c1-10)"
-  [[ "$got" == "$ROM_MD5_PREFIX" ]] || die "md5 del ROM no coincide ($got): borra $rom y reintenta"
-
-  local unpack="$c/rom" fwdir="$c/fw"
-  rm -rf "$unpack" "$fwdir"
-  mkdir -p "$unpack"
-  tar -xzf "$rom" -C "$unpack" --strip-components=2 --wildcards \
-    '*/images/NON-HLOS.bin' '*/images/BTFM.bin' '*/images/vendor.img'
-  mv "$unpack/NON-HLOS.bin" "$unpack/modem_a"
-  mv "$unpack/BTFM.bin" "$unpack/bluetooth_a"
-  simg2img "$unpack/vendor.img" "$unpack/vendor_a"
-  rm -f "$unpack/vendor.img"
-
-  sudo -n env L="$unpack" FW="$fwdir/fw" \
-    sh "$REPO_ROOT/pmaports-overlay/firmware/extract-firmware.sh"
-  sudo -n chown -R "$(id -u):$(id -g)" "$fwdir"
 
   local fwpkg="$PA/device/testing/$FIRMWARE_PKG"
   rm -rf "$fwpkg"
