@@ -1,8 +1,14 @@
 # Flashear postmarketOS en el Mi A3 (laurel_sprout) desde cachyos
 
-Los artefactos los produce el workflow `25-build-pmos-laurel` en GitHub
-Actions. Se descargan desde la pestaña Actions (artefacto
-`pmos-laurel-<ui>`) y se copian a cachyos.
+Los artefactos los produce el workflow `25-build-pmos-laurel` (postmarketOS) o
+`26-build-kupfer` (Arch/Kupfer) en GitHub Actions, con el **mismo formato**: se
+descargan desde la pestaña Actions y se copian a cachyos.
+
+```sh
+# postmarketOS (run 39004800346) o Kupfer (run 39007976354)
+gh run download <run-id> -R criollojoel10/pmos-laurel-sprout -n pmos-laurel-plasma-mobile
+gh run download <run-id> -R criollojoel10/pmos-laurel-sprout -n kupfer-laurel-plasma-mobile
+```
 
 **Todo el flasheo se hace desde cachyos. Este repo (begonia) no toca el
 teléfono** (AGENTS.md §0).
