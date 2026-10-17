@@ -73,3 +73,30 @@ El slot a sigue intacto:
 fastboot set_active a
 fastboot reboot
 ```
+
+## Primera prueba: qué mirar (postmarketOS)
+
+Con el teléfono recién arrancado, en este orden:
+
+1. **Pantalla y táctil**: el panel AMOLED debe encenderse desde el initramfs
+   (módulos `msm`, `panel-samsung-s6e8fc0-m1906f9`, `edt_ft5x06`). Si hay imagen
+   pero el táctil no responde, es el módulo `edt_ft5x06`.
+2. **Red USB**: el gadget debe levantar RNDIS y dar `172.16.42.1`. `ssh
+   user@172.16.42.1` (contraseña `changeme`).
+3. **`dmesg | grep -iE 'drm|panel|ft5x06'`**: confirma que el panel enlazó.
+4. **Wi-Fi** (solo si el build llevaba `with_firmware=true`):
+   `nmcli device` debe listar `wlan0`; si no aparece, revisar
+   `dmesg | grep -i ath10k` y que exista
+   `/usr/lib/firmware/qcom/sm6125/xiaomi/laurel/wlanmdsp.mbn`.
+5. **Batería**: en este primer build **no** está soportada (falta el driver
+   out-of-tree del fuel gauge PMI632). `cat /sys/class/power_supply/*/capacity`
+   probablemente no exista todavía.
+
+## Primera prueba: qué mirar (Kupfer)
+
+Mismos artefactos y mismos comandos. Diferencias: el rootfs es Arch, el usuario
+es `user`/`changeme` y el initramfs lo genera `mkinitcpio` con el conf de Kupfer
+(`/etc/kupfer/mkinitcpio.conf`). Si arranca al shell de emergencia, lo primero es
+comprobar que la rootfs se montó y que `deviceinfo_dtb` apunta a
+`qcom/sm6125-xiaomi-laurel-sprout`.
+
