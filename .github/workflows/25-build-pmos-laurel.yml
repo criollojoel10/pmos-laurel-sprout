@@ -1,0 +1,147 @@
+name: 25-build-pmos-laurel
+
+# Construcción real de la imagen postmarketOS edge para Xiaomi Mi A3
+# (xiaomi-laurel / laurel_sprout) con pmbootstrap, dentro de un contenedor
+# Alpine. Todo el trabajo pesado ocurre en GitHub Actions (AGENTS.md §5).
+#
+# Basado en el recetario probado de philipplinux/mia3-postmarketos.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ui:
+        description: Interfaz postmarketOS
+        type: choice
+        options: [plasma-mobile, console, phosh, sway, none]
+        default: plasma-mobile
+      service_manager:
+        description: Gestor de servicios
+        type: choice
+        options: [systemd, openrc]
+        default: systemd
+      pmaports_commit:
+        description: Commit de pmaports (vacío = sources.lock.json)
+        type: string
+        default: ""
+      apply_overlay:
+        description: Aplicar pmaports-overlay (parches DTS + k7.dtb)
+        type: boolean
+        default: false
+      with_firmware:
+        description: Incluir firmware del ROM oficial (WiFi/BT)
+        type: boolean
+        default: false
+      upload_artifacts:
+        description: Subir artefactos
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pmos-laurel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: postmarketOS edge (xiaomi-laurel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Info del runner
+        run: |
+          set -Eeuo pipefail
+          echo "::group::df -h"; df -h; echo "::endgroup::"
+          echo "::group::free -h"; free -h; echo "::endgroup::"
+          echo "::group::uname -a"; uname -a; echo "::endgroup::"
+      - name: Checkout
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Liberar espacio en disco
+        run: |
+          set -Eeuo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            "$AGENT_TOOLSDIRECTORY" || true
+          sudo docker image prune -af || true
+          df -h
+      - name: Determinar commit de pmaports
+        id: pcommit
+        run: |
+          set -Eeuo pipefail
+          PC="${{ github.event.inputs.pmaports_commit || '' }}"
+          if [[ -z "$PC" ]]; then
+            PC="$(jq -r '.sources[] | select(.name=="pmaports") | .commit // empty' sources.lock.json || true)"
+          fi
+          if [[ -z "$PC" || "$PC" == "null" ]]; then
+            echo "ERROR: pmaports_commit no dado ni fijado en sources.lock.json" >&2
+            exit 1
+          fi
+          if [[ ! "$PC" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "ERROR: pmaports_commit no es un SHA válido: $PC" >&2
+            exit 1
+          fi
+          echo "commit=$PC" >> "$GITHUB_OUTPUT"
+      - name: Registrar emulación aarch64 (qemu)
+        # qemu-user-static vía binfmt: pmbootstrap compila paquetes aarch64 en
+        # un runner x86_64.
+        # docker/setup-qemu-action@v4.4.0
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
+        with:
+          platforms: arm64
+      - name: Construir imagen del contenedor
+        run: |
+          set -Eeuo pipefail
+          docker build -t pmos-build pmos-build/
+      - name: Construir postmarketOS (pmbootstrap)
+        env:
+          UI: ${{ github.event.inputs.ui || 'plasma-mobile' }}
+          SERVICE_MANAGER: ${{ github.event.inputs.service_manager || 'systemd' }}
+          PMAPORTS_COMMIT: ${{ steps.pcommit.outputs.commit }}
+          APPLY_OVERLAY: ${{ github.event.inputs.apply_overlay }}
+          WITH_FIRMWARE: ${{ github.event.inputs.with_firmware }}
+        run: |
+          set -Eeuo pipefail
+          args=(--work /work --out /work/out --ui "$UI"
+                --service-manager "$SERVICE_MANAGER"
+                --pmaports-commit "$PMAPORTS_COMMIT")
+          if [[ "$APPLY_OVERLAY" == "true" ]]; then args+=(--apply-overlay); fi
+          if [[ "$WITH_FIRMWARE" == "true" ]]; then args+=(--with-firmware); fi
+          mkdir -p "$RUNNER_TEMP/pmos"
+          docker run --privileged --rm --name pmos-build-run \
+            -v "$GITHUB_WORKSPACE:/repo:ro" \
+            -v "$RUNNER_TEMP/pmos:/work" \
+            pmos-build \
+            sh -ec "install -d -o build -g build /work /work/out \
+              && sudo -u build -H bash /repo/scripts/build-pmos-laurel.sh ${args[*]}"
+      - name: Validar artefactos
+        run: |
+          set -Eeuo pipefail
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" -v "$RUNNER_TEMP/pmos:/work" pmos-build \
+            sh -ec 'bash /repo/scripts/validate-pmos-laurel.sh --out /work/out --work /work' \
+            2>&1 | tee /work/validation.log || {
+              echo "FALLO la validación de artefactos" >&2; exit 1; }
+      - name: Subir artefactos (si aplica)
+        if: ${{ github.event.inputs.upload_artifacts == 'true' }}
+        # actions/upload-artifact@v5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pmos-laurel-${{ github.event.inputs.ui || 'plasma-mobile' }}
+          path: |
+            ${{ runner.temp }}/pmos/out/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Subir logs de diagnóstico (siempre)
+        if: always()
+        # actions/upload-artifact@v5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pmos-laurel-diagnostic
+          path: |
+            ${{ runner.temp }}/pmos/out/*.txt
+            ${{ runner.temp }}/pmos/*.log
+          retention-days: 3
+          if-no-files-found: ignore
