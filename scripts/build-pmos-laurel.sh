@@ -47,6 +47,7 @@ PMAPORTS_REMOTE="https://gitlab.postmarketos.org/postmarketOS/pmaports.git"
 PMOS_USER="user"
 PMOS_HOSTNAME="laurel"
 PMOS_PASSWORD="changeme"
+EXTRA_PACKAGES="openssh"
 APPLY_OVERLAY=0
 WITH_FIRMWARE=0
 
@@ -123,9 +124,26 @@ apply_overlay() {
       "$PA/device/testing/$KERNEL_PKG/"
     printf '[overlay] parches DTS copiados\n'
   fi
-  if [[ -f "$ov/dts/k7.dtb" ]]; then
-    cp "$ov/dts/k7.dtb" "$PA/device/testing/$KERNEL_PKG/"
-    printf '[overlay] k7.dtb copiado\n'
+  if [[ -f "$ov/dts/k7.dts" ]]; then
+    local kdir="$PA/device/testing/$KERNEL_PKG"
+    local apk="$kdir/APKBUILD"
+    # k7.dtb no se versiona (*.dtb, *.dtbo y *.bin están en la lista negra de
+    # scripts/audit-public-repository.sh): se compila aquí desde k7.dts con dtc.
+    dtc -q -I dts -O dtb -o "$kdir/k7.dtb" "$ov/dts/k7.dts"
+    [[ -s "$kdir/k7.dtb" ]] || die "dtc no generó k7.dtb"
+    # Añadir k7.dtb a source y sustituir el DTB de laurel que instala el kernel,
+    # para que boot.img lleve el de k7 (cpufreq, BT, IR, Wi-Fi).
+    awk '/^\tconfig-\$_flavor\.aarch64$/ {print; print "\tk7.dtb"; next} {print}' \
+      "$apk" > "$apk.step1"
+    awk '/^\trm -f "\$pkgdir"\/usr\/lib\/modules/ {print; print "\tinstall -Dm644 \"\$srcdir/k7.dtb\" \"\$pkgdir/boot/dtbs/qcom/sm6125-xiaomi-laurel-sprout.dtb\""; next} {print}' \
+      "$apk.step1" > "$apk.step2"
+    mv "$apk.step2" "$apk"
+    rm -f "$apk.step1"
+    grep -q 'k7.dtb' "$apk" || die "no se pudo añadir k7.dtb al APKBUILD del kernel"
+    grep -q 'sm6125-xiaomi-laurel-sprout.dtb' "$apk" \
+      || die "no se pudo sustituir el DTB de laurel"
+    printf '[overlay] k7.dtb compilado (%s bytes) y enganchado al kernel\n' \
+      "$(stat -c %s "$kdir/k7.dtb")"
   fi
   if (( WITH_FIRMWARE == 0 )); then
     # Sin firmware no se puede satisfacer la dependencia del paquete de
@@ -134,6 +152,26 @@ apply_overlay() {
       "$PA/device/testing/$DEVICE_PKG/APKBUILD"
     printf '[overlay] dependencia %s eliminada (build base)\n' "$FIRMWARE_PKG"
   fi
+}
+
+patch_device_package() {
+  say "deviceinfo: habilitar DRM"
+  local di="$PA/device/testing/$DEVICE_PKG/deviceinfo"
+  local apk="$PA/device/testing/$DEVICE_PKG/APKBUILD"
+  [[ -f "$di" ]] || die "no existe $di"
+  # pmbootstrap esconde las UIs con opción pmb:drm / pmb:gpu-accel cuando el
+  # deviceinfo no declara deviceinfo_drm (pmb/config/init.py): sin esto,
+  # plasma-mobile ni siquiera aparece y init cae a console. El msm DRM del
+  # kernel nura 7.2.3 sí funciona, así que declararlo es correcto.
+  if ! grep -q '^deviceinfo_drm=' "$di"; then
+    printf '\ndeviceinfo_drm="true"\n' >> "$di"
+    printf '[device] deviceinfo_drm="true" añadido\n'
+  fi
+  # El paquete de device se construye siempre en local; un pkgrel distinto del
+  # de pmaports/repo binario garantiza que apk elija el nuestro.
+  sed -i 's/^pkgrel=[0-9]\+$/pkgrel=9/' "$apk"
+  grep -q '^pkgrel=9$' "$apk" || die "no se pudo fijar pkgrel del device"
+  printf '[device] pkgrel=9 (build local)\n'
 }
 
 fetch_firmware() {
@@ -160,7 +198,9 @@ fetch_firmware() {
   simg2img "$unpack/vendor.img" "$unpack/vendor_a"
   rm -f "$unpack/vendor.img"
 
-  L="$unpack" FW="$fwdir/fw" sh "$REPO_ROOT/pmaports-overlay/firmware/extract-firmware.sh"
+  sudo -n env L="$unpack" FW="$fwdir/fw" \
+    sh "$REPO_ROOT/pmaports-overlay/firmware/extract-firmware.sh"
+  sudo -n chown -R "$(id -u):$(id -g)" "$fwdir"
 
   local fwpkg="$PA/device/testing/$FIRMWARE_PKG"
   rm -rf "$fwpkg"
@@ -186,6 +226,7 @@ hostname = $PMOS_HOSTNAME
 locale = en_US.UTF-8
 timezone = UTC
 ssh_keys = False
+extra_packages = $EXTRA_PACKAGES
 EOF
   printf '[cfg] %s\n' "$cfg_dir/pmbootstrap_v3.cfg"
 }
@@ -202,8 +243,18 @@ run_build() {
   say "checksum: ${pkgs[*]}"
   pmb checksum "${pkgs[@]}"
 
-  say "build kernel $KERNEL_PKG (30-60 min)"
-  pmb build "$KERNEL_PKG"
+  # El device se parchea siempre (deviceinfo_drm + pkgrel), así que se compila
+  # en local. El kernel solo se fuerza si el overlay cambia sus fuentes; sin
+  # overlay el prebuilt del repo de pmOS es equivalente y ahorra ~30 min.
+  if (( APPLY_OVERLAY == 1 )); then
+    say "build kernel $KERNEL_PKG --force (overlay aplicado)"
+    pmb build --force "$KERNEL_PKG"
+  else
+    say "kernel $KERNEL_PKG (prebuilt del repo de pmOS si está disponible)"
+    pmb build "$KERNEL_PKG"
+  fi
+  say "build device $DEVICE_PKG --force (deviceinfo parcheado)"
+  pmb build --force "$DEVICE_PKG"
 
   say "pmbootstrap install (ui=$UI, $SERVICE_MANAGER)"
   pmb -y install --password "$PMOS_PASSWORD"
@@ -226,6 +277,22 @@ export_images() {
   LC_ALL=C grep -qa -m1 -E 'postmarketos|alpine-baselayout' "$OUT/rootfs.img" \
     || die "rootfs.img vacío; no lo flashees"
   ( cd "$OUT" && sha256sum boot.img rootfs.img vbmeta.img > SHA256SUMS )
+  {
+    printf 'device=%s\n' "$DEVICE"
+    printf 'ui=%s\n' "$UI"
+    printf 'service_manager=%s\n' "$SERVICE_MANAGER"
+    printf 'pmos_user=%s\n' "$PMOS_USER"
+    printf 'pmaports_commit=%s\n' "$PMAPORTS_COMMIT"
+    printf 'kernel_pkg=%s\n' "$KERNEL_PKG"
+    printf 'apply_overlay=%s\n' "$APPLY_OVERLAY"
+    printf 'with_firmware=%s\n' "$WITH_FIRMWARE"
+    printf 'pmbootstrap=%s\n' "$(pmbootstrap --version 2>/dev/null || echo desconocido)"
+    printf 'built_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'boot_img_bytes=%s\n' "$(stat -c %s "$OUT/boot.img")"
+    printf 'rootfs_img_bytes=%s\n' "$(stat -c %s "$OUT/rootfs.img")"
+    printf 'boot_img_sha256=%s\n' "$(sha256sum "$OUT/boot.img" | cut -d' ' -f1)"
+    printf 'rootfs_img_sha256=%s\n' "$(sha256sum "$OUT/rootfs.img" | cut -d' ' -f1)"
+  } > "$OUT/manifest.txt"
   ls -la "$OUT"
 }
 
@@ -239,7 +306,11 @@ main() {
   if (( APPLY_OVERLAY == 1 )); then
     apply_overlay
   fi
+  patch_device_package
   if (( WITH_FIRMWARE == 1 )); then
+    # El firmware entra en la imagen por la dependencia que añade el overlay.
+    (( APPLY_OVERLAY == 1 )) || die "--with-firmware requiere --apply-overlay"
+    EXTRA_PACKAGES="$EXTRA_PACKAGES,linux-firmware-ath10k,firmware-qcom-adreno-a630-sqe"
     fetch_firmware
   fi
   write_config

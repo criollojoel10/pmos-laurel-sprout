@@ -118,11 +118,13 @@ jobs:
             sh -ec "install -d -o build -g build /work /work/out \
               && sudo -u build -H bash /repo/scripts/build-pmos-laurel.sh ${args[*]}"
       - name: Validar artefactos
+        env:
+          UI: ${{ github.event.inputs.ui || 'plasma-mobile' }}
         run: |
           set -Eeuo pipefail
           docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" -v "$RUNNER_TEMP/pmos:/work" pmos-build \
-            sh -ec 'bash /repo/scripts/validate-pmos-laurel.sh --out /work/out --work /work' \
-            2>&1 | tee /work/validation.log || {
+            sh -ec "bash /repo/scripts/validate-pmos-laurel.sh --out /work/out --work /work --ui '$UI'" \
+            2>&1 | tee "$RUNNER_TEMP/pmos/validation.log" || {
               echo "FALLO la validación de artefactos" >&2; exit 1; }
       - name: Subir artefactos (si aplica)
         if: ${{ github.event.inputs.upload_artifacts == 'true' }}

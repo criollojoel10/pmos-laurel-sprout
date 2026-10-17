@@ -9,15 +9,16 @@
 # Actions, dentro del contenedor de pmos-build/Dockerfile.
 #
 # Uso:
-#   scripts/validate-pmos-laurel.sh --out <dir> [--work <dir>]
+#   scripts/validate-pmos-laurel.sh --out <dir> [--work <dir>] [--ui <ui>]
 
 set -Eeuo pipefail
 
 OUT=""
 WORK="/work"
+UI="plasma-mobile"
 
 usage() {
-  printf 'uso: %s --out <dir> [--work <dir>]\n' "$0" >&2
+  printf 'uso: %s --out <dir> [--work <dir>] [--ui <ui>]\n' "$0" >&2
   exit 2
 }
 
@@ -25,6 +26,7 @@ while (( $# > 0 )); do
   case "$1" in
     --out) OUT="${2:-}"; shift 2 ;;
     --work) WORK="${2:-}"; shift 2 ;;
+    --ui) UI="${2:-}"; shift 2 ;;
     *) usage ;;
   esac
 done
@@ -78,13 +80,21 @@ else
   bad "rootfs.img sin marcadores de rootfs"
 fi
 
-# 5. Contenido del rootfs montado (si es posible): UI y systemd
+# 5. Contenido del rootfs montado (si es posible): UI, systemd y device local
 DB="$WORK/pmbootstrap/chroot_rootfs_xiaomi-laurel/lib/apk/db/installed"
 if [[ -f "$DB" ]]; then
-  for p in postmarketos-base plasma-mobile postmarketos-base-systemd; do
+  for p in postmarketos-base "postmarketos-ui-$UI" postmarketos-base-systemd; do
     if grep -q "^P:$p\$" "$DB"; then ok "paquete presente: $p"
-    else info "paquete no encontrado en el db apk: $p"; fi
+    else bad "paquete AUSENTE en el db apk: $p"; fi
   done
+  # El paquete de device se compila en local con pkgrel=9; si entra el del repo
+  # binario, el deviceinfo_drm que habilita plasma-mobile no está en la imagen.
+  devver="$(grep -A1 '^P:device-xiaomi-laurel$' "$DB" | sed -n '2p' || true)"
+  if [[ "$devver" == *"-r9" ]]; then
+    ok "device-xiaomi-laurel local instalado ($devver)"
+  else
+    bad "device-xiaomi-laurel instalado no es el local ($devver); falta deviceinfo_drm"
+  fi
 else
   info "sin db apk en el chroot ($DB); se omite comprobación de paquetes"
 fi

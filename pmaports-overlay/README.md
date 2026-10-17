@@ -25,7 +25,7 @@ pmaports upstream fija el commit `ec98dddc8d525c874603a8e91ae6113d2b0c66d1`
 | `linux-nura-qcom-sm61x5/0001-*wcn3990-wifi.patch` | DTS: añade nodo Wi-Fi WCN3990 (`arm64: dts: qcom: sm6125`) | downstream-only (candidato upstream) |
 | `linux-nura-qcom-sm61x5/0002-*enable-cdsp.patch` | DTS: habilita el CDSP remoteproc | downstream-only |
 | `linux-nura-qcom-sm61x5/0003-*enable-mpss-for-wifi.patch` | DTS: habilita MPSS + SMP2P + `rmtfs_mem` (el servicio `msm/modem/wlan_pd` corre en el modem DSP) | downstream-only |
-| `dts/k7.dtb` (+ `k7.dts`) | Device Tree de laurel con cpufreq, Bluetooth, IR y Wi-Fi; sustituye el DTB que instala el kernel. El `.dts` es un DTB decompilado con phandles crudos: solo válido para este build | local-workaround |
+| `dts/k7.dts` | Device Tree de laurel con cpufreq, Bluetooth, IR y Wi-Fi; sustituye el DTB que instala el kernel. El `.dts` es un DTB decompilado con phandles crudos: solo válido para este build. `k7.dtb` **no** se versiona (`*.dtb` está en la lista negra del audit): se compila aquí con `dtc` | local-workaround |
 | `firmware-xiaomi-laurel-cdsp/APKBUILD` | Paquete de firmware (modem/CDSP/ADSP/ath10k/BT/zap). Los blobs NO están aquí: se extraen del ROM en la CI | downstream-only |
 | `firmware/extract-firmware.sh` + `ath10k-bdenc.py` | Extractor de blobs desde las particiones stock (o desde el ROM) y encoder `board-2.bin` de ath10k | upstream-tool |
 | `device/*` | Copia de los ficheros de `device-xiaomi-laurel` y `linux-nura-qcom-sm61x5` de pmaports@ec98ddd, solo para referencia/contraste | referencia |
@@ -36,5 +36,6 @@ pmaports upstream fija el commit `ec98dddc8d525c874603a8e91ae6113d2b0c66d1`
   fijado; si alguno no aplica, el build debe fallar (no se ignora en silencio).
 - El firmware propietario se mantiene fuera de este árbol y solo entra en el
   artefacto privado de CI (AGENTS.md §1: no se publica firmware sin licencia).
-- `k7.dtb` va versionado aunque `.gitignore` excluya `*.dtb`: es un activo de
-  build deliberado, no un artefacto generado.
+- `k7.dtb` **no** se versiona: `*.dtb` está en la lista negra de
+  `scripts/audit-public-repository.sh`. Se genera desde `k7.dts` con `dtc`
+  durante el build.
