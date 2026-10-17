@@ -134,7 +134,7 @@ jobs:
           [profiles.default]
           device = "sm61x5-xiaomi-laurel"
           flavour = "${{ github.event.inputs.flavour || 'plasma-mobile' }}"
-          pkgs_include = []
+          pkgs_include = [ "rmtfs-git", "qrtr-git", "pd-mapper-git", "tqftpserv-git", "mia3-support" ]
           pkgs_exclude = []
           hostname = "laurel"
           username = "user"
@@ -159,7 +159,8 @@ jobs:
           for f in linux/sm61x5/PKGBUILD \
                    device/device-sm61x5-xiaomi-laurel/PKGBUILD \
                    device/device-sm61x5-xiaomi-laurel/xiaomi-laurel.conf \
-                   firmware/sm61x5-xiaomi-laurel/PKGBUILD; do
+                   firmware/sm61x5-xiaomi-laurel/PKGBUILD \
+                   mia3-support/PKGBUILD; do
             test -f "$PDIR/$f" || { echo "::error::overlay ausente: $f"; exit 1; }
             echo "overlay ok: $f"
           done
@@ -286,6 +287,22 @@ jobs:
           docker run --rm -v "$OUT:/out" pmos-fw \
             avbtool make_vbmeta_image --flags 2 --padding_size 4096 --output /out/vbmeta.img
           ls -la "$OUT"
+      - name: Parchear el fstab de la rootfs (kupfer_boot)
+        # El flasheo A/B escribe SOLO p2 (kupfer_root) en userdata: la subparticion
+        # kupfer_boot no existe y el fstab heredado de Kupfer aborta local-fs.target
+        # (emergency mode, sin gadget USB/SSH). nofail + timeout corto + consola de rescate.
+        run: |
+          set -Eeuo pipefail
+          OUT="$RUNNER_TEMP/kupfer-out"
+          IMG="$OUT/rootfs.img"
+          printf 'LABEL=kupfer_boot       /boot   ext2    rw,noatime,nofail,x-systemd.device-timeout=5s      0       0\n' > "$RUNNER_TEMP/fstab.new"
+          debugfs -w -R "rm /etc/fstab" "$IMG" >/dev/null 2>&1 || true
+          debugfs -w -R "write $RUNNER_TEMP/fstab.new /etc/fstab" "$IMG" >/dev/null
+          debugfs -w -R "mkdir /etc/systemd/system/emergency.service.d" "$IMG" >/dev/null 2>&1 || true
+          printf '[Service]\nEnvironment=SYSTEMD_SULOGIN_FORCE=1\n' > "$RUNNER_TEMP/emergency-override.conf"
+          debugfs -w -R "write $RUNNER_TEMP/emergency-override.conf /etc/systemd/system/emergency.service.d/override.conf" "$IMG" >/dev/null
+          e2fsck -fy "$IMG" >/dev/null || true
+          echo "fstab aplicado:"; debugfs -R "cat /etc/fstab" "$IMG" 2>/dev/null
       - name: Validar y comprimir artefactos
         run: |
           set -Eeuo pipefail
