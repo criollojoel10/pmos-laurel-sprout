@@ -1,12 +1,13 @@
 pkgname=firmware-xiaomi-laurel-cdsp
 pkgver=2
-pkgrel=1
+pkgrel=2
 pkgdesc="CDSP, modem and WLAN firmware for Xiaomi Mi A3"
 url="https://xmfirmwareupdater.com/archive/miui/laurel/"
 arch="aarch64"
 license="proprietary"
 options="!strip !check !archcheck"
 source="
+	a610_zap.mbn
 	board-2.bin
 	bdwlan.102
 	bdwlan.104
@@ -95,6 +96,7 @@ package() {
 		"$pkgdir/usr/lib/firmware/ath10k/WCN3990/hw1.0/laurel/board-2.bin"
 }
 sha512sums="
+ade0f0b6b09818d0f9374de96c6cdd59aec9686e724df43511138f66eab9d4881e2f2e847b019441ede06776bf0989f74b3048c0ae845dc7c1d0aacac9924bf4  a610_zap.mbn
 80836e981e09f22923c61726dd23e8d4247fbdd4281573a98f741d215b74e5c3814232a1c0ab919ac82bf8cc231c8966aa6ae3beb4504c52c848c2b148c5027c  board-2.bin
 ebb2bcb6b786a27924e04e93b9b711cd520543d27e9be2b35702081a9d775e31758675e672f180eea3b060f5a22fc010081ae05da2c60e6e696f6d8dba4c3c43  bdwlan.102
 19668bff79c097ca001fe56519ee90438f8eb5d8f7fc8f1f4d86ebe329b63cc3566c98c5000216e0bdf1dfa85099362bcd95e491639f12227d6b19bfda55bfc5  bdwlan.104
