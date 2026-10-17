@@ -12,7 +12,7 @@ RUN apk add --no-cache \
         openssl curl tar xz android-tools android-tools-avbtool pil-squasher \
         python3 openssh-client rsync iproute2 clang lld llvm make flex bison \
         openssl-dev bc perl elfutils-dev diffutils linux-headers musl-dev gcc \
-        libgcc pahole dtc qemu-user-static \
+        libgcc pahole dtc qemu-aarch64 \
     && git config --system safe.directory '*' \
     && adduser -D build \
     && printf 'build ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/build
