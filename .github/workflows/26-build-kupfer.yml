@@ -211,7 +211,9 @@ jobs:
             '
           CD="$HOME/.cache/kupferbootstrap/pkgbuilds/firmware/sm61x5-xiaomi-laurel"
           cp "$C/fw.tar" "$CD/fw.tar"
-          tar -tf "$C/fw.tar" | head -5
+          # `tar -tf | head` muere con SIGPIPE (tar sigue escribiendo y head ya
+          # cerro el pipe) y con pipefail tumba el paso. sed lee todo.
+          tar -tf "$C/fw.tar" | sed -n '1,5p'
           echo "fw.tar: $(du -h "$C/fw.tar" | cut -f1)"
       - name: Comprobar los PKGBUILD
         working-directory: kupferbootstrap
@@ -249,7 +251,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           IMGDIR="$HOME/.cache/kupferbootstrap/images"
-          IMG=$(ls -1 "$IMGDIR"/*-full.img 2>/dev/null | head -1)
+          IMG=$(ls -1 "$IMGDIR"/*-full.img 2>/dev/null | sed -n '1p')
           [ -n "$IMG" ] || { echo "::error::no se encuentra la imagen full"; exit 1; }
           OUT="$RUNNER_TEMP/kupfer-out"
           mkdir -p "$OUT"
