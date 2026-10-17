@@ -1,0 +1,16 @@
+[Unit]
+Description=Mi A3 fuel gauge (PMI632 QG runtime overlay, read-only)
+# Loads the mia3-qg DT overlay (applied by mia3_dtbo, once per boot) and then
+# the read-only PMI632 fuel gauge driver, exposing /sys/class/power_supply/mia3-qg.
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# An overlay applies once per boot (a second apply fails -EINVAL): skip when the
+# fuel-gauge node is already present in the live tree.
+ExecStart=/bin/sh -c '[ -d /proc/device-tree/soc@0/spmi@1c40000/pmic@2/fuel-gauge@4800 ] || { rmmod mia3_dtbo 2>/dev/null; modprobe mia3_dtbo dtbo=mia3-qg.dtbo; }'
+ExecStart=/usr/bin/modprobe mia3_qg
+
+[Install]
+WantedBy=multi-user.target

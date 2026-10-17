@@ -1,0 +1,15 @@
+[Unit]
+Description=WCN3990 Wi-Fi bring-up (modem + pd-mapper + ath10k)
+# rmtfs/tqftpserv must be up before the modem can boot.
+After=rmtfs.service tqftpserv.service
+Wants=rmtfs.service tqftpserv.service
+# Do the bring-up before NetworkManager so wlan0 is usable when it starts.
+Before=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/mia3-wifi-up.sh
+
+[Install]
+WantedBy=multi-user.target

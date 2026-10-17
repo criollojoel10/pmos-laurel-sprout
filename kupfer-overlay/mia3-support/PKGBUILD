@@ -1,0 +1,98 @@
+# Xiaomi Mi A3 (laurel_sprout) support package for the Kupfer port.
+#
+# Contiene:
+#   - mia3_qg.ko    fuel gauge PMI632 (read-only power_supply)
+#   - pmi632_chg.ko cargador PMI632 con parametros (charging_enabled, usb_suspend, usb_icl_ma)
+#   - mia3_dtbo.ko  cargador de overlays de device-tree en runtime
+#   - mia3-qg.dtbo  overlay del fuel-gauge (tabla OCV Sunwoda 4030 mAh)
+#   - mia3-qg.service / chargectl.service(+py)  userspace de la bateria
+#   - mia3-wifi.service(+up.sh)  bring-up del WCN3990 (modem -> pd-mapper -> ath10k)
+#
+# Fuentes adaptadas de philipplinux/mia3-postmarketos (GPL-2.0).
+# Ver docs/KUPFER-BRINGUP.md y reports/physical-tests/KUPFER-LAUREL-BRINGUP-2026-10-17/.
+#
+# ESTADO: pendiente de validacion en CI. El procedimiento manual (verificado sobre
+# hardware el 2026-10-17) esta documentado en docs/KUPFER-BRINGUP.md.
+
+_mode=cross
+pkgname=mia3-support
+pkgver=1.0
+pkgrel=1
+pkgdesc="Xiaomi Mi A3 (laurel): PMI632 fuel gauge/charger, DT overlay loader, WCN3990 Wi-Fi bring-up"
+arch=(aarch64)
+url="https://github.com/criollojoel10/pmos-laurel-sprout"
+license=(GPL2)
+options=(!strip)
+depends=(systemd)
+# El arbol de compilacion del kernel lo aporta linux-sm61x5-headers (subpaquete de
+# linux-sm61x5); dtc compila el overlay SIN -@ (el DTB vivo no exporta __symbols__).
+makedepends=(linux-sm61x5-headers dtc)
+source=(
+	mia3_qg.c
+	mia3_dtbo.c
+	pmi632_chg.c
+	mia3-qg.dts
+	mia3-qg.service
+	chargectl.service
+	chargectl.py
+	mia3-wifi.service
+	mia3-wifi-up.sh
+)
+sha512sums=(
+	SKIP
+	SKIP
+	SKIP
+	SKIP
+	SKIP
+	SKIP
+	SKIP
+	SKIP
+	SKIP
+)
+
+# Devuelve el "kernel release" del arbol de headers instalado.
+_krel() {
+	local d
+	for d in /usr/lib/modules/*/; do
+		[ -e "$d/build" ] && basename "$d" && return 0
+	done
+	return 1
+}
+
+build() {
+	local krel; krel=$(_krel) || { echo "falta linux-sm61x5-headers (sin /usr/lib/modules/*/build)"; return 1; }
+	local kdir="/usr/lib/modules/$krel/build"
+	local m
+	for m in mia3_qg mia3_dtbo pmi632_chg; do
+		mkdir -p "$srcdir/$m"
+		cp "$srcdir/$m.c" "$srcdir/$m/"
+		printf 'obj-m := %s.o\n' "$m" > "$srcdir/$m/Makefile"
+		make -C "$kdir" ARCH=arm64 LLVM=1 KBUILD_MODPOST_WARN=1 M="$srcdir/$m" modules
+	done
+	# overlay de device tree: SIN -@ (las referencias &{/ruta} no lo necesitan y el
+	# DTB vivo no tiene __symbols__, asi que con -@ el kernel falla con -22)
+	dtc -I dts -O dtb -o "$srcdir/mia3-qg.dtbo" "$srcdir/mia3-qg.dts"
+}
+
+package() {
+	local krel; krel=$(_krel) || return 1
+	local m
+	for m in mia3_qg mia3_dtbo pmi632_chg; do
+		install -Dm644 "$srcdir/$m/$m.ko" "$pkgdir/usr/lib/modules/$krel/extra/$m.ko"
+	done
+	install -Dm644 "$srcdir/mia3-qg.dtbo"       "$pkgdir/usr/lib/firmware/mia3-qg.dtbo"
+	install -Dm755 "$srcdir/mia3-wifi-up.sh"    "$pkgdir/usr/local/bin/mia3-wifi-up.sh"
+	install -Dm644 "$srcdir/mia3-wifi.service"  "$pkgdir/usr/lib/systemd/system/mia3-wifi.service"
+	install -Dm644 "$srcdir/mia3-qg.service"    "$pkgdir/usr/lib/systemd/system/mia3-qg.service"
+	install -Dm644 "$srcdir/chargectl.service"  "$pkgdir/usr/lib/systemd/system/chargectl.service"
+	install -Dm755 "$srcdir/chargectl.py"       "$pkgdir/usr/local/lib/chargectl/chargectl.py"
+	install -d "$pkgdir/var/lib/chargectl"
+	printf '{"target": 50}\n' > "$pkgdir/var/lib/chargectl/chargectl.json"
+	# habilitar en el arranque
+	for u in mia3-qg chargectl mia3-wifi; do
+		install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+		ln -sf "/usr/lib/systemd/system/$u.service" \
+			"$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$u.service"
+	done
+	# rmtfs/tqftpserv los aportan los paquetes del repo device de Kupfer
+}
