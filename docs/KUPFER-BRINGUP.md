@@ -149,12 +149,73 @@ sudo nft list ruleset | grep -c CONNMARK          # reglas instaladas
 `NF_CONNTRACK` debe estar `m`/`y` y `NF_CONNTRACK_MARK=y` (ya lo están en el
 config base).
 
-> **Nota (2026-10-17):** el fix se verificó en caliente (`"Health": []`, reglas
-> `CONNMARK` instaladas, autoload por alias, SSH intacto). El test de persistencia
-> con reinicio quedó **sin confirmar**: tras el `reboot` laurel no reapareció en la
-> red (ni Tailscale ni LAN, tampoco visto desde begonia), el mismo comportamiento
-> intermitente de red observado antes. Como el módulo vive en el árbol de módulos
-> con `depmod` y el alias `ipt_connmark` resuelve, debería autoloadear al aplicar
-> tailscaled sus reglas; conviene confirmarlo en el próximo arranque normal.
-> Ojo: el WCN3990 toma **MAC aleatoria en cada arranque**, así que DHCP puede dar
-> una IP distinta cada vez (comprobar la concesión real antes de asumir caída).
+> **Confirmado (2026-10-17):** verificado en caliente **y tras reinicio** —
+> `"Health": []`, `xt_connmark` cargado, 4 reglas `CONNMARK` activas y 0 avisos en
+> `tailscale status`. El módulo autoloada por el alias `ipt_connmark` al aplicar
+> `tailscaled` sus reglas.
+>
+> Ojo con el diagnóstico de red: el WCN3990 toma **MAC aleatoria en cada arranque**,
+> así que DHCP da una **IP distinta cada vez** (192.168.100.210 → .211 → .213 → .214…).
+> Antes de asumir que el equipo está caído, mirar la concesión real / el barrido de
+> la subred (y el estado de los slots con `qbootctl`, ver §8).
+
+## 8. Arranque A/B: el slot debe marcarse *successful* (`qbootctl`)
+
+**Síntoma:** tras varios reinicios el teléfono se queda en el **logo de Mi** y el
+bootloader salta al otro slot; al volver a fastboot aparece
+`current-slot: a`, `slot-unbootable:b: yes`, `slot-successful:b: no`.
+
+**Causa:** Android marca el slot como *boot successful* mediante el HAL `boot_control`
+(escribe en la partición `misc`). Kupfer/Arch no lo hace, así que el ABL agota su
+contador de reintentos y acaba marcando el slot como **unbootable** (y salta al otro,
+que también está roto → logo).
+
+**Fix (verificado):** instalar `qbootctl` (repo `boot` de Kupfer) y habilitar su
+servicio, que marca el slot en cada arranque:
+
+```sh
+sudo pacman -S --needed qbootctl
+sudo systemctl enable --now qbootctl.service      # ExecStart=/usr/bin/qbootctl -m
+sudo qbootctl                                     # dump: Success debe ser 1
+```
+
+Salida esperada tras el fix (y tras un reinicio):
+
+```
+Current slot: _b
+SLOT _a:  Active:0  Successful:1  Bootable:1
+SLOT _b:  Active:1  Successful:1  Bootable:1
+```
+
+Recuperación manual si ya se quedó en el logo (desde fastboot):
+
+```
+fastboot set_active b        # reactiva el slot y resetea el contador
+fastboot reboot
+# ya dentro:  sudo qbootctl -m && sudo systemctl enable --now qbootctl
+```
+
+`slot-unbootable:b: no` tras `set_active b` confirma que el contador se resetea.
+
+## 9. Orden de las unidades (evitar ciclos)
+
+`WantedBy=multi-user.target` **junto con** `After=multi-user.target` en la misma
+unidad crea un **ciclo de ordenación**: systemd lo rompe y puede **no arrancar** la
+unidad (pasó con `chargectl`, que quedaba `inactive (dead)` tras el arranque).
+
+Correcto:
+
+```ini
+# mia3-qg.service
+After=systemd-modules-load.service local-fs.target
+[Install]
+WantedBy=multi-user.target
+
+# chargectl.service
+Wants=mia3-qg.service
+After=mia3-qg.service
+[Install]
+WantedBy=multi-user.target
+```
+
+Verificar tras un arranque que `qbootctl`, `mia3-qg` y `chargectl` estén `active`.

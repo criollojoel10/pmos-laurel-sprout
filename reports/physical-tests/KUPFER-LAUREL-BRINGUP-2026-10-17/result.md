@@ -133,12 +133,33 @@
   alias `ipt_connmark`/`ipt_CONNMARK`), se instaló en
   `/usr/lib/modules/$(uname -r)/kernel/net/netfilter/` + `depmod`, y se reinició `tailscaled`.
   **Verificado:** `tailscale status --json` → `"Health": []`, 0 avisos, reglas `CONNMARK`
-  presentes en el ruleset (`xt target "CONNMARK"`), autoload por alias OK, SSH intacto.
+  presentes en el ruleset (`xt target "CONNMARK"`), autoload por alias OK, SSH intacto
+  **y persistente tras reinicio**.
   **Arreglo duradero:** las tres opciones se añadieron a
   `kupfer-overlay/linux/sm61x5/extra_config` (reconstruir kernel); el parche inmediato
   (módulo compilado) está documentado en `docs/KUPFER-BRINGUP.md` §7.
-  *(El test de persistencia con reinicio quedó sin confirmar: el teléfono no reapareció en
-  la red tras el reboot — ver nota al final del §7 de la guía.)*
+
+## Bloqueo 6 resuelto — arranque A/B (el «logo de Mi»)
+
+- **Síntoma:** tras varios reinicios el teléfono se quedaba en el logo; en fastboot
+  aparecía `current-slot: a`, `slot-unbootable:b: yes`, `slot-successful:b: no`.
+- **Causa:** Kupfer **no marca el slot como *boot successful*** (HAL `boot_control` →
+  partición `misc`), así que el ABL agotó su contador de reintentos y marcó el slot b
+  como *unbootable*, saltando al a (que tiene LineageOS con la `/data` ya sobrescrita →
+  también roto → logo).
+- **Fix:** `qbootctl` (repo `boot` de Kupfer) + `systemctl enable qbootctl.service`
+  (`qbootctl -m`, marca el slot en cada arranque). Verificado: tras reinicio,
+  `Current slot: _b`, **`Successful: 1`**, y el teléfono vuelve en ~55 s.
+- **Recuperación manual** si ya está en el logo: `fastboot set_active b` (resetea el
+  contador) + `fastboot reboot`, y dentro `qbootctl -m`.
+
+## Bloqueo 7 resuelto — orden de unidades
+
+- `chargectl` quedaba `inactive (dead)` tras el arranque: `WantedBy=multi-user.target`
+  **junto con** `After=multi-user.target` (en `mia3-qg`) crea un ciclo de ordenación.
+- **Fix:** `mia3-qg` → `After=systemd-modules-load.service local-fs.target` (sin
+  `After=multi-user.target`); `chargectl` → `Wants=`+`After=mia3-qg.service`.
+  Verificado: ambos `active/enabled` tras el reinicio.
 
 ## 8. Estado resultante
 

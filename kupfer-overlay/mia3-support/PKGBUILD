@@ -23,7 +23,7 @@ arch=(aarch64)
 url="https://github.com/criollojoel10/pmos-laurel-sprout"
 license=(GPL2)
 options=(!strip)
-depends=(systemd)
+depends=(systemd qbootctl)
 # El arbol de compilacion del kernel lo aporta linux-sm61x5-headers (subpaquete de
 # linux-sm61x5); dtc compila el overlay SIN -@ (el DTB vivo no exporta __symbols__).
 makedepends=(linux-sm61x5-headers dtc)

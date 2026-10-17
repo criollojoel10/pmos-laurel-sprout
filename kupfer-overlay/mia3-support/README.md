@@ -63,3 +63,12 @@ Orden: `rmtfs`/`tqftpserv` → **módem** → `pd-mapper` → `ath10k_snoc`.
 - Sensores TSENS de CPU/GPU (`thermal-sensors/` del repo de referencia): opcionales,
   mejoran el *thermal-guard*. Requieren su propio `.ko` + overlay.
 - `xt_connmark` (Tailscale) no está en el config del kernel; Tailscale funciona igual.
+
+## Arranque A/B y orden de unidades (2026-10-17)
+
+- **`qbootctl`** (dependencia de este paquete): sin marcar el slot como *successful*,
+  el ABL agota los reintentos y deja el teléfono en el **logo de Mi**. `mia3-support`
+  depende de `qbootctl`; su servicio (`qbootctl -m`) debe estar `enabled`.
+- **Orden:** `mia3-qg.service` **no** lleva `After=multi-user.target` (junto con
+  `WantedBy=multi-user.target` crea un ciclo y `chargectl` no arranca). `chargectl`
+  usa `Wants=`+`After=mia3-qg.service`.
