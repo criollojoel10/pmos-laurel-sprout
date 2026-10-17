@@ -181,8 +181,17 @@ fetch_firmware() {
   local rom="$c/rom.tgz"
   if [[ ! -s "$rom" ]]; then
     printf '[fw] descargando ROM (~2.4 GB)\n'
-    curl -fL -C - -o "$rom.part" "$ROM_URL"
-    mv "$rom.part" "$rom"
+    if command -v aria2c >/dev/null 2>&1; then
+      # El CDN de Xiaomi es lento con una sola conexión; aria2c con 16
+      # conexiones y reanudación (-c) lo acelera bastante.
+      aria2c -c -x 16 -s 16 -k 1M --file-allocation=none \
+        --summary-interval=60 --console-log-level=warn \
+        -d "$c" -o rom.tgz "$ROM_URL"
+    else
+      curl -fL -C - -o "$rom.part" "$ROM_URL"
+      mv "$rom.part" "$rom"
+    fi
+    [[ -s "$rom" ]] || die "descarga del ROM vacía o fallida"
   fi
   local got
   got="$(md5sum < "$rom" | cut -c1-10)"

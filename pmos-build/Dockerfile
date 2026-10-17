@@ -9,7 +9,7 @@ FROM alpine:edge@sha256:020dfcbaaf4cc1078bf2d9c7ba31a8466e334061dcd2f248001d68f7
 
 RUN apk add --no-cache \
         pmbootstrap git sudo bash util-linux e2fsprogs e2fsprogs-extra parted \
-        openssl curl tar xz android-tools android-tools-avbtool pil-squasher \
+        openssl curl tar xz aria2 android-tools android-tools-avbtool pil-squasher \
         python3 openssh-client rsync iproute2 clang lld llvm make flex bison \
         openssl-dev bc perl elfutils-dev diffutils linux-headers musl-dev gcc \
         libgcc pahole dtc qemu-aarch64 \
