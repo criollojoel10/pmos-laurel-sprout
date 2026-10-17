@@ -163,6 +163,14 @@ jobs:
             test -f "$PDIR/$f" || { echo "::error::overlay ausente: $f"; exit 1; }
             echo "overlay ok: $f"
           done
+      - name: Cache del firmware extraido
+        # El ROM son 2.4 GB; el firmware util son ~100 MB. Se cachea el
+        # resultado para no volver a bajarlo en cada iteracion.
+        # actions/cache@v4.2.0
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ${{ runner.temp }}/fwext/fw.tar
+          key: mia3-fw-kupfer-v1-${{ env.ROM_MD5_PREFIX }}
       - name: Descargar el ROM oficial (firmware)
         env:
           C: ${{ runner.temp }}/fwext
