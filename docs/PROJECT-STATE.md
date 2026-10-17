@@ -3,6 +3,28 @@
 Punto de control para sesiones futuras. Documento canónico de progreso:
 `reports/milestones.json`, `reports/hardware-matrix.json`, `docs/HARDWARE-STATUS.md`.
 
+## Camino nuevo (2026-10-16): pmOS mainline 7.2.3 (`linux-nura-qcom-sm61x5`)
+
+Se abre un camino paralelo al baseline 6.1: la base de pmOS con el kernel
+mainline 7.2.3 del fork `sm61x5-mainline`, que ya trae panel, GPU, Wi-Fi
+WCN3990 y CDSP/MPSS. Sustituye al intento v7.1 (pantalla negra) como meta.
+
+- **Recetario de referencia:** `philipplinux/mia3-postmarketos` (commit
+  `0b5f622`), que documenta display+táctil, batería, Wi-Fi, BT, IR, GPU, audio
+  y térmicas funcionando en el Mi A3.
+- **Dispositivo en pmaports:** ya NO está archivado. `device-xiaomi-laurel` y
+  `linux-nura-qcom-sm61x5` existen en `device/testing` de
+  `gitlab.postmarketos.org/postmarketOS/pmaports` en el commit `ec98dddc`.
+  Se corrige lo que decía `docs/KUPFER.md` (2026-08-03).
+- **Build real:** `.github/workflows/25-build-pmos-laurel.yml` +
+  `scripts/build-pmos-laurel.sh` + `pmos-build/Dockerfile` reemplazan el
+  placeholder de las FASE 5/6. UI y gestor de servicios configurables
+  (por defecto `plasma-mobile` + `systemd`); `pmaports-overlay/` (parches DTS,
+  k7.dtb, firmware) es opcional.
+- **Flasheo:** desde cachyos, slot b, Android intacto en slot a. Ver
+  `docs/FLASH-LAUREL-CACHYOS.md`.
+
+
 ## Prioridad actual (2026-08-11)
 
 La migración funcional directa a Linux 7.1 queda temporalmente congelada en el
