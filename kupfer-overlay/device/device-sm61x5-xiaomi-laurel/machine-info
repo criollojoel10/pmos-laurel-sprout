@@ -1,0 +1,3 @@
+CHASSIS="handset"
+PRETTY_HOSTNAME="Xiaomi Mi A3"
+DEFAULT_HOSTNAME="laurel"

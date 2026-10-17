@@ -1,0 +1,186 @@
+# Packaged for Kupfer Linux by the laurel port (kupfer-overlay/linux/sm61x5).
+# Basado en la plantilla de Kupfer (linux/sdm845) y en el port de begonia
+# (linux/mt6785).
+#
+# Kernel mainline cercano del fork sm61x5-mainline (Barnabas Czeman) en el tag
+# v7.2.3-r0: es el kernel que usa el port de philipplinux para el Mi A3 con
+# panel, GPU, Wi-Fi WCN3990 y CDSP/MPSS.
+_mode=cross
+_kernelname=sm61x5
+pkgbase="linux-$_kernelname"
+_desc="Qualcomm SM6125 (Xiaomi Mi A3, laurel_sprout) kernel"
+pkgver=7.2.3
+pkgrel=1
+_arches=specific
+arch=(aarch64)
+license=(GPL2)
+url=https://codeberg.org/sm61x5-mainline/linux
+makedepends=(
+    xmlto
+    docbook-xsl
+    kmod
+    inetutils
+    bc
+    dtc
+    cpio
+    python
+    # objtool compila <gelf.h> y enlaza -lelf (CONFIG_UNWINDER_ORC=y en arm64).
+    libelf
+    perl
+    # El config de pmaports deja CONFIG_MODULE_SIG=y con certs/signing_key.pem,
+    # asi que el kernel firma cada modulo con scripts/sign-file.
+    openssl
+)
+options=(!strip)
+_tag=v7.2.3-r0
+_pmos_commit=ec98dddc8d525c874603a8e91ae6113d2b0c66d1
+_srcname="linux"
+source=(
+    "$_srcname.tar.gz::https://codeberg.org/sm61x5-mainline/linux/archive/${_tag}.tar.gz"
+    "https://gitlab.postmarketos.org/postMarketOS/pmaports/-/raw/${_pmos_commit}/device/testing/linux-nura-qcom-sm61x5/config-nura-qcom-sm61x5.aarch64"
+    extra_config
+    linux.preset
+    60-linux.hook
+    90-linux.hook
+)
+sha256sums=(
+    5aa5e7d7025a695b32b9c19de4fedc69b2ac7af0fe31fe6b34f44ef620a70389
+    718a808a28f331635f8343762a6c2bdb123b59e83fb4b28d44a4d5d5ff74b0dc
+    SKIP
+    SKIP
+    SKIP
+    SKIP
+)
+
+pkgver() {
+    cd "${_srcname}"
+    make kernelversion | cut -d "-" -f 1
+}
+
+prepare() {
+    cd "$srcdir/${_srcname}"
+
+    cp "$srcdir/config-nura-qcom-sm61x5.aarch64" .config
+    cat "$srcdir/extra_config" >>.config
+    make olddefconfig
+
+    # don't run depmod on "make install". We'll do this ourselves in packaging
+    sed -i "2iexit 0" scripts/depmod.sh
+}
+
+build() {
+    cd ${_srcname}
+    unset LDFLAGS
+    # shellcheck disable=SC2086
+    make ${MAKEFLAGS} Image.gz modules
+    # shellcheck disable=SC2086
+    make ${MAKEFLAGS} DTC_FLAGS="-@" dtbs
+}
+
+_package() {
+    pkgdesc="The Linux Kernel and modules - ${_desc}"
+    depends=(coreutils kmod mkinitcpio)
+    optdepends=("crda: to set the correct wireless channels of your country")
+    backup=(etc/mkinitcpio.d/linux.preset)
+    install=linux.install
+
+    cd ${_srcname}
+
+    KARCH=arm64
+
+    # get kernel version
+    _kernver="$(make kernelrelease)"
+    _basekernel=${_kernver%%-*}
+    _basekernel=${_basekernel%.*}
+
+    mkdir -p "${pkgdir}"/{boot,usr/lib/modules}
+    make INSTALL_MOD_PATH="${pkgdir}/usr" modules_install
+    # update-bootimg.sh busca el dtb en /boot/dtbs/$deviceinfo_dtb.dtb
+    # (= /boot/dtbs/qcom/sm6125-xiaomi-laurel-sprout.dtb) para concatenarlo al
+    # Image.gz (header v0).
+    mkdir -p "${pkgdir}/boot/dtbs/qcom"
+    cp arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dtb \
+        "${pkgdir}/boot/dtbs/qcom"
+    cp arch/$KARCH/boot/Image.gz "${pkgdir}/boot"
+
+    # make room for external modules
+    local _extramodules="extramodules-${_basekernel}${_kernelname}"
+    ln -s "../${_extramodules}" "${pkgdir}/usr/lib/modules/${_kernver}/extramodules"
+
+    # add real version for building modules and running depmod from hook
+    echo "${_kernver}" |
+        install -Dm644 /dev/stdin "${pkgdir}/usr/lib/modules/${_extramodules}/version"
+
+    # remove build and source links
+    [ -e "${pkgdir}/usr/lib/modules/${_kernver}/source" ] && rm "${pkgdir}/usr/lib/modules/${_kernver}/source"
+    [ -e "${pkgdir}/usr/lib/modules/${_kernver}/build" ] && rm "${pkgdir}/usr/lib/modules/${_kernver}/build"
+
+    # now we call depmod...
+    depmod -b "${pkgdir}/usr" -F System.map "${_kernver}"
+
+    # sed expression for following substitutions
+    local _subst="
+    s|%PKGBASE%|${pkgbase}|g
+    s|%KERNVER%|${_kernver}|g
+    s|%EXTRAMODULES%|${_extramodules}|g
+  "
+
+    # install mkinitcpio preset file
+    sed "${_subst}" ../linux.preset |
+        install -Dm644 /dev/stdin "${pkgdir}/etc/mkinitcpio.d/linux.preset"
+
+    # install pacman hooks
+    sed "${_subst}" ../60-linux.hook |
+        install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/60-${pkgbase}.hook"
+    sed "${_subst}" ../90-linux.hook |
+        install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/90-${pkgbase}.hook"
+}
+
+_package-headers() {
+    pkgdesc="Header files and scripts for building modules for linux kernel - ${_desc}"
+    provides=("linux-headers=${pkgver}")
+    conflicts=(linux-headers linux-aarch64-headers)
+
+    cd ${_srcname}
+    local _builddir="${pkgdir}/usr/lib/modules/${_kernver}/build"
+
+    install -Dt "${_builddir}" -m644 Makefile .config Module.symvers
+    install -Dt "${_builddir}/kernel" -m644 kernel/Makefile
+
+    mkdir "${_builddir}/.tmp_versions"
+
+    cp -t "${_builddir}" -a include scripts
+
+    install -Dt "${_builddir}/arch/${KARCH}" -m644 arch/${KARCH}/Makefile
+    install -Dt "${_builddir}/arch/${KARCH}/kernel" -m644 arch/${KARCH}/kernel/asm-offsets.s
+
+    cp -t "${_builddir}/arch/${KARCH}" -a arch/${KARCH}/include
+    mkdir -p "${_builddir}/arch/arm"
+    cp -t "${_builddir}/arch/arm" -a arch/arm/include
+
+    # copy in Kconfig files
+    find . -name Kconfig\* -exec install -Dm644 {} "${_builddir}/{}" \;
+
+    # remove unneeded architectures
+    local _arch
+    for _arch in "${_builddir}"/arch/*/; do
+        [[ ${_arch} == */${KARCH}/ || ${_arch} == */arm/ ]] && continue
+        rm -r "${_arch}"
+    done
+
+    # remove files already in linux-docs package
+    rm -r "${_builddir}/Documentation"
+
+    # remove now broken symlinks
+    find -L "${_builddir}" -type l -printf "Removing %P\n" -delete
+
+    # Fix permissions
+    chmod -R u=rwX,go=rX "${_builddir}"
+}
+
+pkgname=("${pkgbase}" "${pkgbase}-headers")
+for _p in "${pkgname[@]}"; do
+    eval "package_${_p}() {
+    _package${_p#${pkgbase}}
+  }"
+done

@@ -1,0 +1,61 @@
+# Overlay del device para el Xiaomi Mi A3 (SM6125 / laurel_sprout).
+#
+# Base: deviceinfo de pmaports (gitlab.postmarketos.org, commit ec98dddc) tal
+# cual, mas las variables que Kupfer necesita y pmaports no usa.
+#
+# Nota sobre el boot image: laurel es Qualcomm, no MediaTek. Su bootloader usa
+# un boot.img estandar (header v0, DTB concatenado al Image.gz) flasheado en la
+# particion `boot`. El update-bootimg.sh de Kupfer ya cubre esa ruta cuando no
+# se define deviceinfo_header_version, asi que NO hacen falta los parches que
+# begonia necesita para MediaTek (--recovery_dtbo + empty.dtbo + header v2).
+_mode=cross
+pkgname=device-sm61x5-xiaomi-laurel
+pkgver=0.1
+pkgrel=1
+_arches=specific
+arch=(aarch64)
+license=(MIT)
+depends=(
+    boot-android-common
+    firmware-sm61x5-xiaomi-laurel
+    linux-sm61x5
+)
+_commit=ec98dddc8d525c874603a8e91ae6113d2b0c66d1
+source=(
+    "https://gitlab.postmarketos.org/postMarketOS/pmaports/-/raw/${_commit}/device/testing/device-xiaomi-laurel/deviceinfo"
+    "https://gitlab.postmarketos.org/postMarketOS/pmaports/-/raw/${_commit}/device/testing/device-xiaomi-laurel/modules-initfs"
+    xiaomi-laurel.conf
+    machine-info
+)
+# Los dos primeros hashes son de ficheros remotos de pmaports@ec98dddc; los
+# locales van con SKIP (los cubre git).
+sha256sums=(
+    85e031ebda8dfecce1e49b861acbf3ff582ef6f4168dc91abf88457dc1f35123
+    0f289a0d9802c9294c0fc37e92803c4949fcb41f09eacaa52cf84a19ab087d32
+    SKIP
+    SKIP
+)
+
+package() {
+    # modules-initfs viene por source=() con su sha256, no por curl dentro de
+    # package(): con `curl -sSL` sin -f un 404 guardaria el HTML de error en el
+    # fichero. Asi el fallo sale en la descarga, no en el arranque.
+    grep -q 'edt_ft5x06' "$srcdir"/modules-initfs \
+        || { echo "modules-initfs de pmaports no trae el tactil edt_ft5x06" >&2; return 1; }
+
+    cp "$srcdir"/deviceinfo "$srcdir"/deviceinfo_
+    cat >>"$srcdir"/deviceinfo_ <<EOF
+
+# --- anadido por el port a Kupfer (kupfer-overlay/device/device-sm61x5-xiaomi-laurel) ---
+# El Mi A3 guarda datos en UFS; la microSD es el lector del slot.
+deviceinfo_partitions_data="/dev/disk/by-partlabel/userdata"
+deviceinfo_partitions_microsd="/dev/mmcblk0"
+# panel + tactil: sin esto en el initramfs no hay imagen en el primer arranque.
+deviceinfo_modules_initfs="$(paste -sd' ' "$srcdir"/modules-initfs)"
+EOF
+
+    install -Dm644 "$srcdir"/deviceinfo_ "$pkgdir"/etc/kupfer/deviceinfo
+    install -Dm644 "$srcdir"/xiaomi-laurel.conf \
+        "$pkgdir"/etc/kupfer/mkinitcpio.conf.d/xiaomi-laurel.conf
+    install -Dm644 "$srcdir"/machine-info "$pkgdir"/etc/machine-info
+}

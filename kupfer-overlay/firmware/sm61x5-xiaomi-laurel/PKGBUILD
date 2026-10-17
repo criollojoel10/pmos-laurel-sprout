@@ -1,0 +1,35 @@
+# Firmware propietario del Xiaomi Mi A3 (SM6125 / laurel_sprout).
+#
+# Los blobs NO se versionan ni se redistribuyen (AGENTS.md §1). Se extraen en
+# la CI del ROM oficial V12.0.26.0.RFQMXIM con el mismo extractor que usa el
+# port de postmarketOS (pmaports-overlay/firmware/extract-firmware.sh), y el
+# workflow los empaqueta en `fw.tar` junto a este PKGBUILD antes del build.
+#
+# El arbol de fw.tar reproduce la disposicion de /lib/firmware:
+#   qcom/sm6125/xiaomi/laurel/   modem, cdsp, adsp, wlanmdsp, bdwlan.*
+#   qca/                         Bluetooth (Comanche cm* -> nombres ap*0a)
+#   ath10k/WCN3990/hw1.0/laurel/ board-2.bin
+_mode=cross
+pkgname=firmware-sm61x5-xiaomi-laurel
+pkgver=1
+pkgrel=1
+_arches=specific
+arch=(aarch64)
+license=(custom:Proprietary)
+options=(
+    !strip
+    !emptydirs
+)
+depends=(linux-firmware)
+source=(fw.tar)
+sha256sums=(SKIP)
+
+package() {
+    mkdir -p "$pkgdir/usr/lib/firmware"
+    tar -C "$srcdir" -xf "$srcdir/fw.tar"
+    cp -a "$srcdir"/fw/. "$pkgdir/usr/lib/firmware/"
+    # El Wi-Fi solo funciona si el firmware del modem (wlan_pd) esta presente;
+    # es el fallo mas caro de diagnosticar despues, asi que se comprueba aqui.
+    [ -f "$pkgdir/usr/lib/firmware/qcom/sm6125/xiaomi/laurel/wlanmdsp.mbn" ] \
+        || { echo "falta wlanmdsp.mbn: Wi-Fi no arrancara" >&2; return 1; }
+}

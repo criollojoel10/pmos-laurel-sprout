@@ -1,0 +1,26 @@
+# Config extra para el Mi A3 (SM6125) en Kupfer.
+#
+# El config base de pmaports (config-nura-qcom-sm61x5.aarch64 @ec98dddc) ya trae
+# el grueso del soporte: DRM/MSM + panel Samsung S6E8FC0
+# (CONFIG_DRM_PANEL_SAMSUNG_S6E8FC0=m, modulo
+# panel-samsung-s6e8fc0-m1906f9.ko), tactil EDT FT5x06, ath10k/WCN3990 (m),
+# GPU Adreno. Aqui solo lo que Kupfer necesita por encima.
+
+# mkinitcpio's 'firmwaresearchpath'/'systemd' hooks y los drivers que llaman a
+# wireless_send_event() necesitan WEXT (begonia lo descubrio por las malas).
+CONFIG_CFG80211_WEXT=y
+
+# El hook 'systemd' de mkinitcpio hace add_module 'crypto-lz4'. El config base
+# ya trae CONFIG_CRYPTO_LZ4=y, se deja explicito para que no se pierda en un
+# olddefconfig futuro.
+CONFIG_CRYPTO_LZ4=y
+
+# Sin compresion de modulos, a proposito: el config base trae
+# CONFIG_MODULE_COMPRESS_ZSTD=y, y entonces `make modules_install` invoca el
+# binario zstd. El kernel de Arch no comprime y asi el initramfs no tiene que
+# descomprimir .ko.zst al arrancar. (Mismo criterio que el port de begonia.)
+# CONFIG_MODULE_COMPRESS is not set
+# CONFIG_MODULE_COMPRESS_GZIP is not set
+# CONFIG_MODULE_COMPRESS_XZ is not set
+# CONFIG_MODULE_COMPRESS_ZSTD is not set
+# CONFIG_MODULE_COMPRESS_ALL is not set
