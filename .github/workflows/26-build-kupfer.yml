@@ -69,7 +69,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             python3 python3-venv python3-pip git rsync parted libarchive-tools \
-            aria2 xz-utils device-tree-compiler e2fsprogs
+            aria2 xz-utils zstd device-tree-compiler e2fsprogs
       - name: Clonar kupferbootstrap
         run: |
           set -Eeuo pipefail
@@ -270,36 +270,41 @@ jobs:
           sudo losetup -d "$LOOP"
           sudo chown "$(id -u):$(id -g)" "$OUT/boot.img" "$OUT/rootfs.img"
           chmod 0644 "$OUT/boot.img" "$OUT/rootfs.img"
-          if command -v avbtool >/dev/null 2>&1; then
-            avbtool make_vbmeta_image --flags 2 --padding_size 4096 --output "$OUT/vbmeta.img"
-          else
-            python3 -c "print('avbtool no disponible en el runner')"
-          fi
+          # vbmeta: avbtool vive en la imagen de extraccion (Alpine trae
+          # android-tools-avbtool). Sin un vbmeta con flags=2 el bootloader
+          # verifica boot_b contra el vbmeta stock de Android y no arranca.
+          docker run --rm -v "$OUT:/out" pmos-fw \
+            avbtool make_vbmeta_image --flags 2 --padding_size 4096 --output /out/vbmeta.img
           ls -la "$OUT"
-      - name: Validar artefactos
+      - name: Validar y comprimir artefactos
         run: |
           set -Eeuo pipefail
           OUT="$RUNNER_TEMP/kupfer-out"
-          ok=0
-          for f in boot.img rootfs.img; do
-            [ -s "$OUT/$f" ] || { echo "::error::falta $OUT/$f"; ok=1; }
+          for f in boot.img rootfs.img vbmeta.img; do
+            [ -s "$OUT/$f" ] || { echo "::error::falta $OUT/$f"; exit 1; }
           done
-          [ "$ok" = 0 ] || exit 1
           # El boot.img debe tener la firma ANDROID! de un boot image.
           head -c 8 "$OUT/boot.img" | grep -aq 'ANDROID!' \
             || { echo "::error::boot.img no empieza con ANDROID! (no es un boot image)"; exit 1; }
           LC_ALL=C grep -qa -m1 -E 'kupfer|arch|baselayout' "$OUT/rootfs.img" \
             || { echo "::error::rootfs.img no parece contener una rootfs"; exit 1; }
-          ( cd "$OUT" && sha256sum boot.img rootfs.img > SHA256SUMS 2>/dev/null || true )
-          [ -f "$OUT/vbmeta.img" ] && ( cd "$OUT" && sha256sum vbmeta.img >> SHA256SUMS )
+          # AGENTS.md §4: no se sube una rootfs sin comprimir.
+          zstd -T0 -3 -q -f -o "$OUT/rootfs.img.zst" "$OUT/rootfs.img"
+          rm -f "$OUT/rootfs.img"
+          ( cd "$OUT" && sha256sum boot.img vbmeta.img rootfs.img.zst > SHA256SUMS )
           cat "$OUT/SHA256SUMS"
+          ls -la "$OUT"
       - name: Subir artefactos (si aplica)
         if: ${{ github.event.inputs.upload_artifacts == 'true' }}
         # actions/upload-artifact@v5
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: kupfer-laurel-${{ github.event.inputs.flavour || 'plasma-mobile' }}
-          path: ${{ runner.temp }}/kupfer-out/
+          path: |
+            ${{ runner.temp }}/kupfer-out/boot.img
+            ${{ runner.temp }}/kupfer-out/vbmeta.img
+            ${{ runner.temp }}/kupfer-out/rootfs.img.zst
+            ${{ runner.temp }}/kupfer-out/SHA256SUMS
           retention-days: 7
           if-no-files-found: error
       - name: Subir logs de diagnóstico (siempre)

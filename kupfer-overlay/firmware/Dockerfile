@@ -8,7 +8,7 @@
 # alpine:edge fijado por digest (manifest list multi-arquitectura).
 FROM alpine:edge@sha256:020dfcbaaf4cc1078bf2d9c7ba31a8466e334061dcd2f248001d68f79e52c000
 
-RUN apk add --no-cache android-tools pil-squasher python3 util-linux tar
+RUN apk add --no-cache android-tools android-tools-avbtool pil-squasher python3 util-linux tar
 
 # /dev en Docker es un tmpfs que no recibe los nodos loopNpM que crea el
 # montaje de una imagen por fichero; un devtmpfs real lo arregla.

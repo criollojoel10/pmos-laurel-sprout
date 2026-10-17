@@ -148,6 +148,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           OUT="$RUNNER_TEMP/pmos/out"
+          command -v zstd >/dev/null || sudo apt-get install -y --no-install-recommends zstd
           [ -f "$OUT/rootfs.img" ] || { echo "::error::falta rootfs.img"; exit 1; }
           zstd -T0 -3 -q -f -o "$OUT/rootfs.img.zst" "$OUT/rootfs.img"
           rm -f "$OUT/rootfs.img"
