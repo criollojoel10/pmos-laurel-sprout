@@ -42,9 +42,11 @@ makedepends=(
 )
 options=(!strip)
 _pmos_commit=ec98dddc8d525c874603a8e91ae6113d2b0c66d1
-_srcname="linux"
+# El tarball de kernel.org extrae a linux-<pkgver>/ (no a "linux"): el
+# _srcname tiene que coincidir o pkgver()/prepare() fallan con "cd: linux".
+_srcname="linux-${pkgver}"
 source=(
-    "$_srcname.tar.gz::https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${pkgver}.tar.xz"
+    "$_srcname.tar.xz::https://cdn.kernel.org/pub/linux/kernel/v7.x/${_srcname}.tar.xz"
     "https://gitlab.postmarketos.org/postMarketOS/pmaports/-/raw/${_pmos_commit}/device/testing/linux-nura-qcom-sm61x5/config-nura-qcom-sm61x5.aarch64"
     extra_config
     linux.preset
