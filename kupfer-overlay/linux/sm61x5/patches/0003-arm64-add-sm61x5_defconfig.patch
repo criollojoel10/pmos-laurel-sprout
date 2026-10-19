@@ -1,8 +1,8 @@
-From 6c631eac85532db149bf339ccc2df36f9e73ef04 Mon Sep 17 00:00:00 2001
+From ed9057a0120c1dfdfed1f795ce0ff512f1366093 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Barnab=C3=A1s=20Cz=C3=A9m=C3=A1n?=
  <barnabas.czeman@mainlining.org>
 Date: Mon, 30 Mar 2026 23:51:49 +0200
-Subject: [PATCH 03/22] arm64: add sm61x5_defconfig
+Subject: [PATCH 03/20] arm64: add sm61x5_defconfig
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -15,7 +15,7 @@ Signed-off-by: Barnabás Czémán <barnabas.czeman@mainlining.org>
 
 diff --git a/arch/arm64/configs/sm61x5_defconfig b/arch/arm64/configs/sm61x5_defconfig
 new file mode 100644
-index 000000000..7353371a8
+index 0000000..7353371
 --- /dev/null
 +++ b/arch/arm64/configs/sm61x5_defconfig
 @@ -0,0 +1,8154 @@

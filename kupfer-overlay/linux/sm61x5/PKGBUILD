@@ -7,11 +7,13 @@
 # panel, GPU, Wi-Fi WCN3990 y CDSP/MPSS.
 #
 # Por qué no el tag del fork: su ultimo tag es v7.2.3-r0 (2026-09-06) y no ha
-# publicado 7.2.11. El delta del fork sobre mainline v7.2.3 son 22 commits
-# (medido 2026-10-19) y aplican limpios sobre v7.2.11 (0 rechazos, verificado),
-# asi que la receta es "mainline stable + los 22 parches del delta". Cuando el
-# fork publique un tag nuevo, basta con subir pkgver/sha256 y regenerar
-# patches/.
+# publicado 7.2.11. El delta del fork sobre mainline v7.2.3 son 22 commits; se
+# rebaso con `git rebase --onto v7.2.11 v7.2.3` (2026-10-19) y quedaron **20**
+# (2 se descartaron solos porque su contenido ya estaba upstream: "Use 64 bit
+# addressing" y "Fixup panel compatible"). El rebase no tuvo conflictos y la
+# serie resultante reproduce ese arbol exacto (verificado con git diff).
+# Cuando el fork publique un tag nuevo, basta con subir pkgver/sha256 y
+# regenerar patches/.
 _mode=cross
 _kernelname=sm61x5
 pkgbase="linux-$_kernelname"

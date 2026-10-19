@@ -1,0 +1,67 @@
+From 168d5770a09287d2748350360feb9a25879ddfa6 Mon Sep 17 00:00:00 2001
+From: Biswapriyo Nath <nathbappai@gmail.com>
+Date: Mon, 30 Mar 2026 10:13:52 +0000
+Subject: [PATCH 06/20] UPSTREAM arm64: dts: qcom: sm6125-xiaomi-ginkgo: Add
+ PMI632 Type-C property
+
+The USB-C port is used for powering external devices and transfer
+data from/to them.
+
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Signed-off-by: Biswapriyo Nath <nathbappai@gmail.com>
+Link: https://lore.kernel.org/r/20260330-ginkgo-add-usb-ir-vib-v3-5-c4b778b0d7f8@gmail.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+---
+ .../dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi | 31 +++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
+index 88691f1..f66ff5f 100644
+--- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
+@@ -116,6 +116,33 @@ &hsusb_phy1 {
+ 	status = "okay";
+ };
+ 
++&pmi632_typec {
++	status = "okay";
++
++	connector {
++		compatible = "usb-c-connector";
++
++		power-role = "dual";
++		data-role = "dual";
++		self-powered;
++
++		typec-power-opmode = "default";
++		pd-disable;
++
++		port {
++			pmi632_hs_in: endpoint {
++				remote-endpoint = <&usb_dwc3_hs>;
++			};
++		};
++	};
++};
++
++&pmi632_vbus {
++	regulator-min-microamp = <500000>;
++	regulator-max-microamp = <1000000>;
++	status = "okay";
++};
++
+ &pmi632_vib {
+ 	status = "okay";
+ };
+@@ -316,3 +343,7 @@ &uart4 {
+ &usb3 {
+ 	status = "okay";
+ };
++
++&usb_dwc3_hs {
++	remote-endpoint = <&pmi632_hs_in>;
++};
+-- 
+2.56.0
+

@@ -1,7 +1,7 @@
-From c46925da2e4682a87f35288c8dc85d6212f03f57 Mon Sep 17 00:00:00 2001
+From 11a8e35e42e14cd45552238921a3be96f49e78e4 Mon Sep 17 00:00:00 2001
 From: Alexey Minnekhanov <alexeymin@postmarketos.org>
 Date: Tue, 28 May 2024 07:24:00 +0300
-Subject: [PATCH 02/22] HACK: of: fdt: filter out dangerous Android bootloader
+Subject: [PATCH 02/20] HACK: of: fdt: filter out dangerous Android bootloader
  parameters
 
 Since Android primary bootloader with system-as-root feature [1]
@@ -30,10 +30,10 @@ Signed-off-by: Alexey Minnekhanov <alexeymin@postmarketos.org>
  2 files changed, 42 insertions(+)
 
 diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index b3afe0688..8bc5e5f3a 100644
+index 89b6a7d..5eacd49 100644
 --- a/arch/arm64/Kconfig
 +++ b/arch/arm64/Kconfig
-@@ -2463,6 +2463,32 @@ config CMDLINE_FORCE
+@@ -2495,6 +2495,32 @@ config CMDLINE_FORCE
  
  endchoice
  
@@ -67,7 +67,7 @@ index b3afe0688..8bc5e5f3a 100644
  	bool
  
 diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
-index 26f66046c..335321ab9 100644
+index 26f6604..335321a 100644
 --- a/drivers/of/fdt.c
 +++ b/drivers/of/fdt.c
 @@ -1093,6 +1093,9 @@ int __init early_init_dt_scan_chosen(char *cmdline)

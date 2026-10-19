@@ -1,0 +1,65 @@
+From de776c0fa24dcc9aa8a0b9e6504f54b4ade6dc73 Mon Sep 17 00:00:00 2001
+From: Biswapriyo Nath <nathbappai@gmail.com>
+Date: Mon, 30 Mar 2026 10:13:54 +0000
+Subject: [PATCH 07/20] UPSTREAM arm64: dts: qcom: sm6125-xiaomi-ginkgo: Add IR
+ transmitter
+
+The IR transmitting LED is connected to SPI8 controller.
+
+Reviewed-by: Sean Young <sean@mess.org>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Signed-off-by: Biswapriyo Nath <nathbappai@gmail.com>
+Link: https://lore.kernel.org/r/20260330-ginkgo-add-usb-ir-vib-v3-7-c4b778b0d7f8@gmail.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+---
+ .../dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi | 20 +++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
+index f66ff5f..7d84811 100644
+--- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
+@@ -99,6 +99,10 @@ key-volume-up {
+ 	};
+ };
+ 
++&gpi_dma1 {
++	status = "okay";
++};
++
+ &pm6125_gpios {
+ 	vol_up_n: vol-up-n-state {
+ 		pins = "gpio5";
+@@ -160,6 +164,10 @@ &qupv3_id_0 {
+ 	status = "okay";
+ };
+ 
++&qupv3_id_1 {
++	status = "okay";
++};
++
+ &rpm_requests {
+ 	regulators-0 {
+ 		compatible = "qcom,rpm-pm6125-regulators";
+@@ -332,6 +340,18 @@ &sdhc_2 {
+ 	status = "okay";
+ };
+ 
++&spi8 {
++	status = "okay";
++
++	irled@1 {
++		compatible = "ir-spi-led";
++		reg = <1>;
++
++		duty-cycle = /bits/ 8 <30>;
++		spi-max-frequency = <1000000>;
++	};
++};
++
+ &tlmm {
+ 	gpio-reserved-ranges = <0 4>, <30 4>;
+ };
+-- 
+2.56.0
+
