@@ -1,0 +1,30 @@
+From 17f14060a89ff50531536c155d86551dc5aae3dc Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Kamil=20Go=C5=82da?= <kamil.golda@protonmail.com>
+Date: Sat, 28 Jun 2025 11:46:46 +0200
+Subject: [PATCH 17/22] iommu/arm-smmu-qcom: Add SM6125 MDSS compatible
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add the SM6125 MDSS compatible to avoid context faults.
+
+Signed-off-by: Kamil Gołda <kamil.golda@protonmail.com>
+---
+ drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c b/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c
+index e2c914fcc..dea7e0fee 100644
+--- a/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c
++++ b/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c
+@@ -421,6 +421,7 @@ static const struct of_device_id qcom_smmu_client_of_match[] __maybe_unused = {
+ 	{ .compatible = "qcom,sdm845-mdss" },
+ 	{ .compatible = "qcom,sdm845-mss-pil" },
+ 	{ .compatible = "qcom,sm6115-mdss" },
++	{ .compatible = "qcom,sm6125-mdss" },
+ 	{ .compatible = "qcom,sm6350-mdss" },
+ 	{ .compatible = "qcom,sm6375-mdss" },
+ 	{ .compatible = "qcom,sm8150-mdss" },
+-- 
+2.56.0
+

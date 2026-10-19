@@ -1,0 +1,35 @@
+From 5de3c89ec268a0670687c539cd26c0123b29f99d Mon Sep 17 00:00:00 2001
+From: Biswapriyo Nath <nathbappai@gmail.com>
+Date: Sat, 18 Jul 2026 15:21:25 +0000
+Subject: [PATCH 10/22] UPSTREAM arm64: dts: qcom: sm6125-xiaomi-ginkgo: Add
+ vbus-supply in Type-C connector
+
+VBUS supply property was moved from pmi632 typec node to USB-C connector.
+This fixes the following warning in kernel message.
+pmic@2:typec@1500: supply vdd-vbus not found, using dummy regulator
+
+Fixes: c1da9374c3e0 ("arm64: dts: qcom: sm6125-xiaomi-ginkgo: Add PMI632 Type-C property")
+Signed-off-by: Biswapriyo Nath <nathbappai@gmail.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260718-ginkgo-vbus-typec-v1-1-d5ed0aa6b78b@gmail.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+---
+ arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
+index a5458ab41..59042a593 100644
+--- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
+@@ -133,6 +133,8 @@ connector {
+ 		typec-power-opmode = "default";
+ 		pd-disable;
+ 
++		vbus-supply = <&pmi632_vbus>;
++
+ 		port {
+ 			pmi632_hs_in: endpoint {
+ 				remote-endpoint = <&usb_dwc3_hs>;
+-- 
+2.56.0
+
