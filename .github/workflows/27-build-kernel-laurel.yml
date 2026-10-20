@@ -204,7 +204,6 @@ jobs:
             || { echo "::error::el PKGBUILD no apunta a mainline (cdn.kernel.org)"; exit 1; }
           grep -qE "^pkgver=7\.2\." "$PDIR/linux/sm61x5/PKGBUILD" \
             || { echo "::error::pkgver inesperada"; exit 1; }
-            || { echo "::error::pkgver inesperada"; exit 1; }
       - name: Construir el toolchain de cruce (x86_64)
         working-directory: kupferbootstrap
         run: |
