@@ -1,4 +1,4 @@
-From a039b4b9bc61444a8c3f17965b3577d1d8bd06a3 Mon Sep 17 00:00:00 2001
+From 55b749527eb07816517c44dfa9c576577fb7daad Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Kamil=20Go=C5=82da?= <kamil.golda@protonmail.com>
 Date: Sat, 28 Feb 2026 23:37:29 +0100
 Subject: [PATCH 01/20] README: Modify for sm61x5 repository
@@ -14,7 +14,7 @@ Signed-off-by: Kamil Gołda <kamil.golda@protonmail.com>
 
 diff --git a/README.md b/README.md
 new file mode 100644
-index 0000000..c48d861
+index 000000000..c48d86147
 --- /dev/null
 +++ b/README.md
 @@ -0,0 +1,2 @@

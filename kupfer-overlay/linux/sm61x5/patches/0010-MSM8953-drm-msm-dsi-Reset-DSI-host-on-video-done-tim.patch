@@ -1,4 +1,4 @@
-From 8a8b9608f0311f44950a22994e75a2c5528bb7a1 Mon Sep 17 00:00:00 2001
+From 05ed960e32f824b14b6cb8f5866303e7990fcf9d Mon Sep 17 00:00:00 2001
 From: Vladimir Lypak <vladimir.lypak@gmail.com>
 Date: Sat, 23 Aug 2025 09:46:28 +0000
 Subject: [PATCH 10/20] MSM8953 drm/msm/dsi: Reset DSI host on video done
@@ -26,7 +26,7 @@ Signed-off-by: Vladimir Lypak <vladimir.lypak@gmail.com>
  1 file changed, 16 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
-index 89face2..c1b7070 100644
+index 2685cc3d0..ed453dc21 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_host.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
 @@ -32,8 +32,6 @@
@@ -46,7 +46,7 @@ index 89face2..c1b7070 100644
  
  	/* connected device info */
  	unsigned int channel;
-@@ -1158,7 +1157,7 @@ static void dsi_sw_reset(struct msm_dsi_host *msm_host)
+@@ -1154,7 +1153,7 @@ static void dsi_sw_reset(struct msm_dsi_host *msm_host)
  
  	/* dsi controller can only be reset while clocks are running */
  	dsi_write(msm_host, REG_DSI_RESET, 1);
@@ -55,7 +55,7 @@ index 89face2..c1b7070 100644
  	dsi_write(msm_host, REG_DSI_RESET, 0);
  	wmb(); /* controller out of reset */
  
-@@ -1212,17 +1211,19 @@ static void dsi_wait4video_done(struct msm_dsi_host *msm_host)
+@@ -1208,17 +1207,19 @@ static void dsi_wait4video_done(struct msm_dsi_host *msm_host)
  	u32 ret = 0;
  	struct device *dev = &msm_host->pdev->dev;
  
@@ -81,7 +81,7 @@ index 89face2..c1b7070 100644
  }
  
  static void dsi_wait4video_eng_busy(struct msm_dsi_host *msm_host)
-@@ -2018,6 +2019,7 @@ int msm_dsi_host_init(struct msm_dsi *msm_dsi)
+@@ -2014,6 +2015,7 @@ int msm_dsi_host_init(struct msm_dsi *msm_dsi)
  	if (!msm_host)
  		return -ENOMEM;
  
@@ -89,7 +89,7 @@ index 89face2..c1b7070 100644
  	msm_host->pdev = pdev;
  	msm_dsi->host = &msm_host->base;
  
-@@ -2589,6 +2591,7 @@ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
+@@ -2587,6 +2589,7 @@ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
  				  const struct drm_display_mode *mode)
  {
  	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
@@ -97,7 +97,7 @@ index 89face2..c1b7070 100644
  
  	if (msm_host->mode) {
  		drm_mode_destroy(msm_host->dev, msm_host->mode);
-@@ -2601,6 +2604,10 @@ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
+@@ -2599,6 +2602,10 @@ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
  		return -ENOMEM;
  	}
  

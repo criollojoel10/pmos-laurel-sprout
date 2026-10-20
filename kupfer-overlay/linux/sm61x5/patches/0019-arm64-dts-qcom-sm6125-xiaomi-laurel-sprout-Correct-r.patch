@@ -1,4 +1,4 @@
-From c38dd0857236fea88797508872fcefa9ef65d535 Mon Sep 17 00:00:00 2001
+From 215012c219e6268432b2d272fb68d80ddbcdb572 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Kamil=20Go=C5=82da?= <kamil.golda@protonmail.com>
 Date: Wed, 22 Jan 2025 17:25:08 +0100
 Subject: [PATCH 19/20] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Correct
@@ -15,7 +15,7 @@ Signed-off-by: Kamil Gołda <kamil.golda@protonmail.com>
  1 file changed, 34 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
-index 8b62625..be22e98 100644
+index 8b62625e7..be22e98ca 100644
 --- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
 +++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
 @@ -13,6 +13,13 @@

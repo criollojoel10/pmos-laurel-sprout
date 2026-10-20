@@ -1,4 +1,4 @@
-From ea2355e7ddff4de1261e1a7ed8fdc39b7ff51ff2 Mon Sep 17 00:00:00 2001
+From 7982963fc42060e20e5b9907acbda487c8a96462 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Kamil=20Go=C5=82da?= <kamil.golda@protonmail.com>
 Date: Fri, 21 Feb 2025 14:18:59 +0100
 Subject: [PATCH 12/20] clk: qcom: dispcc-sm6125: Do not use parking clk_ops
@@ -20,7 +20,7 @@ Signed-off-by: Kamil Gołda <kamil.golda@protonmail.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/clk/qcom/dispcc-sm6125.c b/drivers/clk/qcom/dispcc-sm6125.c
-index 27a7366..3c01ea6 100644
+index 27a736657..3c01ea69b 100644
 --- a/drivers/clk/qcom/dispcc-sm6125.c
 +++ b/drivers/clk/qcom/dispcc-sm6125.c
 @@ -269,7 +269,7 @@ static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {

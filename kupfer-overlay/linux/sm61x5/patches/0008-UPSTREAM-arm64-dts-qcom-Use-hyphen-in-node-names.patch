@@ -1,4 +1,4 @@
-From ea721a6fcd82bf9b4f7ffa3d923659b8bbd5c4c4 Mon Sep 17 00:00:00 2001
+From db743a2b3bf9fac8d7913ebf531bc60b7c4e17b2 Mon Sep 17 00:00:00 2001
 From: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
 Date: Mon, 6 Jul 2026 11:39:44 +0200
 Subject: [PATCH 08/20] UPSTREAM arm64: dts: qcom: Use hyphen in node names
@@ -23,7 +23,7 @@ Signed-off-by: Bjorn Andersson <andersson@kernel.org>
  8 files changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/arch/arm/boot/dts/qcom/qcom-apq8064-pins.dtsi b/arch/arm/boot/dts/qcom/qcom-apq8064-pins.dtsi
-index e53de70..e95da76 100644
+index e53de709e..e95da7612 100644
 --- a/arch/arm/boot/dts/qcom/qcom-apq8064-pins.dtsi
 +++ b/arch/arm/boot/dts/qcom/qcom-apq8064-pins.dtsi
 @@ -87,7 +87,7 @@ gsbi7_uart_2pins: gsbi7-uart-2pins-state {
@@ -36,7 +36,7 @@ index e53de70..e95da76 100644
  		function = "gsbi7";
  	};
 diff --git a/arch/arm/boot/dts/qcom/qcom-msm8974.dtsi b/arch/arm/boot/dts/qcom/qcom-msm8974.dtsi
-index 95be1d2..06c0af0 100644
+index 95be1d2e2..06c0af0aa 100644
 --- a/arch/arm/boot/dts/qcom/qcom-msm8974.dtsi
 +++ b/arch/arm/boot/dts/qcom/qcom-msm8974.dtsi
 @@ -1866,7 +1866,7 @@ cci_i2c1_sleep: cci-i2c1-sleep-pins {
@@ -49,7 +49,7 @@ index 95be1d2..06c0af0 100644
  					pins = "gpio45";
  					function = "blsp_spi8";
 diff --git a/arch/arm/boot/dts/qcom/qcom-sdx65-mtp.dts b/arch/arm/boot/dts/qcom/qcom-sdx65-mtp.dts
-index 07c10c8..2c05906 100644
+index 07c10c84e..2c0590617 100644
 --- a/arch/arm/boot/dts/qcom/qcom-sdx65-mtp.dts
 +++ b/arch/arm/boot/dts/qcom/qcom-sdx65-mtp.dts
 @@ -55,7 +55,7 @@ vph_pwr: vph-pwr-regulator {
@@ -62,7 +62,7 @@ index 07c10c8..2c05906 100644
  		regulator-name = "vreg_bob_3p3";
  		regulator-min-microvolt = <3300000>;
 diff --git a/arch/arm64/boot/dts/qcom/lemans-evk-camera.dtso b/arch/arm64/boot/dts/qcom/lemans-evk-camera.dtso
-index 4600d54..a4c6d39 100644
+index 4600d5441..a4c6d39cf 100644
 --- a/arch/arm64/boot/dts/qcom/lemans-evk-camera.dtso
 +++ b/arch/arm64/boot/dts/qcom/lemans-evk-camera.dtso
 @@ -14,7 +14,7 @@
@@ -75,7 +75,7 @@ index 4600d54..a4c6d39 100644
  		regulator-name = "vreg_cam1_1p8";
  		startup-delay-us = <10000>;
 diff --git a/arch/arm64/boot/dts/qcom/lemans-ride-common.dtsi b/arch/arm64/boot/dts/qcom/lemans-ride-common.dtsi
-index b2195fc..144f117 100644
+index b2195fc03..144f117ba 100644
 --- a/arch/arm64/boot/dts/qcom/lemans-ride-common.dtsi
 +++ b/arch/arm64/boot/dts/qcom/lemans-ride-common.dtsi
 @@ -63,7 +63,7 @@ vreg_3p3: vreg-3p3-regulator {
@@ -97,7 +97,7 @@ index b2195fc..144f117 100644
  		regulator-name = "vreg_conn_pa";
  		startup-delay-us = <4000>;
 diff --git a/arch/arm64/boot/dts/qcom/lemans.dtsi b/arch/arm64/boot/dts/qcom/lemans.dtsi
-index 47d26dd..6d6024c 100644
+index 47d26dd83..6d6024c61 100644
 --- a/arch/arm64/boot/dts/qcom/lemans.dtsi
 +++ b/arch/arm64/boot/dts/qcom/lemans.dtsi
 @@ -1041,7 +1041,7 @@ qfprom: efuse@784000 {
@@ -110,7 +110,7 @@ index 47d26dd..6d6024c 100644
  				bits = <0 8>;
  			};
 diff --git a/arch/arm64/boot/dts/qcom/monaco.dtsi b/arch/arm64/boot/dts/qcom/monaco.dtsi
-index 61ef690..5f34921 100644
+index 61ef690f5..5f3492134 100644
 --- a/arch/arm64/boot/dts/qcom/monaco.dtsi
 +++ b/arch/arm64/boot/dts/qcom/monaco.dtsi
 @@ -2927,7 +2927,7 @@ ws-pins {
@@ -123,7 +123,7 @@ index 61ef690..5f34921 100644
  					pins = "gpio17";
  					function = "i2s4_data";
 diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
-index 7d84811..a5458ab 100644
+index 7d8481173..a5458ab41 100644
 --- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
 +++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-ginkgo-common.dtsi
 @@ -47,22 +47,22 @@ framebuffer {

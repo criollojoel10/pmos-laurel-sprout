@@ -1,4 +1,4 @@
-From df203d03c9c05f09709d88c9422af03eb2b04f6b Mon Sep 17 00:00:00 2001
+From 82499df9719022cfe1baa398011092bf2a2b7751 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Kamil=20Go=C5=82da?= <kamil.golda@protonmail.com>
 Date: Sat, 18 Jan 2025 22:32:53 +0100
 Subject: [PATCH 11/20] arm64: dts: qcom: sm6125: Add GPU clock controller
@@ -16,7 +16,7 @@ Signed-off-by: Barnabás Czémán <barnabas.czeman@mainlining.org>
  1 file changed, 9 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm6125.dtsi b/arch/arm64/boot/dts/qcom/sm6125.dtsi
-index 86de156..a67bb2b 100644
+index 86de1560b..a67bb2be7 100644
 --- a/arch/arm64/boot/dts/qcom/sm6125.dtsi
 +++ b/arch/arm64/boot/dts/qcom/sm6125.dtsi
 @@ -1263,6 +1263,15 @@ sram@4690000 {

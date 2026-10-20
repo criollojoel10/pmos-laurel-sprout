@@ -1,4 +1,4 @@
-From 28b8f9bea454275f97cbd9bd859cebb9f7e81e38 Mon Sep 17 00:00:00 2001
+From e0521be04a7baf3ec36cc09eeb518b51cbc3a52a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Barnab=C3=A1s=20Cz=C3=A9m=C3=A1n?=
  <barnabas.czeman@mainlining.org>
 Date: Fri, 21 Aug 2026 13:24:48 +0200
@@ -13,7 +13,7 @@ Signed-off-by: Barnabás Czémán <barnabas.czeman@mainlining.org>
  1 file changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm6125.dtsi b/arch/arm64/boot/dts/qcom/sm6125.dtsi
-index 2442b2c..20c7c98 100644
+index 2442b2c11..20c7c984b 100644
 --- a/arch/arm64/boot/dts/qcom/sm6125.dtsi
 +++ b/arch/arm64/boot/dts/qcom/sm6125.dtsi
 @@ -1266,8 +1266,12 @@ sram@4690000 {

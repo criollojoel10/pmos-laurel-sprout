@@ -1,4 +1,4 @@
-From 670dd437ce656503290bf40d124013421ae72873 Mon Sep 17 00:00:00 2001
+From 72e6ff3ab4b77668c47ed0db380c193a04de2b5b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Kamil=20Go=C5=82da?= <kamil.golda@protonmail.com>
 Date: Wed, 2 Oct 2024 12:00:17 +0200
 Subject: [PATCH 16/20] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Add USB
@@ -19,7 +19,7 @@ Signed-off-by: Barnabás Czémán <barnabas.czeman@mainlining.org>
  1 file changed, 32 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
-index 139f2b4..944c7ae 100644
+index 139f2b401..944c7ae38 100644
 --- a/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
 +++ b/arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dts
 @@ -11,6 +11,7 @@

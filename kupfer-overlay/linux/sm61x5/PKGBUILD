@@ -18,7 +18,7 @@ _mode=cross
 _kernelname=sm61x5
 pkgbase="linux-$_kernelname"
 _desc="Qualcomm SM6125 (Xiaomi Mi A3, laurel_sprout) kernel"
-pkgver=7.2.11
+pkgver=7.2.6
 pkgrel=1
 _arches=specific
 arch=(aarch64)
@@ -58,7 +58,7 @@ source=(
 # El tarball de kernel.org y la config de pmaports van con sha256 fijado; los
 # ficheros locales (extra_config, preset, hooks) los cubre git.
 sha256sums=(
-    fd0fc479f983a8c05313f13e9c36330fe6651cf725396748c40d5cd93fa1e6a4
+    039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606
     718a808a28f331635f8343762a6c2bdb123b59e83fb4b28d44a4d5d5ff74b0dc
     SKIP
     SKIP
