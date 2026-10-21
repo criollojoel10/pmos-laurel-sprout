@@ -197,11 +197,17 @@ jobs:
           test -d "$PDIR/.git" || { echo "::error::pkgbuilds no clonado"; exit 1; }
           cp -r kupfer-overlay/* "$PDIR"/
           test -f "$PDIR/linux/sm61x5/PKGBUILD" || { echo "::error::falta linux/sm61x5/PKGBUILD"; exit 1; }
-          n=$(ls "$PDIR/linux/sm61x5"/patches/*.patch 2>/dev/null | wc -l)
-          echo "parches del delta: $n"
-          test "$n" -ge 20 || { echo "::error::faltan los parches del delta ($n)"; exit 1; }
-          grep -q "cdn.kernel.org" "$PDIR/linux/sm61x5/PKGBUILD" \
-            || { echo "::error::el PKGBUILD no apunta a mainline (cdn.kernel.org)"; exit 1; }
+          # La serie delta solo existe en las recetas de kernel.org (7.2.6/7.2.11);
+          # el tarball del fork (7.2.3) ya trae el delta dentro.
+          if [ -d "$PDIR/linux/sm61x5/patches" ]; then
+            n=$(ls "$PDIR/linux/sm61x5"/patches/*.patch 2>/dev/null | wc -l)
+            echo "parches del delta: $n"
+            test "$n" -ge 20 || { echo "::error::faltan los parches del delta ($n)"; exit 1; }
+          else
+            echo "sin series de parches (tarball del fork con delta incluido)"
+          fi
+          grep -qE "cdn\.kernel\.org|codeberg\.org/sm61x5-mainline" "$PDIR/linux/sm61x5/PKGBUILD" \
+            || { echo "::error::fuente desconocida en el PKGBUILD"; exit 1; }
           grep -qE "^pkgver=7\.2\." "$PDIR/linux/sm61x5/PKGBUILD" \
             || { echo "::error::pkgver inesperada"; exit 1; }
       - name: Construir el toolchain de cruce (x86_64)
