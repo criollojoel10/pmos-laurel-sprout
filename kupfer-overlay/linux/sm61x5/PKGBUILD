@@ -2,28 +2,19 @@
 # Basado en la plantilla de Kupfer (linux/sdm845) y en el port de begonia
 # (linux/mt6785).
 #
-# Base: **mainline stable v7.2.11** (cdn.kernel.org, sha256 fijado) + el delta
-# downstream del fork sm61x5-mainline, que es lo que corre hoy en laurel con
+# Kernel mainline cercano del fork sm61x5-mainline (Barnabas Czeman) en el tag
+# v7.2.3-r0: es el kernel que usa el port de philipplinux para el Mi A3 con
 # panel, GPU, Wi-Fi WCN3990 y CDSP/MPSS.
-#
-# Por qué no el tag del fork: su ultimo tag es v7.2.3-r0 (2026-09-06) y no ha
-# publicado 7.2.11. El delta del fork sobre mainline v7.2.3 son 22 commits; se
-# rebaso con `git rebase --onto v7.2.11 v7.2.3` (2026-10-19) y quedaron **20**
-# (2 se descartaron solos porque su contenido ya estaba upstream: "Use 64 bit
-# addressing" y "Fixup panel compatible"). El rebase no tuvo conflictos y la
-# serie resultante reproduce ese arbol exacto (verificado con git diff).
-# Cuando el fork publique un tag nuevo, basta con subir pkgver/sha256 y
-# regenerar patches/.
 _mode=cross
 _kernelname=sm61x5
 pkgbase="linux-$_kernelname"
 _desc="Qualcomm SM6125 (Xiaomi Mi A3, laurel_sprout) kernel"
-pkgver=7.2.6
+pkgver=7.2.3
 pkgrel=1
 _arches=specific
 arch=(aarch64)
 license=(GPL2)
-url=https://git.kernel.org/
+url=https://codeberg.org/sm61x5-mainline/linux
 makedepends=(
     xmlto
     docbook-xsl
@@ -33,8 +24,6 @@ makedepends=(
     dtc
     cpio
     python
-    # aplica patches/ en prepare()
-    patch
     # objtool compila <gelf.h> y enlaza -lelf (CONFIG_UNWINDER_ORC=y en arm64).
     libelf
     perl
@@ -43,22 +32,19 @@ makedepends=(
     openssl
 )
 options=(!strip)
+_tag=v7.2.3-r0
 _pmos_commit=ec98dddc8d525c874603a8e91ae6113d2b0c66d1
-# El tarball de kernel.org extrae a linux-<pkgver>/ (no a "linux"): el
-# _srcname tiene que coincidir o pkgver()/prepare() fallan con "cd: linux".
-_srcname="linux-${pkgver}"
+_srcname="linux"
 source=(
-    "$_srcname.tar.xz::https://cdn.kernel.org/pub/linux/kernel/v7.x/${_srcname}.tar.xz"
+    "$_srcname.tar.gz::https://codeberg.org/sm61x5-mainline/linux/archive/${_tag}.tar.gz"
     "https://gitlab.postmarketos.org/postMarketOS/pmaports/-/raw/${_pmos_commit}/device/testing/linux-nura-qcom-sm61x5/config-nura-qcom-sm61x5.aarch64"
     extra_config
     linux.preset
     60-linux.hook
     90-linux.hook
 )
-# El tarball de kernel.org y la config de pmaports van con sha256 fijado; los
-# ficheros locales (extra_config, preset, hooks) los cubre git.
 sha256sums=(
-    039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606
+    5aa5e7d7025a695b32b9c19de4fedc69b2ac7af0fe31fe6b34f44ef620a70389
     718a808a28f331635f8343762a6c2bdb123b59e83fb4b28d44a4d5d5ff74b0dc
     SKIP
     SKIP
@@ -74,26 +60,9 @@ pkgver() {
 prepare() {
     cd "$srcdir/${_srcname}"
 
-    # 1) Delta downstream del fork sm61x5-mainline (22 parches, en orden).
-    #    No van en source=(): viven en patches/ del overlay (los copia el
-    #    workflow con `cp -r kupfer-overlay/*`), asi que se aplican desde
-    #    $startdir. `patch -N` es tolerante: si un hunk ya estuviera aplicado lo
-    #    salta en vez de abortar.
-    local _p
-    for _p in "$startdir"/patches/*.patch; do
-        [ -e "$_p" ] || continue
-        msg2 "aplicando $(basename "$_p")"
-        patch -p1 -N --no-backup-if-mismatch <"$_p"
-    done
-
-    # 2) Config: la de pmaports (7.2.3, linea estable) + overrides de laurel.
-    #    olddefconfig se ejecuta en el MISMO entorno que build() (GCC, sin
-    #    LLVM=1): asi no hay simbolos que cambien de visibilidad entre prepare()
-    #    y build() y Kconfig no se queda pidiendo respuestas (leccion de begonia,
-    #    stack-arm/docs/50 §6).
     cp "$srcdir/config-nura-qcom-sm61x5.aarch64" .config
     cat "$srcdir/extra_config" >>.config
-    make olddefconfig </dev/null
+    make olddefconfig
 
     # don't run depmod on "make install". We'll do this ourselves in packaging
     sed -i "2iexit 0" scripts/depmod.sh
@@ -103,9 +72,9 @@ build() {
     cd ${_srcname}
     unset LDFLAGS
     # shellcheck disable=SC2086
-    make ${MAKEFLAGS} Image.gz modules </dev/null
+    make ${MAKEFLAGS} Image.gz modules
     # shellcheck disable=SC2086
-    make ${MAKEFLAGS} DTC_FLAGS="-@" dtbs </dev/null
+    make ${MAKEFLAGS} DTC_FLAGS="-@" dtbs
 }
 
 _package() {
