@@ -33,3 +33,7 @@ CONFIG_CRYPTO_LZ4=y
 CONFIG_NETFILTER_XT_CONNMARK=m
 CONFIG_NETFILTER_XT_MATCH_CONNMARK=m
 CONFIG_NETFILTER_XT_TARGET_CONNMARK=m
+
+# UFS BSG: permite a Linux escribir bBootLunEn (qbootctl -s) para el retorno
+# seguro a Android; lo usa el guard del initramfs antes de montar el rootfs.
+CONFIG_SCSI_UFS_BSG=y
