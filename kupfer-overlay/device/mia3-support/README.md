@@ -73,7 +73,9 @@ Orden: `rmtfs`/`tqftpserv` → **módem** → `pd-mapper` → `ath10k_snoc`.
   usa `quiet_therm`/`xo_therm` (~30 °C), que sí leen.
 - Sensores TSENS de CPU/GPU (`thermal-sensors/` del repo de referencia): opcionales,
   mejoran el *thermal-guard*. Requieren su propio `.ko` + overlay.
-- `xt_connmark` (Tailscale) no está en el config del kernel; Tailscale funciona igual.
+- `xt_connmark` (Tailscale) ya está en `extra_config` del kernel (módulos `m`).
+- Audio: el altavoz inferior está integrado; el auricular y los micrófonos
+  (WCD937x + LPASS/SoundWire) siguen `not-targeted`.
 
 ## Arranque A/B y orden de unidades (2026-10-17)
 

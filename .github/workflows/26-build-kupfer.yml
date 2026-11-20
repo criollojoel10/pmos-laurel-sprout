@@ -322,6 +322,42 @@ jobs:
           docker run --rm -v "$OUT:/out" pmos-fw \
             avbtool make_vbmeta_image --flags 2 --padding_size 4096 --output /out/vbmeta.img
           ls -la "$OUT"
+      - name: Validar contenido de la rootfs
+        # Falla antes de comprimir si el overlay no llego a la imagen: es mas
+        # barato que descubrirlo en el telefono tras un flasheo.
+        run: |
+          set -Eeuo pipefail
+          IMG="$RUNNER_TEMP/kupfer-out/rootfs.img"
+          chk() {
+            debugfs -R "stat $1" "$IMG" 2>/dev/null | grep -q '^Inode:' \
+              || { echo "::error::falta $1 en la rootfs"; exit 1; }
+            echo "ok $1"
+          }
+          chk /etc/kupfer/deviceinfo
+          for f in mia3-qg.dtbo mia3-adsp.dtbo mia3-apr.dtbo mia3-speaker.dtbo \
+                   qcom/a630_sqe.fw; do
+            chk "/usr/lib/firmware/$f"
+          done
+          chk /usr/bin/qbootctl
+          WANTS=$(debugfs -R "ls /usr/lib/systemd/system/multi-user.target.wants" "$IMG" 2>/dev/null)
+          for u in qbootctl.service mia3-qg.service mia3-audio.service \
+                   chargectl.service mia3-wifi.service; do
+            echo "$WANTS" | grep -q "$u" \
+              || { echo "::error::$u no esta habilitada"; exit 1; }
+            echo "ok wants/$u"
+          done
+          KVER=$(debugfs -R "ls /usr/lib/modules" "$IMG" 2>/dev/null \
+                   | tr -s ' ' '\n' | grep -m1 '^7\.')
+          [ -n "$KVER" ] || { echo "::error::no hay modulo 7.x en /usr/lib/modules"; exit 1; }
+          for m in mia3_qg mia3_dtbo mia3_adsp pmi632_chg; do
+            chk "/usr/lib/modules/$KVER/extra/$m.ko"
+          done
+          for m in q6core q6afe q6asm q6adm q6routing; do
+            debugfs -R "ls -p /usr/lib/modules/$KVER/kernel/sound/soc/qcom/qdsp6" "$IMG" 2>/dev/null \
+              | grep -q "$m" || echo "::warning::$m no aparece como modulo (revisar config de audio)"
+          done
+          debugfs -R "ls -p /usr/lib/modules/$KVER/kernel/sound/soc/qcom" "$IMG" 2>/dev/null \
+            | grep -q 'snd-soc-sm8250' || echo "::warning::snd-soc-sm8250 no aparece como modulo"
       - name: Parchear el fstab de la rootfs (kupfer_boot)
         # El flasheo A/B escribe SOLO p2 (kupfer_root) en userdata: la subparticion
         # kupfer_boot no existe y el fstab heredado de Kupfer aborta local-fs.target

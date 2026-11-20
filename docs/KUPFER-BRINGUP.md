@@ -219,3 +219,28 @@ WantedBy=multi-user.target
 ```
 
 Verificar tras un arranque que `qbootctl`, `mia3-qg` y `chargectl` estén `active`.
+
+
+## 10. Automatizado en el build (2026-11-20)
+
+El workflow `26-build-kupfer` ya no depende de parches manuales tras el primer
+arranque. El perfil por defecto es **phosh** y el overlay del port incluye:
+
+| Pieza | Dónde |
+|---|---|
+| fstab con `nofail` para `kupfer_boot` + override de emergencia | paso `Parchear el fstab de la rootfs` |
+| DTB `k7` (panel/GPU/cpufreq/BT/IR/Wi-Fi WCN3990) | `kupfer-overlay/linux/sm61x5/k7.dts` |
+| `a630_sqe.fw` (GPU Adreno 610 real, no llvmpipe) | `kupfer-overlay/firmware/sm61x5-xiaomi-laurel/PKGBUILD` |
+| firmware del ROM (modem/CDSP/ADSP/WLAN/BT/board-2.bin) | extraído del ROM oficial y empaquetado |
+| batería PMI632 + cargador + `chargectl` | `mia3_qg`/`pmi632_chg` + `mia3-support` |
+| Wi-Fi WCN3990 (rmtfs/qrtr/pd-mapper/tqftpserv + bring-up) | `pkgs_include` + `mia3-wifi.service` |
+| altavoz inferior (ADSP Q6 + APR + MAX98937) | overlays `mia3-adsp/apr/speaker` + `mia3-audio.service` |
+| arranque A/B (`qbootctl -m`) | `pkgs_include` |
+
+Los cuatro módulos out-of-tree (`mia3_qg`, `mia3_dtbo`, `mia3_adsp`,
+`pmi632_chg`) se compilan dentro de `linux-sm61x5` (mismo árbol y compilador);
+`mia3-support` queda como paquete de datos, overlays y unidades.
+
+Prueba física pendiente de este pipeline: arrancar el artefacto nuevo y
+verificar `qbootctl`, `mia3-qg`, `chargectl`, `mia3-wifi` y `mia3-audio`
+activos, `/dev/dri/renderD128`, `wlan0` y la tarjeta `Mi-A3`.

@@ -81,4 +81,9 @@ package() {
         ln -sf "/usr/lib/systemd/system/$u.service" \
             "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$u.service"
     done
+    # qbootctl marca el slot A/B como "successful" en cada arranque. Sin esto el
+    # ABL agota sus reintentos y deja el telefono en el logo de Mi. El paquete
+    # qbootctl viene por pkgs_include; aqui solo se habilita su unidad.
+    ln -sf "/usr/lib/systemd/system/qbootctl.service" \
+        "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/qbootctl.service"
 }
