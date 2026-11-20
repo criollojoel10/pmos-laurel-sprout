@@ -143,6 +143,22 @@ jobs:
           TOML
           echo "--- kupferbootstrap.toml ---"
           cat "$HOME/.config/kupfer/kupferbootstrap.toml"
+      - name: Restore ccache
+        # actions/cache/restore@v4.2.2
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cache/kupferbootstrap/ccache
+          key: ccache-kupfer-laurel-${{ github.sha }}
+          restore-keys: |
+            ccache-kupfer-laurel-
+      - name: Restore packages (toolchain de cruce)
+        # actions/cache/restore@v4.2.2
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cache/kupferbootstrap/packages
+          key: pkgs-kupfer-laurel-${{ github.sha }}
+          restore-keys: |
+            pkgs-kupfer-laurel-
       - name: Inicializar pkgbuilds
         working-directory: kupferbootstrap
         run: |
@@ -258,6 +274,20 @@ jobs:
             echo "::error::el initramfs de la rootfs no se genero bien"; exit 1; }
           grep -aq 'Generating new aboot.img' "$RUNNER_TEMP/kupfer-image.log" || {
             echo "::error::aboot.img no se ha generado"; exit 1; }
+      - name: Save ccache
+        if: always()
+        # actions/cache/save@v4.2.2
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cache/kupferbootstrap/ccache
+          key: ccache-kupfer-laurel-${{ github.sha }}
+      - name: Save packages
+        if: always()
+        # actions/cache/save@v4.2.2
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cache/kupferbootstrap/packages
+          key: pkgs-kupfer-laurel-${{ github.sha }}
       - name: Extraer artefactos flasheables
         run: |
           set -Eeuo pipefail
