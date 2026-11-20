@@ -58,12 +58,17 @@ source=(
     60-linux.hook
     90-linux.hook
     k7.dts
+    mia3/mia3_qg.c
+    mia3/mia3_dtbo.c
+    mia3/pmi632_chg.c
 )
 # El tarball de kernel.org y la config de pmaports van con sha256 fijado; los
 # ficheros locales (extra_config, preset, hooks) los cubre git.
 sha256sums=(
     039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606
     718a808a28f331635f8343762a6c2bdb123b59e83fb4b28d44a4d5d5ff74b0dc
+    SKIP
+    SKIP
     SKIP
     SKIP
     SKIP
@@ -111,6 +116,11 @@ build() {
     make ${MAKEFLAGS} Image.gz modules </dev/null
     # shellcheck disable=SC2086
     make ${MAKEFLAGS} DTC_FLAGS="-@" dtbs </dev/null
+    # Modulos out-of-tree del Mi A3 (bateria PMI632 + cargador + cargador de
+    # overlays). Se compilan aqui para heredar el mismo arbol/compilador que el
+    # kernel; en un paquete aparte faltarian linux-sm61x5-headers y qbootctl en
+    # el chroot de build.
+    make ${MAKEFLAGS} M="$srcdir/mia3" KBUILD_MODPOST_WARN=1 modules </dev/null
 }
 
 _package() {
@@ -143,6 +153,8 @@ _package() {
         -o "${pkgdir}/boot/dtbs/qcom/sm6125-xiaomi-laurel-sprout.dtb" \
         "$srcdir/k7.dts"
     cp arch/$KARCH/boot/Image.gz "${pkgdir}/boot"
+    install -d "${pkgdir}/usr/lib/modules/${_kernver}/extra"
+    install -m644 "$srcdir"/mia3/*.ko "${pkgdir}/usr/lib/modules/${_kernver}/extra/"
 
     # make room for external modules
     local _extramodules="extramodules-${_basekernel}${_kernelname}"
