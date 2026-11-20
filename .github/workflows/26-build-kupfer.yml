@@ -177,11 +177,18 @@ jobs:
           for f in linux/sm61x5/PKGBUILD \
                    linux/sm61x5/mia3_qg.c \
                    linux/sm61x5/mia3_dtbo.c \
+                   linux/sm61x5/mia3_adsp.c \
                    linux/sm61x5/pmi632_chg.c \
                    device/device-sm61x5-xiaomi-laurel/PKGBUILD \
                    device/device-sm61x5-xiaomi-laurel/xiaomi-laurel.conf \
                    firmware/sm61x5-xiaomi-laurel/PKGBUILD \
-                   device/mia3-support/PKGBUILD; do
+                   device/mia3-support/PKGBUILD \
+                   device/mia3-support/bringup.sh \
+                   device/mia3-support/max98937-init.sh \
+                   device/mia3-support/mia3-adsp.dts \
+                   device/mia3-support/mia3-apr.dts \
+                   device/mia3-support/mia3-speaker.dts \
+                   device/mia3-support/mia3-audio.service; do
             test -f "$PDIR/$f" || { echo "::error::overlay ausente: $f"; exit 1; }
             echo "overlay ok: $f"
           done
@@ -252,7 +259,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           script -qec ".venv/bin/kupferbootstrap packages check --ci-mode \
-            linux-sm61x5 device-sm61x5-xiaomi-laurel firmware-sm61x5-xiaomi-laurel" /dev/null
+            linux-sm61x5 device-sm61x5-xiaomi-laurel firmware-sm61x5-xiaomi-laurel \
+            mia3-support" /dev/null
       - name: Construir el toolchain de cruce (x86_64)
         working-directory: kupferbootstrap
         run: |
