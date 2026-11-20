@@ -24,6 +24,10 @@ _arches=specific
 arch=(aarch64)
 license=(GPL2)
 url=https://git.kernel.org/
+# aplica patches/ en prepare()
+# objtool compila <gelf.h> y enlaza -lelf (CONFIG_UNWINDER_ORC=y en arm64).
+# El config de pmaports deja CONFIG_MODULE_SIG=y con certs/signing_key.pem,
+# asi que el kernel firma cada modulo con scripts/sign-file.
 makedepends=(
     xmlto
     docbook-xsl
@@ -33,13 +37,9 @@ makedepends=(
     dtc
     cpio
     python
-    # aplica patches/ en prepare()
     patch
-    # objtool compila <gelf.h> y enlaza -lelf (CONFIG_UNWINDER_ORC=y en arm64).
     libelf
     perl
-    # El config de pmaports deja CONFIG_MODULE_SIG=y con certs/signing_key.pem,
-    # asi que el kernel firma cada modulo con scripts/sign-file.
     openssl
 )
 options=(!strip)
@@ -47,6 +47,9 @@ _pmos_commit=ec98dddc8d525c874603a8e91ae6113d2b0c66d1
 # El tarball de kernel.org extrae a linux-<pkgver>/ (no a "linux"): el
 # _srcname tiene que coincidir o pkgver()/prepare() fallan con "cd: linux".
 _srcname="linux-${pkgver}"
+# DTB de laurel con panel/GPU/cpufreq/BT/IR/Wi-Fi (WCN3990). El DTB que
+# genera el delta del overlay no tiene el nodo wifi: sin esto ath10k no
+# prueba y no aparece wlan0.
 source=(
     "$_srcname.tar.xz::https://cdn.kernel.org/pub/linux/kernel/v7.x/${_srcname}.tar.xz"
     "https://gitlab.postmarketos.org/postMarketOS/pmaports/-/raw/${_pmos_commit}/device/testing/linux-nura-qcom-sm61x5/config-nura-qcom-sm61x5.aarch64"
@@ -54,9 +57,6 @@ source=(
     linux.preset
     60-linux.hook
     90-linux.hook
-    # DTB de laurel con panel/GPU/cpufreq/BT/IR/Wi-Fi (WCN3990). El DTB que
-    # genera el delta del overlay no tiene el nodo wifi: sin esto ath10k no
-    # prueba y no aparece wlan0.
     k7.dts
 )
 # El tarball de kernel.org y la config de pmaports van con sha256 fijado; los

@@ -21,10 +21,10 @@ options=(
     !emptydirs
 )
 depends=(linux-firmware)
+# GPU Adreno 610: no esta en el ROM ni en linux-firmware de ALARM, y sin el
+# el msm no inicializa la GPU (KWin cae a llvmpipe).
 source=(
     fw.tar
-    # GPU Adreno 610: no esta en el ROM ni en linux-firmware de ALARM, y sin el
-    # el msm no inicializa la GPU (KWin cae a llvmpipe).
     "a630_sqe.fw::https://gitlab.com/kernel-firmware/linux-firmware/-/raw/main/qcom/a630_sqe.fw"
 )
 sha256sums=(
