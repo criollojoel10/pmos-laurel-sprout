@@ -176,7 +176,7 @@ jobs:
                    device/device-sm61x5-xiaomi-laurel/PKGBUILD \
                    device/device-sm61x5-xiaomi-laurel/xiaomi-laurel.conf \
                    firmware/sm61x5-xiaomi-laurel/PKGBUILD \
-                   mia3-support/PKGBUILD; do
+                   device/mia3-support/PKGBUILD; do
             test -f "$PDIR/$f" || { echo "::error::overlay ausente: $f"; exit 1; }
             echo "overlay ok: $f"
           done
