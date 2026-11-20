@@ -1,29 +1,38 @@
 # Soporte userspace del Xiaomi Mi A3 (laurel_sprout) para Kupfer.
 #
-# Los modulos (mia3_qg, mia3_dtbo, pmi632_chg) se compilan y empaquetan en
-# linux-sm61x5 (mismo arbol/compilador que el kernel). Este paquete solo lleva:
+# Los modulos (mia3_qg, mia3_dtbo, mia3_adsp, pmi632_chg) se compilan y
+# empaquetan en linux-sm61x5 (mismo arbol/compilador que el kernel). Este
+# paquete solo lleva datos y servicios:
 #   - mia3-qg.dtbo (overlay del fuel gauge PMI632)
+#   - mia3-adsp.dtbo / mia3-apr.dtbo / mia3-speaker.dtbo (audio: ADSP/APR/amp)
 #   - mia3-qg.service (aplica el overlay + modprobe mia3_qg)
+#   - mia3-audio.service + bringup.sh + max98937-init.sh (altavoz inferior)
 #   - chargectl.service + chargectl.py (limite de carga, 50 % por defecto)
 #   - mia3-wifi.service + mia3-wifi-up.sh (bring-up WCN3990)
 #
 # Fuentes adaptadas de philipplinux/mia3-postmarketos (GPL-2.0).
 _mode=cross
 pkgname=mia3-support
-pkgver=1.0
-pkgrel=2
-pkgdesc="Xiaomi Mi A3 (laurel): battery/charger userspace and WCN3990 Wi-Fi bring-up"
+pkgver=1.1
+pkgrel=1
+pkgdesc="Xiaomi Mi A3 (laurel): battery/charger, WCN3990 Wi-Fi and MAX98937 speaker"
 arch=(aarch64)
 url="https://github.com/criollojoel10/pmos-laurel-sprout"
 license=(GPL2)
 options=(!strip)
-depends=(systemd linux-sm61x5)
+depends=(systemd linux-sm61x5 i2c-tools alsa-utils)
 makedepends=(dtc)
 source=(
     mia3-qg.dts
+    mia3-adsp.dts
+    mia3-apr.dts
+    mia3-speaker.dts
     mia3-qg.service
+    mia3-audio.service
     chargectl.service
     chargectl.py
+    bringup.sh
+    max98937-init.sh
     mia3-wifi.service
     mia3-wifi-up.sh
 )
@@ -34,23 +43,40 @@ sha512sums=(
     SKIP
     SKIP
     SKIP
+    SKIP
+    SKIP
+    SKIP
+    SKIP
+    SKIP
+    SKIP
 )
 
 build() {
-    # El DTB vivo no exporta __symbols__: el overlay va SIN -@.
-    dtc -I dts -O dtb -o "$srcdir/mia3-qg.dtbo" "$srcdir/mia3-qg.dts"
+    # El DTB vivo no exporta __symbols__: los overlays van SIN -@ (referencias
+    # por ruta &{/...}).
+    for d in mia3-qg mia3-adsp mia3-apr mia3-speaker; do
+        dtc -I dts -O dtb -o "$srcdir/$d.dtbo" "$srcdir/$d.dts"
+    done
 }
 
 package() {
-    install -Dm644 "$srcdir/mia3-qg.dtbo"      "$pkgdir/usr/lib/firmware/mia3-qg.dtbo"
-    install -Dm755 "$srcdir/mia3-wifi-up.sh"   "$pkgdir/usr/local/bin/mia3-wifi-up.sh"
-    install -Dm644 "$srcdir/mia3-wifi.service" "$pkgdir/usr/lib/systemd/system/mia3-wifi.service"
-    install -Dm644 "$srcdir/mia3-qg.service"   "$pkgdir/usr/lib/systemd/system/mia3-qg.service"
-    install -Dm644 "$srcdir/chargectl.service" "$pkgdir/usr/lib/systemd/system/chargectl.service"
-    install -Dm755 "$srcdir/chargectl.py"      "$pkgdir/usr/local/lib/chargectl/chargectl.py"
+    for d in mia3-qg mia3-adsp mia3-apr mia3-speaker; do
+        install -Dm644 "$srcdir/$d.dtbo" "$pkgdir/usr/lib/firmware/$d.dtbo"
+    done
+    install -Dm755 "$srcdir/mia3-wifi-up.sh"    "$pkgdir/usr/local/bin/mia3-wifi-up.sh"
+    install -Dm755 "$srcdir/bringup.sh"         "$pkgdir/usr/local/lib/mia3-audio/bringup.sh"
+    install -Dm755 "$srcdir/max98937-init.sh"   "$pkgdir/usr/local/lib/mia3-audio/max98937-init.sh"
+    install -Dm644 "$srcdir/mia3-wifi.service"  "$pkgdir/usr/lib/systemd/system/mia3-wifi.service"
+    install -Dm644 "$srcdir/mia3-qg.service"    "$pkgdir/usr/lib/systemd/system/mia3-qg.service"
+    install -Dm644 "$srcdir/mia3-audio.service" "$pkgdir/usr/lib/systemd/system/mia3-audio.service"
+    install -Dm644 "$srcdir/chargectl.service"  "$pkgdir/usr/lib/systemd/system/chargectl.service"
+    install -Dm755 "$srcdir/chargectl.py"       "$pkgdir/usr/local/lib/chargectl/chargectl.py"
     install -d "$pkgdir/var/lib/chargectl"
     printf '{"target": 50}\n' > "$pkgdir/var/lib/chargectl/chargectl.json"
-    for u in mia3-qg chargectl mia3-wifi; do
+    install -d "$pkgdir/var/lib/mia3-audio"
+    printf '48\n' > "$pkgdir/var/lib/mia3-audio/volume"
+    printf '3\n'  > "$pkgdir/var/lib/mia3-audio/gain"
+    for u in mia3-qg mia3-audio chargectl mia3-wifi; do
         install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
         ln -sf "/usr/lib/systemd/system/$u.service" \
             "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$u.service"

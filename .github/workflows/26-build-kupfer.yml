@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       flavour:
-        description: 'Flavour (plasma-mobile, phosh, ...)'
+        description: 'Flavour (phosh, plasma-mobile, ...)'
         type: string
-        default: 'plasma-mobile'
+        default: 'phosh'
       size_extra_mb:
         description: 'MB extra para la rootfs'
         type: string
@@ -133,7 +133,7 @@ jobs:
 
           [profiles.default]
           device = "sm61x5-xiaomi-laurel"
-          flavour = "${{ github.event.inputs.flavour || 'plasma-mobile' }}"
+          flavour = "${{ github.event.inputs.flavour || 'phosh' }}"
           pkgs_include = [ "rmtfs-git", "qrtr-git", "pd-mapper-git", "tqftpserv-git", "mia3-support", "qbootctl" ]
           pkgs_exclude = []
           hostname = "laurel"
@@ -171,8 +171,13 @@ jobs:
           set -Eeuo pipefail
           PDIR="$HOME/.cache/kupferbootstrap/pkgbuilds"
           test -d "$PDIR/.git" || { echo "::error::pkgbuilds no clonado en $PDIR"; exit 1; }
-          cp -r kupfer-overlay/* "$PDIR"/
+          # `cp -a .` conserva subdirectorios y ficheros ocultos; el glob `*`
+          # se dejaba fuera cualquier entrada que empezara por punto.
+          cp -a kupfer-overlay/. "$PDIR"/
           for f in linux/sm61x5/PKGBUILD \
+                   linux/sm61x5/mia3_qg.c \
+                   linux/sm61x5/mia3_dtbo.c \
+                   linux/sm61x5/pmi632_chg.c \
                    device/device-sm61x5-xiaomi-laurel/PKGBUILD \
                    device/device-sm61x5-xiaomi-laurel/xiaomi-laurel.conf \
                    firmware/sm61x5-xiaomi-laurel/PKGBUILD \

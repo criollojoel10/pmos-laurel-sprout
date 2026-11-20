@@ -1,0 +1,16 @@
+[Unit]
+Description=Mi A3 speaker (ADSP Q6 + APR + MAX98937 amp)
+# El overlay del fuel gauge y el del audio comparten el cargador mia3_dtbo:
+# serializar ambos evita que uno desmonte el otro a mitad de la secuencia.
+Wants=mia3-qg.service
+After=mia3-qg.service systemd-modules-load.service local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=P=/usr/local/lib/mia3-audio
+ExecStart=/bin/sh /usr/local/lib/mia3-audio/bringup.sh
+TimeoutStartSec=150
+
+[Install]
+WantedBy=multi-user.target

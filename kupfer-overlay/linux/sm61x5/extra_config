@@ -33,3 +33,14 @@ CONFIG_CRYPTO_LZ4=y
 CONFIG_NETFILTER_XT_CONNMARK=m
 CONFIG_NETFILTER_XT_MATCH_CONNMARK=m
 CONFIG_NETFILTER_XT_TARGET_CONNMARK=m
+
+# Audio: altavoz inferior (ADSP Q6 + APR + MAX98937 por I2S secundario).
+# El config de pmaports deja el ADSP apagado y el stack Q6 sin compilar. El
+# runtime DT (mia3-adsp/apr/speaker.dtbo) y los servicios viven en mia3-support.
+CONFIG_QCOM_Q6V5_COMMON=m
+CONFIG_QCOM_Q6V5_ADSP=m
+CONFIG_QCOM_APR=m
+CONFIG_SND_SOC_QCOM=m
+CONFIG_SND_SOC_QDSP6=m
+CONFIG_SND_SOC_SM8250=m
+CONFIG_SND_SOC_SPDIF=m

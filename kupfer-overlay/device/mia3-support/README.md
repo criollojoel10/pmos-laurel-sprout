@@ -6,18 +6,29 @@ Módulos y servicios fuera del árbol que el kernel mainline no trae, aplicados 
 
 | Fichero | Qué hace |
 |---|---|
-| `mia3_qg.c` | Fuel gauge PMI632 **read-only** → `/sys/class/power_supply/mia3-qg` (`capacity`, `voltage_now`, `current_now`) |
-| `pmi632_chg.c` | Cargador PMI632 con parámetros (`charging_enabled`, `usb_suspend`, `usb_icl_ma`) |
-| `mia3_dtbo.c` | Cargador de overlays de device-tree en runtime (`modprobe mia3_dtbo dtbo=<f>.dtbo`) |
 | `mia3-qg.dts` | Overlay que añade `fuel-gauge@4800` bajo `pmic@2` con la tabla OCV (Sunwoda 4030 mAh) |
+| `mia3-adsp.dts` / `mia3-apr.dts` / `mia3-speaker.dts` | Overlays de audio (ADSP remoteproc + smp2p, APR/Q6, tarjeta `Mi-A3` + I2S secundario) |
+| `bringup.sh` + `max98937-init.sh` + `mia3-audio.service` | Secuencia de arranque del altavoz inferior y programación del amplificador MAX98937 por I2C |
 | `mia3-qg.service` | Aplica el overlay y carga `mia3_qg` (una vez por arranque) |
 | `chargectl.py` + `chargectl.service` | Mantiene la carga en el objetivo (`/var/lib/chargectl/chargectl.json`, por defecto 50 %), con corte térmico (45/40 °C) y failsafe de batería baja |
 | `mia3-wifi-up.sh` + `mia3-wifi.service` | Bring-up del WCN3990: espera `remoteproc0` → arranca el módem → `pd-mapper` → recarga `ath10k_snoc` |
 
+El audio necesita además, en el kernel, `CONFIG_QCOM_Q6V5_ADSP`,
+`CONFIG_QCOM_APR`, `CONFIG_SND_SOC_QDSP6`, `CONFIG_SND_SOC_SM8250` y
+`CONFIG_SND_SOC_SPDIF` (ya están en `kupfer-overlay/linux/sm61x5/extra_config`).
+El amplificador es un **MAX98937** (no MAX98927): no hay driver mainline, se
+programa desde userspace con `i2c-tools`; el enlace termina en el codec dummy
+`linux,spdif-dit` (`snd-soc-spdif`).
+
 ## Compilación (contra el kernel exacto)
 
-`mia3-support` compila los tres módulos con `ARCH=arm64 LLVM=1 KBUILD_MODPOST_WARN=1`
-contra `linux-sm61x5-headers`. **No se compila con GCC**: aunque el kernel del
+Los módulos (`mia3_qg`, `mia3_dtbo`, `mia3_adsp`, `pmi632_chg`) los compila el
+propio paquete `linux-sm61x5` (mismo árbol y compilador) y quedan en
+`/usr/lib/modules/<ver>/extra/`; este paquete solo aporta datos, overlays y
+unidades. Así se evita depender de `linux-sm61x5-headers` y de `qbootctl` dentro
+del chroot de compilación.
+
+Referencia histórica de la compilación manual con clang: **No se compila con GCC**: aunque el kernel del
 dispositivo se construyó con GCC, los módulos con clang cargan igual (config del
 teléfono: `CONFIG_LTO_NONE`, `CONFIG_RANDSTRUCT_NONE`, sin `MODVERSIONS`, sin
 `MODULE_SIG_FORCE`). Gotcha original (`struct module` / `.gnu.linkonce.this_module

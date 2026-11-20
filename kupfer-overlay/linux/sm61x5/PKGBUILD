@@ -58,9 +58,14 @@ source=(
     60-linux.hook
     90-linux.hook
     k7.dts
-    mia3/mia3_qg.c
-    mia3/mia3_dtbo.c
-    mia3/pmi632_chg.c
+    # makepkg solo resuelve fuentes locales por su basename en el directorio
+    # del PKGBUILD: `mia3/foo.c` NO se encuentra ("was not found in the build
+    # directory"). Por eso los .c van planos y build() los copia al subdir del
+    # modulo antes de invocar kbuild.
+    mia3_qg.c
+    mia3_dtbo.c
+    mia3_adsp.c
+    pmi632_chg.c
 )
 # El tarball de kernel.org y la config de pmaports van con sha256 fijado; los
 # ficheros locales (extra_config, preset, hooks) los cubre git.
@@ -120,6 +125,13 @@ build() {
     # overlays). Se compilan aqui para heredar el mismo arbol/compilador que el
     # kernel; en un paquete aparte faltarian linux-sm61x5-headers y qbootctl en
     # el chroot de build.
+    #
+    # makepkg deja las fuentes locales en $srcdir (sin el subdir original), asi
+    # que reconstruimos aqui el directorio del modulo con su Makefile.
+    install -d "$srcdir/mia3"
+    install -m644 "$srcdir/mia3_qg.c" "$srcdir/mia3_dtbo.c" \
+        "$srcdir/mia3_adsp.c" "$srcdir/pmi632_chg.c" "$srcdir/mia3/"
+    printf 'obj-m := mia3_qg.o mia3_dtbo.o mia3_adsp.o pmi632_chg.o\n' >"$srcdir/mia3/Makefile"
     make ${MAKEFLAGS} M="$srcdir/mia3" KBUILD_MODPOST_WARN=1 modules </dev/null
 }
 
