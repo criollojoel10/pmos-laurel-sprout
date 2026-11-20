@@ -13,15 +13,21 @@
 # Fuentes adaptadas de philipplinux/mia3-postmarketos (GPL-2.0).
 _mode=cross
 pkgname=mia3-support
+pkgdesc="Xiaomi Mi A3 (laurel): battery/charger, WCN3990 Wi-Fi and MAX98937 speaker"
 pkgver=1.1
 pkgrel=1
-pkgdesc="Xiaomi Mi A3 (laurel): battery/charger, WCN3990 Wi-Fi and MAX98937 speaker"
+_arches=specific
 arch=(aarch64)
-url="https://github.com/criollojoel10/pmos-laurel-sprout"
 license=(GPL2)
-options=(!strip)
-depends=(systemd linux-sm61x5 i2c-tools alsa-utils)
+url="https://github.com/criollojoel10/pmos-laurel-sprout"
+depends=(
+    systemd
+    linux-sm61x5
+    i2c-tools
+    alsa-utils
+)
 makedepends=(dtc)
+options=(!strip)
 source=(
     mia3-qg.dts
     mia3-adsp.dts
