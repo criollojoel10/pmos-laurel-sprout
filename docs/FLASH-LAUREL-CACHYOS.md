@@ -99,11 +99,47 @@ Con el teléfono recién arrancado, en este orden:
    out-of-tree del fuel gauge PMI632). `cat /sys/class/power_supply/*/capacity`
    probablemente no exista todavía.
 
-## Primera prueba: qué mirar (Kupfer)
+## Primera prueba: qué mirar (Kupfer + Phosh)
 
 Mismos artefactos y mismos comandos. Diferencias: el rootfs es Arch, el usuario
-es `user`/`changeme` y el initramfs lo genera `mkinitcpio` con el conf de Kupfer
-(`/etc/kupfer/mkinitcpio.conf`). Si arranca al shell de emergencia, lo primero es
-comprobar que la rootfs se montó y que `deviceinfo_dtb` apunta a
-`qcom/sm6125-xiaomi-laurel-sprout`.
+es `user`/`changeme`, el escritorio por defecto es **Phosh** y el initramfs lo
+genera `mkinitcpio` con el conf de Kupfer (`/etc/kupfer/mkinitcpio.conf`).
+
+El build ya trae los arreglos que antes había que aplicar a mano (fstab,
+`a630_sqe.fw`, DTB k7, `rmtfs`/`pd-mapper`/`tqftpserv`, `mia3-support` y
+`qbootctl`). Tras el primer arranque, comprobar en orden:
+
+```sh
+# 1. arranque y servicios base
+systemctl --failed                       # -> 0 units failed
+systemctl is-active qbootctl mia3-qg chargectl mia3-wifi mia3-audio
+qbootctl                                 # Current slot: _b / Successful: 1
+
+# 2. GPU (render real, no llvmpipe)
+ls /dev/dri                              # card0/card1 + renderD128
+glxinfo -B 2>/dev/null | grep -i renderer
+
+# 3. pantalla y táctil
+cat /sys/class/drm/card*-DSI-1/status    # connected
+libinput list-devices | grep -i ft
+
+# 4. batería
+cat /sys/class/power_supply/mia3-qg/{capacity,voltage_now,current_now}
+
+# 5. Wi-Fi
+nmcli device status                      # wlan0 conectada
+ip -br addr show wlan0
+
+# 6. audio (altavoz inferior)
+cat /proc/asound/cards                   # -> Mi-A3
+speaker-test -t sine -f 440 -l 1         # o: aplay -D plughw:Mi-A3 ...
+```
+
+Si `mia3-audio` no deja la tarjeta `Mi-A3`, revisar
+`journalctl -u mia3-audio -b` y `dmesg | grep -iE 'adsp|q6|apr|max98937'`.
+Si `wlan0` no aparece, `journalctl -u mia3-wifi -b` y
+`dmesg | grep -iE 'ath10k|wcn3990|remoteproc'`.
+
+Si arranca al shell de emergencia, comprobar que la rootfs se montó y que
+`deviceinfo_dtb` apunta a `qcom/sm6125-xiaomi-laurel-sprout`.
 

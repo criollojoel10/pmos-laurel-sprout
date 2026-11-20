@@ -222,3 +222,23 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
 - Bloqueos: sin entrada (OTG host, `dr_mode="peripheral"`) y sin sshd
   (rootfs `--no-sshd`) → los logs no son accesibles de forma remota. Eso es
   exactamente lo que resuelve M6 (workflow 11 + flasheo de `system_b`).
+
+## Camino activo (2026-11-20): Kupfer + Phosh, todo en el build
+
+`26-build-kupfer` es la linea que se esta estabilizando. Perfil por defecto
+**phosh**; la imagen integra sin pasos manuales:
+
+- fstab `nofail` para `kupfer_boot` (evita el modo emergencia del layout A/B);
+- DTB `k7` (panel, GPU, cpufreq, BT, IR, Wi-Fi WCN3990);
+- firmware del ROM oficial + `a630_sqe.fw` (GPU Adreno 610 real);
+- bateria PMI632 (`mia3_qg`), cargador limitable (`chargectl`) y orden de
+  unidades sin ciclos;
+- Wi-Fi WCN3990 (módem/MPSS + `rmtfs`/`qrtr`/`pd-mapper`/`tqftpserv`);
+- altavoz inferior (ADSP Q6 + APR + MAX98937) con `mia3-audio.service`;
+- `qbootctl -m` habilitado (arranque A/B persistente).
+
+Los cuatro modulos out-of-tree (`mia3_qg`, `mia3_dtbo`, `mia3_adsp`,
+`pmi632_chg`) se compilan dentro de `linux-sm61x5`; `mia3-support` queda como
+paquete de datos y unidades. Estado: **build-untested en hardware** hasta
+probar el artefacto nuevo; los componentes individuales ya se validaron en la
+prueba fisica del 2026-10-17 (`reports/physical-tests/KUPFER-LAUREL-BRINGUP-2026-10-17/`).
