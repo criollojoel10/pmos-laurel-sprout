@@ -21,7 +21,6 @@ if grep -q 'Mi-A3' /proc/asound/cards 2>/dev/null; then
 	exit 0
 fi
 
-rproc() { grep -l adsp /sys/class/remoteproc/*/name | xargs dirname; }
 
 # 1) ADSP remoteproc + smp2p (overlay de mia3_adsp.ko)
 modprobe mia3_adsp || { log "mia3_adsp no carga"; exit 0; }
@@ -34,12 +33,16 @@ for m in apr q6core q6afe-clocks q6afe-dai q6routing q6asm-dai; do
 	modprobe "$m" || log "aviso: $m no carga"
 done
 
-R=$(rproc)
-if [ -n "$R" ] && [ "$(cat "$R/state" 2>/dev/null)" = running ]; then
+R=$(grep -l adsp /sys/class/remoteproc/*/name 2>/dev/null | head -n1 | xargs -r dirname)
+if [ -z "$R" ]; then
+	log "el ADSP no aparece en /sys/class/remoteproc; se omite el audio"
+	exit 0
+fi
+if [ "$(cat "$R/state" 2>/dev/null)" = running ]; then
 	echo stop >"$R/state"
 	sleep 1
 fi
-[ -n "$R" ] && echo start >"$R/state"
+echo start >"$R/state"
 for _ in $(seq 1 20); do
 	[ -e /sys/bus/apr/devices ] && [ -n "$(ls /sys/bus/apr/devices 2>/dev/null)" ] && break
 	sleep 1
