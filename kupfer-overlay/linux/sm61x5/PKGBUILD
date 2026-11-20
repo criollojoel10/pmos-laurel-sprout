@@ -54,12 +54,17 @@ source=(
     linux.preset
     60-linux.hook
     90-linux.hook
+    # DTB de laurel con panel/GPU/cpufreq/BT/IR/Wi-Fi (WCN3990). El DTB que
+    # genera el delta del overlay no tiene el nodo wifi: sin esto ath10k no
+    # prueba y no aparece wlan0.
+    k7.dts
 )
 # El tarball de kernel.org y la config de pmaports van con sha256 fijado; los
 # ficheros locales (extra_config, preset, hooks) los cubre git.
 sha256sums=(
     039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606
     718a808a28f331635f8343762a6c2bdb123b59e83fb4b28d44a4d5d5ff74b0dc
+    SKIP
     SKIP
     SKIP
     SKIP
@@ -132,6 +137,11 @@ _package() {
     mkdir -p "${pkgdir}/boot/dtbs/qcom"
     cp arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout.dtb \
         "${pkgdir}/boot/dtbs/qcom"
+    # DTB k7 (panel/GPU/cpufreq/BT/IR/Wi-Fi WCN3990): sustituye el del delta.
+    # El DTB del delta no trae wifi@c800000 y sin el ath10k_snoc no prueba.
+    dtc -q -I dts -O dtb \
+        -o "${pkgdir}/boot/dtbs/qcom/sm6125-xiaomi-laurel-sprout.dtb" \
+        "$srcdir/k7.dts"
     cp arch/$KARCH/boot/Image.gz "${pkgdir}/boot"
 
     # make room for external modules

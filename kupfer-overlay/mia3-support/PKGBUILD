@@ -67,7 +67,9 @@ build() {
 		mkdir -p "$srcdir/$m"
 		cp "$srcdir/$m.c" "$srcdir/$m/"
 		printf 'obj-m := %s.o\n' "$m" > "$srcdir/$m/Makefile"
-		make -C "$kdir" ARCH=arm64 LLVM=1 KBUILD_MODPOST_WARN=1 M="$srcdir/$m" modules
+		# Herencia del entorno cross de kupferbootstrap (ARCH/CROSS_COMPILE): el
+		# kernel se compila con el gcc cross del CI, no con clang.
+		make ${MAKEFLAGS} -C "$kdir" M="$srcdir/$m" KBUILD_MODPOST_WARN=1 modules
 	done
 	# overlay de device tree: SIN -@ (las referencias &{/ruta} no lo necesitan y el
 	# DTB vivo no tiene __symbols__, asi que con -@ el kernel falla con -22)

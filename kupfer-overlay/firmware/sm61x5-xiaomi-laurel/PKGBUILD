@@ -21,13 +21,22 @@ options=(
     !emptydirs
 )
 depends=(linux-firmware)
-source=(fw.tar)
-sha256sums=(SKIP)
+source=(
+    fw.tar
+    # GPU Adreno 610: no esta en el ROM ni en linux-firmware de ALARM, y sin el
+    # el msm no inicializa la GPU (KWin cae a llvmpipe).
+    "a630_sqe.fw::https://gitlab.com/kernel-firmware/linux-firmware/-/raw/main/qcom/a630_sqe.fw"
+)
+sha256sums=(
+    SKIP
+    1c21b527d9183487cc550dabbb3f43e555df5a977a461934fc61f0635a9aa90c
+)
 
 package() {
     mkdir -p "$pkgdir/usr/lib/firmware"
     tar -C "$srcdir" -xf "$srcdir/fw.tar"
     cp -a "$srcdir"/fw/. "$pkgdir/usr/lib/firmware/"
+    install -Dm644 "$srcdir/a630_sqe.fw" "$pkgdir/usr/lib/firmware/qcom/a630_sqe.fw"
     # El Wi-Fi solo funciona si el firmware del modem (wlan_pd) esta presente;
     # es el fallo mas caro de diagnosticar despues, asi que se comprueba aqui.
     [ -f "$pkgdir/usr/lib/firmware/qcom/sm6125/xiaomi/laurel/wlanmdsp.mbn" ] \
