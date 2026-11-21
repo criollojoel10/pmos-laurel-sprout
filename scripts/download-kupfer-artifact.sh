@@ -6,13 +6,16 @@
 # Uso:
 #   scripts/download-kupfer-artifact.sh [run-id] [artefacto] [destino]
 #
-# Por defecto descarga el artefacto verde del 2026-11-21.
+# Por defecto descarga el artefacto verde del 2026-11-21. La URL firmada de
+# Azure caduca a los ~10 min: si la descarga no termina, se pide otra y se
+# reanuda con el .aria2 (nunca se mezcla con curl para no corromper el zip).
 set -eu
 
 REPO="criollojoel10/pmos-laurel-sprout"
 RUN_ID="${1:-44848808710}"
 ARTIFACT="${2:-kupfer-laurel-phosh}"
 DEST="${3:-kupfer-laurel-$RUN_ID}"
+ZIP="$DEST/$ARTIFACT.zip"
 
 for c in gh curl aria2c unzip sha256sum; do
 	if ! command -v "$c" >/dev/null 2>&1; then
@@ -28,20 +31,36 @@ if [ -z "$ID" ]; then
 	exit 1
 fi
 
-URL=$(curl -s -o /dev/null -w '%{redirect_url}' \
-	-H "Authorization: Bearer $(gh auth token)" \
-	-H 'Accept: application/vnd.github+json' \
-	"https://api.github.com/repos/$REPO/actions/artifacts/$ID/zip")
-if [ -z "$URL" ]; then
-	echo "no se pudo obtener la URL firmada del artefacto" >&2
+mkdir -p "$DEST"
+tries=0
+while [ "$tries" -lt 20 ]; do
+	tries=$((tries + 1))
+	if [ -f "$ZIP" ] && [ ! -f "$ZIP.aria2" ]; then
+		if unzip -t "$ZIP" >/dev/null 2>&1; then
+			break
+		fi
+		echo "zip incompleto/corrupto: se descarta y se baja de nuevo" >&2
+		rm -f "$ZIP"
+	fi
+	URL=$(curl -s -o /dev/null -w '%{redirect_url}' \
+		-H "Authorization: Bearer $(gh auth token)" \
+		-H 'Accept: application/vnd.github+json' \
+		"https://api.github.com/repos/$REPO/actions/artifacts/$ID/zip")
+	if [ -z "$URL" ]; then
+		echo "sin URL firmada (intento $tries); reintentando" >&2
+		sleep 10
+		continue
+	fi
+	echo "descargando $ARTIFACT (id $ID, intento $tries) con aria2c..."
+	aria2c -c -x16 -s16 -k1M --file-allocation=none \
+		-d "$DEST" -o "$ARTIFACT.zip" "$URL" || true
+done
+
+if [ ! -f "$ZIP" ] || ! unzip -t "$ZIP" >/dev/null 2>&1; then
+	echo "no se pudo descargar un zip valido tras $tries intentos" >&2
 	exit 1
 fi
-
-mkdir -p "$DEST"
-echo "descargando $ARTIFACT (id $ID) con aria2c..."
-aria2c -x16 -s16 -k1M --file-allocation=none \
-	-d "$DEST" -o "$ARTIFACT.zip" "$URL"
-unzip -q -o "$DEST/$ARTIFACT.zip" -d "$DEST"
+unzip -q -o "$ZIP" -d "$DEST"
 if [ -f "$DEST/SHA256SUMS" ]; then
 	( cd "$DEST" && sha256sum -c SHA256SUMS )
 fi
