@@ -7,7 +7,7 @@ descargan desde la pestaña Actions y se copian a cachyos.
 ```sh
 # postmarketOS (run 39004800346) o Kupfer (run 39007976354)
 gh run download <run-id> -R criollojoel10/pmos-laurel-sprout -n pmos-laurel-plasma-mobile
-gh run download <run-id> -R criollojoel10/pmos-laurel-sprout -n kupfer-laurel-plasma-mobile
+gh run download <run-id> -R criollojoel10/pmos-laurel-sprout -n kupfer-laurel-phosh
 ```
 
 **Todo el flasheo se hace desde cachyos. Este repo (begonia) no toca el
@@ -18,7 +18,7 @@ teléfono** (AGENTS.md §0).
 | Fichero | Destino | Notas |
 |---|---|---|
 | `boot.img` | `boot_b` | kernel 7.2.3 + initramfs |
-| `rootfs.img.zst` | `userdata` | rootfs postmarketOS comprimida con zstd (~2.9 GB descomprimida, sector 4096) |
+| `rootfs.img.zst` | `userdata` | rootfs comprimida con zstd (Kupfer+Phosh ronda 8-10 GB descomprimida, sector 4096) |
 | `vbmeta.img` | `vbmeta_b` | `avbtool make_vbmeta_image --flags 2 --padding_size 4096` |
 | `SHA256SUMS` | — | integridad (cubre `rootfs.img.zst`, no la descomprimida) |
 | `manifest.txt` | — | versiones y hashes del build |
