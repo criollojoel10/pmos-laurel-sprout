@@ -71,6 +71,7 @@ Ver:
 - `docs/SOURCES.md` — fuentes y reproducibilidad.
 - `docs/BUILD.md` — cómo ejecutar los workflows.
 - `docs/INSTALL.md` — instalación (no automatizada).
+- `docs/FLASH-DESDE-BEGONIA.md` — flasheo validado desde begonia (fastboot 30.0.5).
 - `docs/RECOVERY.md` — recuperación.
 - `docs/TESTING.md` — pruebas físicas.
 - `AGENTS.md` — reglas obligatorias del proyecto.

@@ -97,6 +97,31 @@ sudo ip netns exec laurel ssh user@172.16.42.1
 
 Contraseña del perfil: `user` / `changeme` (cámbiala en el teléfono).
 
+### 5.1 Primer arranque: cambia la contraseña
+
+El perfil crea `user` / `changeme` (SSH y sudo). Cámbiala ya:
+
+```sh
+passwd              # contraseña del usuario
+sudo passwd         # contraseña de root, si la vas a usar
+```
+
+El repo no guarda contraseñas reales; no publiques la que elijas.
+
+### 5.2 Si te bloqueas por intentos fallidos
+
+`pam_faillock` bloquea el login tras varios fallos (SSH incluido):
+
+1. Espera `unlock_time` (600 s por defecto) o **reinicia** laurel; si el estado
+   está en `/var/run/faillock` (tmpfs), el reinicio lo borra.
+2. Ya dentro: `sudo scripts/reset-faillock-laurel.sh user`
+   (equivale a `faillock --user user --reset`).
+3. Si perdiste la contraseña: reflashea solo `userdata` con el `rootfs.img`
+   verificado; vuelve a `changeme` y borra los cambios desde el flasheo, sin
+   tocar el slot a/Android.
+
+No sigas probando contraseñas: cada fallo reinicia el contador.
+
 ## 6. Verificación
 
 Por USB (netns) o por Wi‑Fi (misma LAN):

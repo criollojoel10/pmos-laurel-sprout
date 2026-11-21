@@ -1,27 +1,55 @@
 # Problemas conocidos
 
-Lista de problemas conocidos y limitaciones actuales del port.
+Lista de problemas conocidos y limitaciones actuales del port. Los estados
+canónicos de hardware están en `docs/HARDWARE-STATUS.md`.
 
-## Inicial
+## Kupfer + Phosh (2026-11-21)
 
-- Todo el hardware sin validar físicamente: estados en `not-targeted` (ver
-  `docs/HARDWARE-STATUS.md`).
-- Modelo/bus/firmware de Wi-Fi y Bluetooth pendiente de investigación.
-- Formato exacto del boot image (header version, page size, base, DTB append,
-  vendor_boot) **RESUELTO parcialmente**: el ABL de laurel_sprout solo arranca
-  **header v0 + DTB concatenado (append_dtb)**, page 4096, base 0x0 (evidencia
-  H61 6.1 sedfix → INITRAMFS_SHELL_ACTIVE). Todo header **v2** → fallback a
-  Fastboot (incluida la imagen NixOS v2, `bootloader-rejected`). La variante
-  recomendada es `--boot-layout v0-append`; `vendor_boot` nunca usado.
-- Comportamiento de vbmeta/dtbo pendiente de verificación; no se borra DTBO
-  automáticamente.
+- **Credenciales por defecto:** el perfil de `26-build-kupfer` crea
+  `user` / `changeme` (SSH y sudo). Cámbiala en el primer arranque:
+  `passwd` y `sudo passwd`. El repo no guarda contraseñas reales.
+- **Bloqueo por intentos fallidos (`pam_faillock`):** si se falla la contraseña
+  varias veces, el login (SSH incluido) se bloquea temporalmente. Recuperación:
+  1. esperar `unlock_time` (por defecto 600 s) o **reiniciar** (si el estado
+     vive en `/var/run/faillock`, que es tmpfs);
+  2. ya dentro: `sudo scripts/reset-faillock-laurel.sh user`
+     (`faillock --user user --reset`);
+  3. si la contraseña se perdió: reflashear `userdata` con el `rootfs.img`
+     verificado. Vuelve a `changeme`, borra los cambios desde el flasheo y
+     **no toca el slot a/Android**.
+- **`fastboot boot` no está soportado** por el ABL del Mi A3. Para pruebas se
+  escribe en el slot inactivo. El cliente validado es **fastboot 30.0.5**
+  (`scripts/build-fastboot-30.0.5.sh`); con 33/37 el ABL responde
+  `unknown command`.
+- **Wi‑Fi con MAC aleatoria** en cada arranque: la IP de DHCP puede cambiar.
+- **Avisos inofensivos:** `ath10k_snoc: chan info: invalid frequency 0`,
+  `invalid MAC address; choosing random`, `a630_sqe.fw` cargando tarde “from new
+  location”, `MultiMedia1: no backend DAIs` antes del routing del altavoz.
+- **Audio:** el altavoz inferior funciona (ADSP + APR + MAX98937). Auricular y
+  micrófonos (WCD937x/LPASS/SoundWire) siguen **not-targeted**.
+- **Módem/cámara:** fuera de alcance; el MPSS solo se usa para Wi‑Fi.
+- **Privacidad:** no publicar serial, IMEI, MAC, PSK de Wi‑Fi ni logs sin
+  sanear.
 
-## Boot image NixOS (2026-08-29)
+## Boot image / ABL
 
-- `boot-laurel-nixos-console-v0-append.img` (v0-append) validada en CI,
-  `hardwareTested=false` — TEST FÍSICO PENDIENTE (FASE 8, requiere autorización).
-  sha256 `1043b607ce05515308de5b164f9bbc93667a86a2659f4f9f537f3cfbd94ecd78`,
-  detalle en `reports/nixos-v0-append-ci-validation.md`.
+- El ABL de `laurel_sprout` solo arranca **header v0 + DTB concatenado**
+  (`append_dtb`), page 4096, base 0x0 (evidencia 6.1 sedfix →
+  `INITRAMFS_SHELL_ACTIVE`). Los headers **v2** caen a Fastboot (incluida la
+  imagen NixOS v2, `bootloader-rejected`). `vendor_boot` nunca se usa.
+- **`fastboot boot` rechazado** con clientes 37.0.0 y 33.0.3
+  (`FASTBOOT_BOOT_COMMAND_UNSUPPORTED`): la prueba física se hace flasheando el
+  slot inactivo y conservando el otro para recuperación.
+- `has-slot:dtbo` y `has-slot:vbmeta` no existen como variables en este ABL,
+  aunque las particiones `dtbo_a/b` y `vbmeta_a/b` sí existen.
+
+## pmOS / histórico
+
+- El rootfs histórico 6.1 se reprodujo y validó en CI; el display v7.1 dio
+  pantalla negra en la prueba de agosto. El camino activo es Kupfer mainline
+  7.2.6 + Phosh.
+- `boot-laurel-nixos-console-v0-append.img` validada en CI, sin prueba física:
+  sha256 `1043b607ce05515308de5b164f9bbc93667a86a2659f4f9f537f3cfbd94ecd78`.
 
 ## Cómo reportar
 

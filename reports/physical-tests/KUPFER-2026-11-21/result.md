@@ -41,6 +41,15 @@
   funciona).
 - `qcom_q6v5_pas: Handover signaled, but it already happened` (ADSP/MPSS).
 
+## Incidencia posterior: bloqueo de login
+
+Tras la prueba, un cambio/olvido de contraseña y varios intentos fallidos
+dejaron el login bloqueado (`pam_faillock`). Procedimiento documentado para
+recuperarlo sin perder datos: reiniciar (el contador vive en tmpfs por defecto)
+y, ya dentro, `sudo scripts/reset-faillock-laurel.sh user`; si la contraseña se
+perdió, reflashear solo `userdata` (vuelve a `changeme`, no toca el slot a).
+Detalle en `docs/FLASH-DESDE-BEGONIA.md` §5.2 y `docs/KNOWN-ISSUES.md`.
+
 ## Reproducir la verificación
 
 ```sh
