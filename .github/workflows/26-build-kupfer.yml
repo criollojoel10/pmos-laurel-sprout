@@ -343,7 +343,10 @@ jobs:
           }
           chk /etc/kupfer/deviceinfo
           for f in mia3-qg.dtbo mia3-adsp.dtbo mia3-apr.dtbo mia3-speaker.dtbo \
-                   qcom/a630_sqe.fw; do
+                   qcom/a630_sqe.fw \
+                   qcom/sm6125/xiaomi/laurel/a610_zap.mbn \
+                   qcom/sm6125/xiaomi/laurel/wlanmdsp.mbn \
+                   qcom/sm6125/xiaomi/laurel/adsp.mdt; do
             chk "/usr/lib/firmware/$f"
           done
           chk /usr/bin/qbootctl
