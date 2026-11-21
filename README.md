@@ -83,6 +83,9 @@ Ver:
 | `06-validate-images` | Validación de artefactos | manual |
 | `07-package-prerelease` | Prerelease GitHub | manual |
 | `08-process-device-logs` | Análisis de logs del dispositivo | manual |
+| `25-build-pmos-laurel` | Imagen postmarketOS (consola/Plasma/Phosh) | manual |
+| `26-build-kupfer` | Imagen **Kupfer + Phosh** (wifi/GPU/batería/audio) | manual |
+| `27-build-kernel-laurel` | Solo paquete `linux-sm61x5` | manual |
 
 ## Descarga de artefactos
 
@@ -93,6 +96,10 @@ Artefactos disponibles en los runs de GitHub Actions o en las releases:
 - `rootfs-laurel-plasma.img.xz`
 - `modules-laurel.tar.zst`, `dtb-laurel.tar.zst`
 - `manifest.json`, `SHA256SUMS`
+
+Kupfer (`26-build-kupfer`, perfil Phosh): `kupfer-laurel-phosh` con
+`boot.img`, `vbmeta.img`, `rootfs.img.zst` y `SHA256SUMS`, listos para
+`docs/FLASH-LAUREL-CACHYOS.md`.
 
 Verifica siempre los hashes antes de usar cualquier imagen.
 
