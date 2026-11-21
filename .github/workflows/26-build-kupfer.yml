@@ -162,14 +162,42 @@ jobs:
       - name: Limpiar paquetes locales obsoletos del cache
         # kupferbootstrap se salta el build si encuentra el paquete en linux.db
         # con el checksum "intacto", aunque las fuentes hayan cambiado (misma
-        # pkgver). Sin esto se instala un kernel viejo sin los modulos mia3.
+        # pkgver). Aqui se conserva el paquete SOLO si ya trae los modulos mia3
+        # y el audio; si no, se borra para forzar la recompilacion.
         run: |
           set -Eeuo pipefail
           PD="$HOME/.cache/kupferbootstrap/packages"
-          find "$PD" \( -name 'linux-sm61x5-*.pkg.tar.*' \
-                     -o -name 'mia3-support-*.pkg.tar.*' \) -delete 2>/dev/null || true
-          echo "linux-sm61x5 tras limpiar: $(find "$PD" -name 'linux-sm61x5-*' 2>/dev/null | wc -l)"
-          echo "mia3-support tras limpiar: $(find "$PD" -name 'mia3-support-*' 2>/dev/null | wc -l)"
+          L="$RUNNER_TEMP/cache-pkg-list.txt"
+          kernel_ok() {
+            bsdtar -tf "$1" >"$L" 2>/dev/null || return 1
+            for m in mia3_qg mia3_dtbo mia3_adsp pmi632_chg; do
+              grep -q "/extra/$m.ko" "$L" || return 1
+            done
+            grep -q 'boot/dtbs/qcom/sm6125-xiaomi-laurel-sprout.dtb' "$L"
+          }
+          support_ok() {
+            bsdtar -tf "$1" >"$L" 2>/dev/null || return 1
+            grep -q 'usr/lib/systemd/system/mia3-audio.service' "$L" || return 1
+            grep -q 'usr/lib/firmware/mia3-adsp.dtbo' "$L"
+          }
+          find "$PD" -name 'linux-sm61x5-*.pkg.tar.*' -print 2>/dev/null \
+            | while IFS= read -r p; do
+                if kernel_ok "$p"; then
+                  echo "cache valido: $(basename "$p")"
+                else
+                  echo "cache obsoleto, se borra: $(basename "$p")"
+                  rm -f "$p"
+                fi
+              done
+          find "$PD" -name 'mia3-support-*.pkg.tar.*' -print 2>/dev/null \
+            | while IFS= read -r p; do
+                if support_ok "$p"; then
+                  echo "cache valido: $(basename "$p")"
+                else
+                  echo "cache obsoleto, se borra: $(basename "$p")"
+                  rm -f "$p"
+                fi
+              done
       - name: Inicializar pkgbuilds
         working-directory: kupferbootstrap
         run: |
@@ -308,18 +336,23 @@ jobs:
                   ! -name '*headers*' | sort | head -1)
           [ -n "$PKG" ] || { echo "::error::no se genero el paquete linux-sm61x5"; exit 1; }
           echo "paquete: $PKG ($(stat -c%s "$PKG") bytes)"
-          LIST=$(bsdtar -tf "$PKG")
+          # El listado es grande (~160 MB de paquete): se guarda y se consulta
+          # con `case`, no con `echo | grep -q` (grep cierra el pipe y pipefail
+          # convierte el SIGPIPE de echo en un falso fallo).
+          LV="$RUNNER_TEMP/kernel-list.txt"
+          bsdtar -tf "$PKG" >"$LV"
           for m in mia3_qg mia3_dtbo mia3_adsp pmi632_chg; do
-            echo "$LIST" | grep -q "/extra/$m.ko" \
-              || { echo "::error::falta $m.ko en el paquete del kernel"; exit 1; }
-            echo "ok extra/$m.ko"
+            if grep -q "/extra/$m.ko" "$LV"; then
+              echo "ok extra/$m.ko"
+            else
+              echo "::error::falta $m.ko en el paquete del kernel"; exit 1
+            fi
           done
-          for m in qdsp6/q6core qdsp6/q6asm/snd-soc-sm8250; do :; done
           for m in qdsp6/q6core.ko qdsp6/q6asm-dai.ko snd-soc-sm8250.ko; do
-            echo "$LIST" | grep -q "$m" \
+            grep -q "$m" "$LV" \
               || echo "::warning::$m no esta en el paquete (revisar CONFIG de audio)"
           done
-          echo "$LIST" | grep -q 'boot/dtbs/qcom/sm6125-xiaomi-laurel-sprout.dtb' \
+          grep -q 'boot/dtbs/qcom/sm6125-xiaomi-laurel-sprout.dtb' "$LV" \
             || { echo "::error::falta el DTB k7 en el paquete"; exit 1; }
           echo "ok DTB"
       - name: Save ccache
@@ -377,6 +410,9 @@ jobs:
             echo "ok $1"
           }
           chk /etc/kupfer/deviceinfo
+          chk /home/user
+          chk /etc/ssh/sshd_config
+          chk /usr/lib/systemd/system/sshd.service
           for f in mia3-qg.dtbo mia3-adsp.dtbo mia3-apr.dtbo mia3-speaker.dtbo \
                    qcom/a630_sqe.fw \
                    qcom/sm6125/xiaomi/laurel/a610_zap.mbn \
