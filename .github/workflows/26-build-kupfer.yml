@@ -159,6 +159,17 @@ jobs:
           key: pkgs-kupfer-laurel-${{ github.sha }}
           restore-keys: |
             pkgs-kupfer-laurel-
+      - name: Limpiar paquetes locales obsoletos del cache
+        # kupferbootstrap se salta el build si encuentra el paquete en linux.db
+        # con el checksum "intacto", aunque las fuentes hayan cambiado (misma
+        # pkgver). Sin esto se instala un kernel viejo sin los modulos mia3.
+        run: |
+          set -Eeuo pipefail
+          PD="$HOME/.cache/kupferbootstrap/packages"
+          find "$PD" \( -name 'linux-sm61x5-*.pkg.tar.*' \
+                     -o -name 'mia3-support-*.pkg.tar.*' \) -delete 2>/dev/null || true
+          echo "linux-sm61x5 tras limpiar: $(find "$PD" -name 'linux-sm61x5-*' 2>/dev/null | wc -l)"
+          echo "mia3-support tras limpiar: $(find "$PD" -name 'mia3-support-*' 2>/dev/null | wc -l)"
       - name: Inicializar pkgbuilds
         working-directory: kupferbootstrap
         run: |
@@ -287,6 +298,30 @@ jobs:
             echo "::error::el initramfs de la rootfs no se genero bien"; exit 1; }
           grep -aq 'Generating new aboot.img' "$RUNNER_TEMP/kupfer-image.log" || {
             echo "::error::aboot.img no se ha generado"; exit 1; }
+      - name: Verificar el paquete del kernel recien construido
+        # Falla aqui (segundos) en vez de esperar a montar la rootfs: los .ko
+        # out-of-tree y el audio deben estar DENTRO del paquete.
+        run: |
+          set -Eeuo pipefail
+          PD="$HOME/.cache/kupferbootstrap/packages"
+          PKG=$(find "$PD" -name 'linux-sm61x5-[0-9]*.pkg.tar.*' \
+                  ! -name '*headers*' | sort | head -1)
+          [ -n "$PKG" ] || { echo "::error::no se genero el paquete linux-sm61x5"; exit 1; }
+          echo "paquete: $PKG ($(stat -c%s "$PKG") bytes)"
+          LIST=$(bsdtar -tf "$PKG")
+          for m in mia3_qg mia3_dtbo mia3_adsp pmi632_chg; do
+            echo "$LIST" | grep -q "/extra/$m.ko" \
+              || { echo "::error::falta $m.ko en el paquete del kernel"; exit 1; }
+            echo "ok extra/$m.ko"
+          done
+          for m in qdsp6/q6core qdsp6/q6asm/snd-soc-sm8250; do :; done
+          for m in qdsp6/q6core.ko qdsp6/q6asm-dai.ko snd-soc-sm8250.ko; do
+            echo "$LIST" | grep -q "$m" \
+              || echo "::warning::$m no esta en el paquete (revisar CONFIG de audio)"
+          done
+          echo "$LIST" | grep -q 'boot/dtbs/qcom/sm6125-xiaomi-laurel-sprout.dtb' \
+            || { echo "::error::falta el DTB k7 en el paquete"; exit 1; }
+          echo "ok DTB"
       - name: Save ccache
         if: always()
         # actions/cache/save@v4.2.2
