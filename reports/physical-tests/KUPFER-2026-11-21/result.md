@@ -49,6 +49,8 @@ recuperarlo sin perder datos: reiniciar (el contador vive en tmpfs por defecto)
 y, ya dentro, `sudo scripts/reset-faillock-laurel.sh user`; si la contraseña se
 perdió, reflashear solo `userdata` (vuelve a `changeme`, no toca el slot a).
 Detalle en `docs/FLASH-DESDE-BEGONIA.md` §5.2 y `docs/KNOWN-ISSUES.md`.
+El operador confirmó el 2026-11-21 que laurel volvió a funcionar con
+normalidad; no se publica la contraseña elegida.
 
 ## Reproducir la verificación
 
