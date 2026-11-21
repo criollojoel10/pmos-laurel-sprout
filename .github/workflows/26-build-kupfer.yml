@@ -180,15 +180,21 @@ jobs:
             grep -q 'usr/lib/systemd/system/mia3-audio.service' "$L" || return 1
             grep -q 'usr/lib/firmware/mia3-adsp.dtbo' "$L"
           }
-          find "$PD" -name 'linux-sm61x5-*.pkg.tar.*' -print 2>/dev/null \
-            | while IFS= read -r p; do
-                if kernel_ok "$p"; then
-                  echo "cache valido: $(basename "$p")"
-                else
-                  echo "cache obsoleto, se borra: $(basename "$p")"
-                  rm -f "$p"
-                fi
-              done
+          find "$PD" -name 'linux-sm61x5-[0-9]*.pkg.tar.*' ! -name '*headers*' \
+            -print 2>/dev/null >"$RUNNER_TEMP/linux-pkgs.txt"
+          good_kernel=0
+          while IFS= read -r p; do
+            if kernel_ok "$p"; then
+              echo "cache valido: $(basename "$p")"
+              good_kernel=1
+            fi
+          done <"$RUNNER_TEMP/linux-pkgs.txt"
+          if [ "$good_kernel" -eq 0 ]; then
+            echo "no hay kernel valido en cache: se borra la serie linux-sm61x5"
+            find "$PD" -name 'linux-sm61x5-*.pkg.tar.*' -delete 2>/dev/null || true
+          fi
+          # los headers acompanan al kernel valido; si el kernel se borro,
+          # tambien desaparecen (kupferbootstrap los reconstruye con el).
           find "$PD" -name 'mia3-support-*.pkg.tar.*' -print 2>/dev/null \
             | while IFS= read -r p; do
                 if support_ok "$p"; then
