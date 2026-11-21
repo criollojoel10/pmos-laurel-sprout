@@ -268,6 +268,9 @@ Tras el reflasheo completo y la recuperación del GPT del boot LUN:
   `laurel-performance.service` (incluido en `mia3-support`).
 - **Tailscale:** paquete instalado, `tailscaled` habilitado; falta el login del
   operador (`tailscale up`).
+- **SSH/tailnet:** Tailscale IP `100.88.248.79`; OpenSSH y Tailscale SSH
+  funcionando con begonia (`100.64.98.119`). Alias y detalle en
+  `docs/SSH-TAILNET.md`.
 - **Sistema:** `pacman -Syu` completado sin errores; Tailscale en
   `pkgs_include` para futuras imágenes.
 - Detalle: `reports/physical-tests/KUPFER-2026-11-21-RECOVERY/result.md`.
