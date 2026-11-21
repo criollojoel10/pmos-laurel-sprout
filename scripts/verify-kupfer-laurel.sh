@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Verificacion de hardware/servicios de Kupfer en el Xiaomi Mi A3 (laurel_sprout).
 #
 # Uso (en el telefono, como root o con sudo):
