@@ -10,6 +10,12 @@ gh run download <run-id> -R criollojoel10/pmos-laurel-sprout -n pmos-laurel-plas
 gh run download <run-id> -R criollojoel10/pmos-laurel-sprout -n kupfer-laurel-phosh
 ```
 
+Alternativa rapida con aria2c (multi-conexion) y validacion de SHA256:
+
+```sh
+scripts/download-kupfer-artifact.sh 44848808710
+```
+
 **Todo el flasheo se hace desde cachyos. Este repo (begonia) no toca el
 teléfono** (AGENTS.md §0).
 
