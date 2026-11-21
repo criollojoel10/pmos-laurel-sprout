@@ -31,6 +31,10 @@ teléfono** (AGENTS.md §0).
 
 Se flashea al **slot b**; el Android stock del **slot a** no se toca.
 
+> **Procedimiento validado desde begonia** (host USB, fastboot 30.0.5 y
+> netns para el RNDIS): `docs/FLASH-DESDE-BEGONIA.md`. El cliente 30.0.5 es
+> obligatorio para este ABL; no usar `fastboot boot` (no soportado).
+
 ## Requisitos
 
 - Bootloader desbloqueado.

@@ -1,14 +1,18 @@
 # PMOS-LAUREL-SPROUT
 
-Port moderno de [postmarketOS](https://postmarketos.org/) Edge (Plasma Mobile,
-systemd) para el Xiaomi Mi A3 `laurel_sprout`
+Port de [postmarketOS](https://postmarketos.org/) Edge y de **Kupfer Linux
+(Arch Linux ARM) + Phosh** para el Xiaomi Mi A3 `laurel_sprout`
 (Qualcomm SM6125 / trinket / Snapdragon 665 / Adreno 610).
 
 > **ESTADO: EXPERIMENTAL.** Este proyecto no está afiliado con Xiaomi, KDE ni
 > postmarketOS. Instalar software experimental en un teléfono puede
 > brickearlo, borrar datos o dejar el dispositivo sin arrancar. Toda prueba
-> física es responsabilidad del usuario. Ninguna imagen aquí publicada ha sido
-> validada sobre hardware real.
+> física es responsabilidad del usuario.
+>
+> **Kupfer + Phosh validado en hardware el 2026-11-21**: pantalla, táctil, GPU,
+> batería, Wi‑Fi con Internet, altavoz y SSH funcionando en el slot b
+> (`reports/physical-tests/KUPFER-2026-11-21/result.md`). Las imágenes pmOS
+> anteriores siguen siendo experimentales.
 
 ## Hardware objetivo
 
@@ -36,7 +40,8 @@ systemd) para el Xiaomi Mi A3 `laurel_sprout`
   como investigación; la base de build actual es mainline v7.1 (ver
   `docs/DECISIONS/0002-kernel-base.md`).
 - DTB `qcom/sm6125-xiaomi-laurel-sprout.dtb`.
-- systemd + KDE Plasma Mobile (KWin Wayland, Qt 6).
+- systemd + KDE Plasma Mobile (KWin Wayland, Qt 6) y, en paralelo,
+  **Kupfer Linux + Phosh** (validado el 2026-11-21).
 - DRM/KMS, DPU/MDSS/DSI, panel S6E8FC0, brillo, táctil FT3518.
 - GPU Adreno 610 vía DRM/MSM + Mesa Freedreno.
 - UFS, USB gadget/networking, SSH, NetworkManager, BlueZ, PipeWire.

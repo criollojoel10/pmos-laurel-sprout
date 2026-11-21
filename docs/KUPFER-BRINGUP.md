@@ -245,7 +245,10 @@ Los cuatro módulos out-of-tree (`mia3_qg`, `mia3_dtbo`, `mia3_adsp`,
 `kupfer-laurel-phosh`; detalles y hashes en
 `reports/kupfer-build-2026-11-21.md`.
 
-**Prueba física (2026-11-21): OK.** Arrancó en slot b con fastboot 30.0.5;
+**Prueba física (2026-11-21): OK.** Flasheada desde begonia (host USB) con
+**fastboot 30.0.5** (`scripts/build-fastboot-30.0.5.sh`) y RNDIS movido a un
+netns (`scripts/laurel-usb-netns.sh`); runbook completo en
+`docs/FLASH-DESDE-BEGONIA.md`. Arrancó en slot b;
 Phosh y táctil FT5x06 funcionando, GPU `renderD128`, batería, Wi‑Fi con
 Internet, tarjeta `Mi-A3` reproduciendo y SSH por USB y Wi‑Fi. `qbootctl`
 marcó `SLOT _b` como successful. Evidencia:

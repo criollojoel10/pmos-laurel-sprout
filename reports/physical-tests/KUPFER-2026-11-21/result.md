@@ -6,7 +6,11 @@
   (nmeum/android-tools tag `30.0.5`), a slot **b** + `userdata`.
 - Comandos de flasheo: `flash vbmeta_b`, `erase dtbo_b`, `flash userdata`,
   `flash boot_b`, `set_active b`, `reboot`.
-- Acceso: SSH por RNDIS USB (`172.16.42.1`) y por Wi-Fi (LAN).
+- Acceso: SSH por RNDIS USB (`172.16.42.1`, interfaz movida a un netns para
+  no chocar con el `usb0` de begonia) y por Wi-Fi (LAN).
+- Herramientas: `fastboot 30.0.5-android-tools` construido nativo con
+  `scripts/build-fastboot-30.0.5.sh`; `adb 37.0.0p1`.
+- Runbook reproducible: `docs/FLASH-DESDE-BEGONIA.md`.
 
 ## Resultado
 

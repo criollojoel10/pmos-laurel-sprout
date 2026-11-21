@@ -34,6 +34,12 @@ Registro manual de runs relevantes. Cada run referencia commit y resultado.
 | 31344594747 | 11-build-historical-ssh-rootfs | 2a8b045 | failure | FASE 3 / SSH. Endurecido (paso 17): el `cp` de las raws falla con **Permission denied** — `chroot_native/home/pmos/rootfs` es propiedad de root/pmos (los archivos los crea `pmbootstrap chroot --` como root) y el runner (uid 1001) no puede escribir ahí. Fix en `58b53e7`: ejecutar `scripts/ssh-harden-rootfs.sh` con `sudo` (mismo patrón que `sudo e2fsck` del run 10) + pre-check `img2simg`/`simg2img` en el chroot y liberar `base-part2`/raws para disco |
 | 31355730519 | 11-build-historical-ssh-rootfs | 58b53e7 | **success** | **ROOTFS HISTÓRICO CON SSH COMPLETO** (55 min; kernel 6.1 47 min). sshd habilitado (sin `--no-sshd`), clave Ed25519 en `/root` y `/home/pmos`, `sshd_config` endurecido. Artefactos: `xiaomi-laurel-ssh.img` sparse (550,935,480 B, sha `ebc8287f…`), `.raw` (sha `4040b862…`), `final-part1.img` (sha `4e770492…`), `final-part2.img` (sha `e8ab704a…`), manifest.json (fingerprint `SHA256:yXbMctxh…` == clave local). Validación: e2fsck OK, p1 idéntica a la base, SSH paths OK, tamaño < 3 GiB. Descarga: `local-private/run31355730519-artifacts/` |
 
+| 44813969670 | 26-build-kupfer | d05c6cd | failure | `mia3_adsp.c` faltaba en el overlay del kernel (makepkg: not found) |
+| 44839038446 | 26-build-kupfer | 0ee0fc1 | failure | `packages check`: faltaba `_arches`/orden canónico en el PKGBUILD de `mia3-support` |
+| 44839991750 | 26-build-kupfer | 9ac2d30 | failure | `sha256sums` desalineado con `source` tras añadir `mia3_adsp.c` |
+| 44844481470 | 26-build-kupfer | 9dfe7f5 | failure | Kernel y rootfs construidos; falso negativo del paso de verificación (`echo | grep -q` + `pipefail`) |
+| 44848808710 | 26-build-kupfer (phosh) | 9dfe7f5 | **success** | Artefacto `kupfer-laurel-phosh` (1,826 GB); todas las validaciones verdes. **Flasheado y probado en hardware el 2026-11-21** (`reports/physical-tests/KUPFER-2026-11-21/result.md`) |
+
 ## Notas operativas
 
 - El clonado de torvalds v7.1 (shallow, blob:none) tarda ~3-5 min.
