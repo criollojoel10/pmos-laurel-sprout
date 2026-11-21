@@ -247,3 +247,11 @@ Hashes, contenido validado y comandos en
 `reports/kupfer-build-2026-11-21.md`. **Probada en hardware el 2026-11-21:**
 Phosh, táctil, GPU, batería, Wi‑Fi con Internet, altavoz y SSH funcionando
 (`reports/physical-tests/KUPFER-2026-11-21/result.md`).
+
+## Recuperación tras XNU/HakiOS (2026-11-21)
+
+El dual-boot de HakiOS dejó inconsistente la metadata de slot del boot LUN 4 y
+el ABL caía a fastboot en ambos slots. Se restauró `gpt_both4.bin` del ROM
+oficial (`fastboot flash partition:4`), se reflasheó boot/vbmeta/rootfs y
+laurel volvió a Linux con Phosh, Wi‑Fi, GPU, batería, audio y Tailscale.
+Detalle: `reports/physical-tests/KUPFER-2026-11-21-RECOVERY/result.md`.

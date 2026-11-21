@@ -134,7 +134,7 @@ jobs:
           [profiles.default]
           device = "sm61x5-xiaomi-laurel"
           flavour = "${{ github.event.inputs.flavour || 'phosh' }}"
-          pkgs_include = [ "rmtfs-git", "qrtr-git", "pd-mapper-git", "tqftpserv-git", "mia3-support", "qbootctl" ]
+          pkgs_include = [ "rmtfs-git", "qrtr-git", "pd-mapper-git", "tqftpserv-git", "mia3-support", "qbootctl", "tailscale" ]
           pkgs_exclude = []
           hostname = "laurel"
           username = "user"

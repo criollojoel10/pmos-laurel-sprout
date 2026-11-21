@@ -253,3 +253,21 @@ Phosh y táctil FT5x06 funcionando, GPU `renderD128`, batería, Wi‑Fi con
 Internet, tarjeta `Mi-A3` reproduciendo y SSH por USB y Wi‑Fi. `qbootctl`
 marcó `SLOT _b` como successful. Evidencia:
 `reports/physical-tests/KUPFER-2026-11-21/result.md`.
+
+## 11. Post-install (2026-11-21)
+
+Tras el reflasheo completo y la recuperación del GPT del boot LUN:
+
+- **Wi‑Fi:** perfiles copiados desde begonia (`CLARO_JOEL`, `Joel`,
+  `SKYLIFE_ALEJANDRA_5G`); `CLARO_JOEL` conectada y con Internet. Las claves no
+  se publican.
+- **`sudo` sin contraseña:** `/etc/sudoers.d/zz-user-nopasswd` (el fichero
+  ordena después de `wheel`).
+- **Rendimiento máximo:** CPU `performance` a 1,80/2,02 GHz y GPU
+  `performance`, persistente con `/usr/local/bin/laurel-performance.sh` +
+  `laurel-performance.service` (incluido en `mia3-support`).
+- **Tailscale:** paquete instalado, `tailscaled` habilitado; falta el login del
+  operador (`tailscale up`).
+- **Sistema:** `pacman -Syu` completado sin errores; Tailscale en
+  `pkgs_include` para futuras imágenes.
+- Detalle: `reports/physical-tests/KUPFER-2026-11-21-RECOVERY/result.md`.

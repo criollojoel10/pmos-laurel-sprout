@@ -1,0 +1,11 @@
+[Unit]
+Description=Laurel max performance (CPU/GPU governors)
+After=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/laurel-performance.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

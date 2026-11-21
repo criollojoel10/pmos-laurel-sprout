@@ -41,8 +41,12 @@ source=(
     max98937-init.sh
     mia3-wifi.service
     mia3-wifi-up.sh
+    laurel-performance.sh
+    laurel-performance.service
 )
 sha512sums=(
+    SKIP
+    SKIP
     SKIP
     SKIP
     SKIP
@@ -77,12 +81,15 @@ package() {
     install -Dm644 "$srcdir/mia3-audio.service" "$pkgdir/usr/lib/systemd/system/mia3-audio.service"
     install -Dm644 "$srcdir/chargectl.service"  "$pkgdir/usr/lib/systemd/system/chargectl.service"
     install -Dm755 "$srcdir/chargectl.py"       "$pkgdir/usr/local/lib/chargectl/chargectl.py"
+    install -Dm755 "$srcdir/laurel-performance.sh" "$pkgdir/usr/local/bin/laurel-performance.sh"
+    install -Dm644 "$srcdir/laurel-performance.service" \
+        "$pkgdir/usr/lib/systemd/system/laurel-performance.service"
     install -d "$pkgdir/var/lib/chargectl"
     printf '{"target": 50}\n' > "$pkgdir/var/lib/chargectl/chargectl.json"
     install -d "$pkgdir/var/lib/mia3-audio"
     printf '48\n' > "$pkgdir/var/lib/mia3-audio/volume"
     printf '3\n'  > "$pkgdir/var/lib/mia3-audio/gain"
-    for u in mia3-qg mia3-audio chargectl mia3-wifi; do
+    for u in mia3-qg mia3-audio chargectl mia3-wifi laurel-performance; do
         install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
         ln -sf "/usr/lib/systemd/system/$u.service" \
             "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$u.service"
@@ -92,4 +99,8 @@ package() {
     # qbootctl viene por pkgs_include; aqui solo se habilita su unidad.
     ln -sf "/usr/lib/systemd/system/qbootctl.service" \
         "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/qbootctl.service"
+    # Tailscale viene por pkgs_include; se habilita aqui para que el nodo este
+    # listo tras el primer arranque (la autenticacion la hace el operador).
+    ln -sf "/usr/lib/systemd/system/tailscaled.service" \
+        "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/tailscaled.service"
 }

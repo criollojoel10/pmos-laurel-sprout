@@ -31,6 +31,17 @@ canónicos de hardware están en `docs/HARDWARE-STATUS.md`.
 - **Privacidad:** no publicar serial, IMEI, MAC, PSK de Wi‑Fi ni logs sin
   sanear.
 
+## Dual-boot XNU/HakiOS y GPT del boot LUN
+
+- HakiOS usa un `qbootctl` parcheado que escribe los GUID de slot y atributos
+  del GPT del **boot LUN 4**. Si queda inconsistente, el ABL intenta arrancar
+  y cae a fastboot en ambos slots, sin llegar al kernel.
+- Vuelta segura: `fastboot set_active b`. Si no basta, restaurar
+  `gpt_both4.bin` del ROM oficial con `fastboot flash partition:4` (solo LUN 4;
+  nunca `gpt_both0.bin`/LUN 0 con datos) y reflashear boot/vbmeta.
+- Procedimiento: `docs/FLASH-DESDE-BEGONIA.md` §9; incidencia:
+  `reports/physical-tests/KUPFER-2026-11-21-RECOVERY/result.md`.
+
 ## Boot image / ABL
 
 - El ABL de `laurel_sprout` solo arranca **header v0 + DTB concatenado**

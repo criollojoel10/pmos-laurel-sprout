@@ -157,6 +157,39 @@ El slot a conserva Android. Si el ABL marca el slot como unbootable,
 `fastboot set_active b` (o `a`) resetea el contador; `qbootctl.service` evita
 que vuelva a pasar en cada arranque.
 
+## 9. Recuperar el boot tras XNU/HakiOS (GPT del boot LUN)
+
+Si tras probar HakiOS/XNU el ABL cae a fastboot en ambos slots, `set_active b`
+no basta y el contador de reintentos baja, la metadata del **boot LUN 4** pudo
+quedar inconsistente. No borres `userdata`.
+
+1. En CI, workflow `28-extract-stock-gpt` descarga el ROM oficial y publica los
+   ficheros pequeños (`gpt_both*.bin`, `prog_firehose_ddr.elf`, `flash-all`).
+2. Restaura **solo el LUN 4**:
+
+   ```sh
+   fastboot flash partition:4 gpt_both4.bin
+   ```
+
+   No uses `gpt_both0.bin` (LUN 0/datos) salvo que sepas exactamente lo que
+   haces.
+3. Reflashea el Linux verificado y marca el slot:
+
+   ```sh
+   for s in a b; do
+     fastboot flash boot_$s boot.img
+     fastboot flash vbmeta_$s vbmeta.img
+     fastboot erase dtbo_$s
+   done
+   fastboot set_active b
+   fastboot reboot
+   ```
+
+4. Si el ABL no soporta `partition:4`, usa EDL con `prog_firehose_ddr.elf`
+   (el workflow 28 también lo publica). No es necesario si fastboot responde.
+
+Detalle de la incidencia: `reports/physical-tests/KUPFER-2026-11-21-RECOVERY/result.md`.
+
 ## 8. Avisos conocidos (inofensivos)
 
 - `ath10k_snoc: chan info: invalid frequency 0` — DTB k7; no impide Wi‑Fi.
