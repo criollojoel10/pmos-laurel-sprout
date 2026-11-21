@@ -1,0 +1,57 @@
+name: 28-extract-stock-gpt
+
+# Extrae del ROM oficial los ficheros pequenos necesarios para reparar el
+# boot LUN de laurel: GPT (gpt_both*.bin), firehose (EDL) y flash-all.
+# No flashea nada; solo publica un artefacto pequeno.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stock-gpt-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ROM_URL: "https://cdnorg.d.miui.com/V12.0.26.0.RFQMIXM/laurel_sprout_global_images_V12.0.26.0.RFQMIXM_20220808.0000.00_11.0_2292e2c0b1.tgz"
+  ROM_MD5_PREFIX: "2292e2c0b1"
+
+jobs:
+  extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+      - name: Descargar ROM
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$RUNNER_TEMP/rom"
+          cd "$RUNNER_TEMP/rom"
+          aria2c -c -x16 -s16 -k1M --file-allocation=none -o rom.tgz "$ROM_URL"
+          got=$(md5sum < rom.tgz | cut -c1-10)
+          [ "$got" = "$ROM_MD5_PREFIX" ] || { echo "::error::md5 del ROM no coincide ($got)"; exit 1; }
+          ls -lh rom.tgz
+      - name: Listar y extraer GPT/firehose
+        run: |
+          set -Eeuo pipefail
+          cd "$RUNNER_TEMP/rom"
+          mkdir -p out
+          tar -tzf rom.tgz > all.txt
+          grep -E '(^|/)(gpt_both[0-9]*\.bin|prog_firehose[^/]*\.elf|flash-all\.(sh|bat)|images/(boot|vbmeta)\.img)$' all.txt > pick.txt || true
+          echo "--- seleccionados ---"; cat pick.txt
+          [ -s pick.txt ] || { echo "::error::no se encontro nada que extraer"; exit 1; }
+          tar -xzf rom.tgz -C out -T pick.txt
+          ( cd out && find . -type f -printf '%s %p\n' | sort -n | tail -20 && sha256sum $(find . -type f) > SHA256SUMS )
+      - name: Subir artefacto
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: laurel-stock-gpt
+          path: |
+            ${{ runner.temp }}/rom/pick.txt
+            ${{ runner.temp }}/rom/out
+          retention-days: 7
+          if-no-files-found: error
