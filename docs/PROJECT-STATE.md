@@ -243,7 +243,7 @@ paquete de datos y unidades.
 
 **Artefacto listo (2026-11-21):** run `44848808710` en verde, artefacto
 `kupfer-laurel-phosh` (boot 41,9 MB, rootfs.img.zst 1,79 GB, vbmeta 4 KB).
-Hasas, contenido validado y comandos en
+Hashes, contenido validado y comandos en
 `reports/kupfer-build-2026-11-21.md`. Estado de hardware: **boot-untested**
 para esta imagen; los componentes individuales ya se validaron en la prueba
 fisica del 2026-10-17
