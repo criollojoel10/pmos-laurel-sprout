@@ -69,3 +69,26 @@ Los componentes individuales (pantalla, GPU, Wi-Fi, batería, táctil, Plasma) s
 validaron en hardware el 2026-10-17; el altavoz inferior se validó en el port de
 referencia el 2026-10-13. **Esta imagen concreta (Phosh + audio integrado en el
 build) aún no se ha arrancado en el teléfono.**
+
+
+## Verificación local independiente (2026-11-21)
+
+Descargado con `aria2c` (16 conexiones, reanudando por trozos porque la URL
+firmada de Azure caduca a los ~10 min) y comprobado en begonia:
+
+- `sha256sum -c SHA256SUMS`: **boot.img, vbmeta.img y rootfs.img.zst OK**.
+- `boot.img`: firma `ANDROID!`; contiene el DTB k7 (`qcom,wcn3990-wifi` = 1
+  coincidencia) y el modelo `Xiaomi Mi A3`.
+- `rootfs.img`: 8 359 247 872 B; `/etc/fstab` con
+  `nofail,x-systemd.device-timeout=5s` para `kupfer_boot`;
+  `deviceinfo_dtb="qcom/sm6125-xiaomi-laurel-sprout"`;
+  `deviceinfo_partitions_data="/dev/disk/by-partlabel/userdata"`.
+- Unidades habilitadas: `qbootctl`, `mia3-qg`, `mia3-audio`, `chargectl`,
+  `mia3-wifi`.
+- Módulos `7.2.6-sm61x5/extra/`: `mia3_qg`, `mia3_dtbo`, `mia3_adsp`,
+  `pmi632_chg`.
+- Firmware: `mia3-{qg,adsp,apr,speaker}.dtbo`, `a630_sqe.fw`, `a610_zap.mbn`,
+  `wlanmdsp.mbn`, `adsp.mdt`.
+
+Con esto el artefacto queda **listo para flashear y probar**; lo único que
+falta es la prueba física en el teléfono (no ejecutada desde este repo).
