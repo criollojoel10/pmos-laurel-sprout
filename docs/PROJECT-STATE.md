@@ -239,6 +239,12 @@ Cambios clave respecto a la versión inicial (fork sm61x5):
 
 Los cuatro modulos out-of-tree (`mia3_qg`, `mia3_dtbo`, `mia3_adsp`,
 `pmi632_chg`) se compilan dentro de `linux-sm61x5`; `mia3-support` queda como
-paquete de datos y unidades. Estado: **build-untested en hardware** hasta
-probar el artefacto nuevo; los componentes individuales ya se validaron en la
-prueba fisica del 2026-10-17 (`reports/physical-tests/KUPFER-LAUREL-BRINGUP-2026-10-17/`).
+paquete de datos y unidades.
+
+**Artefacto listo (2026-11-21):** run `44848808710` en verde, artefacto
+`kupfer-laurel-phosh` (boot 41,9 MB, rootfs.img.zst 1,79 GB, vbmeta 4 KB).
+Hasas, contenido validado y comandos en
+`reports/kupfer-build-2026-11-21.md`. Estado de hardware: **boot-untested**
+para esta imagen; los componentes individuales ya se validaron en la prueba
+fisica del 2026-10-17
+(`reports/physical-tests/KUPFER-LAUREL-BRINGUP-2026-10-17/`).

@@ -241,6 +241,11 @@ Los cuatro módulos out-of-tree (`mia3_qg`, `mia3_dtbo`, `mia3_adsp`,
 `pmi632_chg`) se compilan dentro de `linux-sm61x5` (mismo árbol y compilador);
 `mia3-support` queda como paquete de datos, overlays y unidades.
 
-Prueba física pendiente de este pipeline: arrancar el artefacto nuevo y
-verificar `qbootctl`, `mia3-qg`, `chargectl`, `mia3-wifi` y `mia3-audio`
-activos, `/dev/dri/renderD128`, `wlan0` y la tarjeta `Mi-A3`.
+**Artefacto del pipeline:** run `44848808710` (2026-11-21) en verde,
+`kupfer-laurel-phosh`; detalles y hashes en
+`reports/kupfer-build-2026-11-21.md`.
+
+Prueba física pendiente: arrancar ese artefacto y verificar `qbootctl`,
+`mia3-qg`, `chargectl`, `mia3-wifi` y `mia3-audio` activos,
+`/dev/dri/renderD128`, `wlan0` y la tarjeta `Mi-A3` (script:
+`scripts/verify-kupfer-laurel.sh`).
