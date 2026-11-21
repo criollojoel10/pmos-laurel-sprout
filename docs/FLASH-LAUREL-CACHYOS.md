@@ -135,6 +135,12 @@ cat /proc/asound/cards                   # -> Mi-A3
 speaker-test -t sine -f 440 -l 1         # o: aplay -D plughw:Mi-A3 ...
 ```
 
+Todo eso se puede comprobar de golpe con el script del repo (solo lectura):
+
+```sh
+ssh user@172.16.42.1 'sh -s' < scripts/verify-kupfer-laurel.sh
+```
+
 Si `mia3-audio` no deja la tarjeta `Mi-A3`, revisar
 `journalctl -u mia3-audio -b` y `dmesg | grep -iE 'adsp|q6|apr|max98937'`.
 Si `wlan0` no aparece, `journalctl -u mia3-wifi -b` y
