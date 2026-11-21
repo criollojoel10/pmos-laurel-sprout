@@ -245,7 +245,8 @@ Los cuatro módulos out-of-tree (`mia3_qg`, `mia3_dtbo`, `mia3_adsp`,
 `kupfer-laurel-phosh`; detalles y hashes en
 `reports/kupfer-build-2026-11-21.md`.
 
-Prueba física pendiente: arrancar ese artefacto y verificar `qbootctl`,
-`mia3-qg`, `chargectl`, `mia3-wifi` y `mia3-audio` activos,
-`/dev/dri/renderD128`, `wlan0` y la tarjeta `Mi-A3` (script:
-`scripts/verify-kupfer-laurel.sh`).
+**Prueba física (2026-11-21): OK.** Arrancó en slot b con fastboot 30.0.5;
+Phosh y táctil FT5x06 funcionando, GPU `renderD128`, batería, Wi‑Fi con
+Internet, tarjeta `Mi-A3` reproduciendo y SSH por USB y Wi‑Fi. `qbootctl`
+marcó `SLOT _b` como successful. Evidencia:
+`reports/physical-tests/KUPFER-2026-11-21/result.md`.

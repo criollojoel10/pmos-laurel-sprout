@@ -65,10 +65,11 @@ emergencia.
 
 ## Honestidad
 
-Los componentes individuales (pantalla, GPU, Wi-Fi, batería, táctil, Plasma) se
-validaron en hardware el 2026-10-17; el altavoz inferior se validó en el port de
-referencia el 2026-10-13. **Esta imagen concreta (Phosh + audio integrado en el
-build) aún no se ha arrancado en el teléfono.**
+**Probada en hardware el 2026-11-21** (ver
+`reports/physical-tests/KUPFER-2026-11-21/result.md`): arranca en el slot b,
+Phosh activo, táctil FT5x06, GPU Adreno 610, batería, Wi‑Fi con Internet, audio
+por el altavoz y SSH por USB y Wi‑Fi. Auricular y micrófonos siguen fuera de
+alcance.
 
 
 ## Verificación local independiente (2026-11-21)

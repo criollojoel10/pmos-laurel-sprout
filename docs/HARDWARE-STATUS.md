@@ -9,6 +9,15 @@ Estado honesto de cada componente. Los estados permitidos son únicamente:
 La referencia canónica es `reports/hardware-matrix.json`. Este documento la
 resume y explica los criterios.
 
+## Kupfer + Phosh (prueba física 2026-11-21)
+
+Artefacto `kupfer-laurel-phosh` del run `44848808710`, flasheado al slot b con
+fastboot 30.0.5. Resultado: **Phosh, pantalla DSI, táctil FT5x06, GPU Adreno
+610, batería PMI632, Wi‑Fi WCN3990 con Internet, altavoz inferior (ADSP +
+MAX98937) y SSH por USB/Wi‑Fi funcionando**. `qbootctl` deja
+`SLOT _b Successful: 1`. Auricular y micrófonos siguen sin soporte.
+Detalle: `reports/physical-tests/KUPFER-2026-11-21/result.md`.
+
 ## Estado actual (2026-08-10)
 
 | Componente | Estado | Notas |

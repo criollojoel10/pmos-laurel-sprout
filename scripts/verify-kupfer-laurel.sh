@@ -27,12 +27,22 @@ fi
 
 section "arranque A/B (qbootctl)"
 if command -v qbootctl >/dev/null 2>&1; then
-	out=$(qbootctl 2>&1 || true)
-	echo "$out" | sed 's/^/  /'
-	if echo "$out" | grep -q 'Successful: *1'; then
-		ok "slot actual marcado successful"
+	# qbootctl necesita root para leer misc; sin permisos se usa el
+	# resultado del oneshot del arranque (Result=success).
+	if out=$(sudo -n qbootctl 2>/dev/null) && [ -n "$out" ]; then
+		echo "$out" | sed 's/^/  /'
+		if echo "$out" | grep -q 'Successful: *1'; then
+			ok "slot actual marcado successful"
+		else
+			bad "slot no marcado successful (revisa qbootctl.service)"
+		fi
 	else
-		bad "slot no marcado successful (revisa qbootctl.service)"
+		res=$(systemctl show -p Result --value qbootctl.service 2>/dev/null || true)
+		if [ "$res" = "success" ]; then
+			ok "qbootctl ejecutado en el arranque (sin permisos para leer misc)"
+		else
+			warn "no se pudo leer el slot (Result=${res:-desconocido})"
+		fi
 	fi
 else
 	bad "qbootctl no instalado"
@@ -48,9 +58,14 @@ if command -v systemctl >/dev/null 2>&1; then
 	fi
 	for u in qbootctl mia3-qg mia3-audio mia3-wifi chargectl; do
 		st=$(systemctl is-active "$u.service" 2>/dev/null || true)
+		res=$(systemctl show -p Result --value "$u.service" 2>/dev/null || true)
 		case "$st" in
 			active) ok "$u activo" ;;
-			*) warn "$u = ${st:-desconocido}" ;;
+			*) if [ "$res" = "success" ]; then
+				ok "$u completado (oneshot)"
+			else
+				warn "$u = ${st:-desconocido} (Result=${res:-?})"
+			fi ;;
 		esac
 	done
 fi
