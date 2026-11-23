@@ -5,7 +5,7 @@ Estado medido el **2026-11-21** tras recuperar laurel:
 | nodo | IP Tailscale | usuario | OpenSSH | Tailscale SSH |
 |---|---|---|---|---|
 | begonia | `100.64.98.119` | `alarm` | ✅ | ✅ |
-| laurel | `100.88.248.79` | `user` | ✅ | ✅ |
+| laurel | `100.102.152.127` | `user` | ✅ | ✅ |
 | cachyos | `100.111.14.21` | `joel` | alias listo | nodo **offline** (última vez hace 1 día) |
 
 ## OpenSSH
@@ -23,7 +23,7 @@ Alias en `~/.ssh/config`:
 ```sshconfig
 # begonia
 Host laurel laurel.taile971a.ts.net
-    HostName 100.88.248.79
+    HostName 100.102.152.127
     User user
     IdentityFile ~/.ssh/id_ed25519
     StrictHostKeyChecking accept-new
@@ -51,7 +51,7 @@ ssh begonia         # desde laurel
 ```sh
 # desde begonia
 tailscale ssh user@laurel
-tailscale ssh user@100.88.248.79
+tailscale ssh user@100.102.152.127
 
 # desde laurel
 tailscale ssh alarm@begonia
